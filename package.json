@@ -1,0 +1,22 @@
+{
+  "name": "nene-workspace",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Local tooling for the Nene mobile banking coursework project",
+  "engines": { "node": ">=24 <25" },
+  "scripts": {
+    "db:start": "supabase start --workdir infrastructure",
+    "db:stop": "supabase stop --workdir infrastructure",
+    "db:status": "supabase status --workdir infrastructure",
+    "db:migrate": "supabase migration up --local --workdir infrastructure",
+    "db:test": "node infrastructure/scripts/test-local-db.mjs",
+    "setup:local": "node scripts/configure-local.mjs",
+    "check:local": "npm --prefix backend run build && node scripts/smoke-local.mjs",
+    "api:dev": "npm --prefix backend run start:dev",
+    "api:build": "npm --prefix backend run build",
+    "api:test": "npm --prefix backend test"
+  },
+  "devDependencies": {
+    "supabase": "2.121.0"
+  }
+}

@@ -1,0 +1,33 @@
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
+app/config/*.json
+!app/config/*.example.json
+*.jks
+*.keystore
+key.properties
+
+# Dependencies, SDKs, build output, and local service state
+node_modules/
+.tools/
+.cache/
+.tmp/
+coverage/
+dist/
+**/.dart_tool/
+**/build/
+**/.gradle/
+**/local.properties
+**/supabase/.temp/
+**/supabase/.branches/
+
+# Local editors and OS files
+.idea/
+*.iml
+.DS_Store
+Thumbs.db
+*.log
