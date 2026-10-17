@@ -1,0 +1,5 @@
+{
+  "API_BASE_URL": "http://10.0.2.2:3000/api/v1",
+  "SUPABASE_URL": "http://10.0.2.2:54321",
+  "SUPABASE_PUBLISHABLE_KEY": "replace-with-local-publishable-or-anon-key"
+}
