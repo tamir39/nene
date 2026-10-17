@@ -34,7 +34,19 @@ void describe('environment boundaries', () => {
     assert.deepEqual(environment.database.ssl, { rejectUnauthorized: true });
   });
 
-  void it('rejects remote TLS disable and URL parameters that override TLS settings', () => {
+  void it('preserves a restricted Supabase pooler URL with encoded credentials', () => {
+    const connectionString =
+      'postgresql://nene_api.project-ref:synthetic%3Fp%40ss%26word@pooler.example:6543/postgres';
+    const environment = readEnvironment({
+      ...localEnvironment,
+      DATABASE_URL: connectionString,
+      DATABASE_SSL_MODE: 'verify-full',
+    });
+    assert.equal(environment.database.connectionString, connectionString);
+    assert.deepEqual(environment.database.ssl, { rejectUnauthorized: true });
+  });
+
+  void it('rejects remote TLS disable', () => {
     assert.throws(
       () =>
         readEnvironment({
@@ -44,14 +56,67 @@ void describe('environment boundaries', () => {
         }),
       /TLS may be disabled only/,
     );
-    assert.throws(
-      () =>
-        readEnvironment({
-          ...localEnvironment,
-          DATABASE_URL: `${localEnvironment.DATABASE_URL}?sslmode=no-verify`,
-        }),
-      /not URL ssl parameters/,
-    );
+  });
+
+  void it('rejects query parameters that override the validated database role', () => {
+    for (const query of ['user=postgres', '%75ser=postgres']) {
+      assert.throws(
+        () =>
+          readEnvironment({
+            ...localEnvironment,
+            DATABASE_URL: `${localEnvironment.DATABASE_URL}?${query}`,
+          }),
+        /DATABASE_URL must not contain query parameters/,
+      );
+    }
+  });
+
+  void it('rejects query parameters that redirect a loopback connection', () => {
+    for (const query of [
+      'host=remote.example',
+      'port=6543',
+      'user=postgres&host=remote.example',
+    ]) {
+      assert.throws(
+        () =>
+          readEnvironment({
+            ...localEnvironment,
+            DATABASE_URL: `${localEnvironment.DATABASE_URL}?${query}`,
+          }),
+        /DATABASE_URL must not contain query parameters/,
+      );
+    }
+  });
+
+  void it('rejects query parameters that override explicit TLS settings', () => {
+    for (const query of ['sslmode=no-verify', 'ssl=false']) {
+      assert.throws(
+        () =>
+          readEnvironment({
+            ...localEnvironment,
+            DATABASE_URL: `${localEnvironment.DATABASE_URL}?${query}`,
+            DATABASE_SSL_MODE: 'verify-full',
+          }),
+        /configure TLS with DATABASE_SSL_MODE and DATABASE_SSL_CA_FILE/,
+      );
+    }
+  });
+
+  void it('rejects other query options instead of allowing implicit driver overrides', () => {
+    for (const query of [
+      'statement_timeout=0',
+      'options=-c%20statement_timeout%3D0',
+      'application_name=unexpected',
+    ]) {
+      assert.throws(
+        () =>
+          readEnvironment({
+            ...localEnvironment,
+            DATABASE_URL: `${localEnvironment.DATABASE_URL}?${query}`,
+          }),
+        /DATABASE_URL must not contain query parameters/,
+      );
+    }
   });
 
   void it('rejects plaintext connections in production', () => {

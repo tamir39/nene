@@ -59,11 +59,13 @@ authentication is not eKYC or transaction-bound 2FA.
   The backend currently needs no Supabase secret/service-role key.
 - `DATABASE_URL` must use `nene_api` (or the Supabase pooler form
   `nene_api.<project-ref>`). Never connect the running API as `postgres`.
+  Put credentials, host, and port in the URL authority and URI-encode reserved
+  password characters. Query parameters are rejected because node-postgres can
+  use them to override the validated role, host, or explicit connection options.
 - `DATABASE_SSL_MODE=disable` is accepted only for loopback development.
   Hosted connections use `verify-full`, which retains certificate verification.
-  If needed, set `DATABASE_SSL_CA_FILE` to the provider CA PEM. URL `ssl*`
-  parameters are rejected because node-postgres can override explicit TLS options
-  with them.
+  If needed, set `DATABASE_SSL_CA_FILE` to the provider CA PEM. Configure TLS
+  through these environment variables instead of URL parameters.
 - Banking tables are accessed through NestJS, not the client-facing Supabase data
   API. Database credentials never belong in Flutter. Private identity-file APIs
   are not implemented yet.

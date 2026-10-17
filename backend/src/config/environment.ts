@@ -67,12 +67,11 @@ export function readEnvironment(env: NodeJS.ProcessEnv): Environment {
   if (!/^nene_api(?:\.[A-Za-z0-9-]+)?$/.test(databaseUrl.username)) {
     throw new Error('DATABASE_URL must use the restricted nene_api role.');
   }
-  for (const key of databaseUrl.searchParams.keys()) {
-    if (key.toLowerCase().startsWith('ssl')) {
-      throw new Error(
-        'Configure PostgreSQL TLS with DATABASE_SSL_MODE, not URL ssl parameters.',
-      );
-    }
+  if (databaseUrl.search) {
+    // pg gives query parameters precedence over the authority and pool options.
+    throw new Error(
+      'DATABASE_URL must not contain query parameters. Put the user and host in the URL authority; configure TLS with DATABASE_SSL_MODE and DATABASE_SSL_CA_FILE.',
+    );
   }
   const sslMode = required(env, 'DATABASE_SSL_MODE');
   if (!['verify-full', 'disable'].includes(sslMode)) {
