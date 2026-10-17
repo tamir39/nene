@@ -30,6 +30,8 @@ Configuration values are compiled into the application and are **not secrets**. 
 
 Session persistence is disabled for this base; tokens live in memory and a new app process requires sign-in. The default preferences-based persistence is intentionally unused. Secure platform-backed persistence and a complete timeout/device-security policy must be reviewed before a production release. Supabase Auth is not the assignment's eKYC or transaction-bound 2FA implementation.
 
+Auth HTTP exchanges have a 15-second deadline covering both response headers and body. A deadline closes that request's transport, and a stalled sign-in returns to the sign-in screen. Late responses cannot install an old session or replace a successful retry. Each Auth request uses its own connection client so canceling one request does not interrupt another.
+
 Only existing users with a backend application profile can proceed. Account creation remains an officer workflow to implement later. Use synthetic local test identities during setup; the mobile app has no self-sign-up or role escalation route. API 401 responses clear the profile and return to sign-in; 403, unexpected roles, malformed responses, and cross-user profile responses fail closed.
 
 The application name `Nene`, Android application ID `com.example.nene_app`, and iOS bundle identifier `com.example.neneApp` are development placeholders. Choose the final bank/app name and unique owned identifiers before store configuration. Android signing/publication and any iOS release are separate tasks; the iOS shell requires macOS/Xcode for verification.
