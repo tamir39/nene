@@ -9,6 +9,7 @@ The stack was confirmed on 2026-10-13 and local scaffolding authorized on 2026-1
 ## Read first
 
 - [README.md](README.md): repository status and documentation map.
+- [ROADMAP.md](ROADMAP.md): remaining work, dependencies, and the immediate next feature flow.
 - [SCOPE.md](SCOPE.md): detailed source audit, required outcomes, unresolved interpretations, and scope boundaries.
 - [REQUIREMENTS.md](REQUIREMENTS.md): assignment requirements, rubric, and open questions.
 - [DESIGN.md](DESIGN.md): confirmed stack, proposed architecture, data model, screen flows, and delivery order.
