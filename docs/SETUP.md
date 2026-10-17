@@ -71,7 +71,7 @@ npm run db:test
 npm run check:local
 ```
 
-- Backend checks: lint, TypeScript build, and 18 tests for session validation, server-owned roles, profile restrictions, parameterized lookup, dependency failures, and connection/TLS settings.
+- Backend checks: lint, TypeScript build, and 23 tests for session validation, server-owned roles, profile restrictions, parameterized lookup, dependency failures, and connection/TLS settings, including rejection of URL query overrides.
 - Database checks: 24 pgTAP assertions for grants, RLS, profile constraints, and private storage access. The runner executes inside the named local Docker container and rolls back its synthetic fixtures. It avoids a Windows connection failure observed with the CLI's `test db` command.
 - Integration check: starts its own temporary API process, signs into local Supabase, and verifies real PostgreSQL-backed customer/officer profiles, metadata isolation, missing/disabled profiles, and invalid-session rejection. Connections are pinned to local services; its temporary identity/profile are removed afterward. Docker and local Supabase must already be running.
 
@@ -83,7 +83,9 @@ From `app/`:
 ..\.tools\flutter\bin\flutter.bat --no-version-check build apk --debug --dart-define-from-file=config/local.json
 ```
 
-Verification on 2026-10-15: backend checks and formatting passed; 18 backend tests and 24 database assertions passed. The real local Auth/API/PostgreSQL integration passed and cleaned up its temporary identity. Public signup was separately checked and rejected with `signup_disabled`. Flutter analysis passed with no issues, and all 20 mobile tests passed. The normal Android debug build passed and produced `app/build/app/outputs/flutter-apk/app-debug.apk` (155,586,333 bytes). APK metadata confirms the development application ID, version `0.1.0`, target SDK 36, and debug status. Emulator/device runtime and iOS builds have not been verified.
+Review fixes verified on 2026-10-17: backend lint, build, formatting, and all 23 tests passed. Flutter analysis and formatting passed, and all 24 mobile tests passed, including stalled Auth response and late-login regressions. The Android debug APK was rebuilt successfully at `app/build/app/outputs/flutter-apk/app-debug.apk` (173,197,097 bytes). APK metadata confirms the development application ID, version `0.1.0`, target SDK 36, and debug status. Emulator/device runtime and iOS builds have not been verified.
+
+The 24 database assertions and real local Auth/API/PostgreSQL integration passed on 2026-10-15, and the integration check removed its temporary identity. Public signup was separately rejected with `signup_disabled`. A fresh integration attempt on 2026-10-17 stopped during local service configuration because the Docker engine was unavailable, before creating a fixture; it is not a new passing integration result.
 
 ## Scope and release boundaries
 
