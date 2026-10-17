@@ -179,11 +179,11 @@ Savings profit and mortgage repayment calculations need explicit policies: rate 
 - Maps: store branch data in the database and request walking routes over a supported network. Define whether “nearest” means walking distance or geographic distance; propose shortest walking distance among reachable candidate branches. Handle missing routes and denied location access.
 - Chatbot: authorize reads for the current user, minimize context, and return only validated app actions such as opening bills, phone top-up, or a month-filtered history screen. A payment action always opens the ordinary review and chosen 2FA flow.
 
-## Implementation order
+## Delivery roadmap
 
-Complete customer/officer flows and account views, then add eKYC and transaction-bound 2FA before financial posting. Build secure transactions and calculations, external services and utilities, branch navigation, and activity-linked chat on that foundation. All seven business feature groups remain required.
+[ROADMAP.md](ROADMAP.md) records the remaining work, dependencies, and immediate next feature flow. The internal submission target remains 29 November, with 30 November as contingency before the portal deadline at the start of 1 December. Planning uses Asia/Bangkok provisionally because the screenshot does not specify its timezone.
 
-Collect report and diagram evidence throughout development, and begin Google Play prerequisites early. The internal submission target is 29 November 2026, with 30 November as contingency before the portal deadline at the start of 1 December. Planning uses Asia/Bangkok provisionally because the screenshot does not specify its timezone.
+Start with the customer/officer screen map and banking rules, then complete officer customer/account creation and the customer's own profile/account view. Add eKYC and transaction-bound 2FA before financial posting; build accounts, secure transactions, external services, branch navigation, and activity-linked chat on that foundation. Report evidence and Google Play preparation proceed alongside feature development.
 
 ## Repository layout
 

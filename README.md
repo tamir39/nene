@@ -20,6 +20,7 @@ The submission portal shows **1 December 2026 at 12:00 AM**, the start of Tuesda
 
 ## Start here
 
+- [ROADMAP.md](ROADMAP.md): the ordered checklist of remaining work and the immediate next feature flow.
 - [docs/SETUP.md](docs/SETUP.md): prerequisites, local setup, run commands, and verification.
 - [docs/API.md](docs/API.md): the implemented health and authenticated-profile contract.
 - [SCOPE.md](SCOPE.md): detailed PDF/rubric audit, required outcomes, examples, open interpretations, and boundaries against scope expansion.
