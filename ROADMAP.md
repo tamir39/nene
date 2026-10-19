@@ -6,7 +6,7 @@ The internal submission target remains **29 November 2026**, ahead of the portal
 
 ## Starting point
 
-The local base already supports sign-in, server-controlled profiles, and restricted database access. The private identity bucket is configured, but has no upload or verification flow. Android builds and automated checks passed on 15 October; device testing remains to do. No complete business feature group is finished. See [docs/SETUP.md](docs/SETUP.md) for the verification record.
+The local base already supports sign-in, server-controlled profiles, and restricted database access. The private identity bucket is configured, but has no upload or verification flow. The approved lighter Open pocket design is applied to the Flutter foundation and Android icon; the debug build is installed and launched on the phone-sized emulator. Full device flow testing remains open. No complete business feature group is finished. See [docs/SETUP.md](docs/SETUP.md) for the verification record.
 
 ## Build order
 
@@ -15,7 +15,7 @@ The local base already supports sign-in, server-controlled profiles, and restric
 Supports BR-01–BR-14 and TR-05.
 
 - [ ] Review the proposed [customer/officer screen map](docs/SCREEN_MAP.md) and [three-screen UI direction](docs/UI_DIRECTION.md), then detail the remaining screens. The first study includes sign-in, customer home and officer workspace with loading/error/empty variants; financial confirmation, identity, map and chat layouts remain to draw. This item stays open until the broader design work is complete.
-- [ ] Prepare consistent vector/app-icon assets from the selected [Open pocket logo direction](docs/BRANDING.md), check small-size and single-color rendering, and apply them to the app. Direction and palette are selected; production assets and screen styling are unfinished. This supports UI/report presentation (TR-05/TR-06), not an additional business feature.
+- [ ] Finish release assets from the selected [Open pocket logo direction](docs/BRANDING.md). The approved lighter palette, scalable logo, foundation screen styling and Android launcher/startup resources are applied. Final wordmark, small-size/single-color and launcher-mask review remain open; iOS assets are future work. This supports UI/report presentation (TR-05/TR-06), not an additional business feature.
 - [ ] Define editable profile fields, account ownership, allowed deposits/withdrawals, currency, savings calculations/rate changes, mortgage repayment convention, and the high-value threshold.
 - [ ] Choose how eKYC, high-value identity checks, and transaction 2FA will work. Preserve officer-assisted identification; login alone does not cover these requirements.
 - [ ] Resolve the lecturer's expectations for sandbox/simulated services and the purchase/booking categories before counting those flows as complete. Prove access to candidate providers early.

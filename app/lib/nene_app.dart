@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import 'data/user_profile.dart';
 import 'session_controller.dart';
+import 'ui/nene_brand.dart';
 
 class NeneApp extends StatefulWidget {
   const NeneApp({super.key, this.controller, this.onDispose});
@@ -45,13 +46,7 @@ class _NeneAppState extends State<NeneApp> with WidgetsBindingObserver {
     return MaterialApp(
       title: 'Nene',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF164E63)),
-        useMaterial3: true,
-        inputDecorationTheme: const InputDecorationTheme(
-          border: OutlineInputBorder(),
-        ),
-      ),
+      theme: neneTheme(),
       home: controller == null
           ? const _SetupUnavailable()
           : ListenableBuilder(
@@ -59,10 +54,18 @@ class _NeneAppState extends State<NeneApp> with WidgetsBindingObserver {
               builder: (context, _) => switch (controller.status) {
                 SessionStatus.signedOut => SignInScreen(controller: controller),
                 SessionStatus.loading => const Scaffold(
-                  body: Center(
-                    child: CircularProgressIndicator(
-                      semanticsLabel: 'Please wait',
-                    ),
+                  body: _Content(
+                    children: [
+                      NeneLogo(),
+                      SizedBox(height: 32),
+                      Center(
+                        child: CircularProgressIndicator(
+                          semanticsLabel: 'Please wait',
+                        ),
+                      ),
+                      SizedBox(height: 20),
+                      Text('Please wait…', textAlign: TextAlign.center),
+                    ],
                   ),
                 ),
                 SessionStatus.ready => _ProfileScreen(
@@ -85,7 +88,7 @@ class _SetupUnavailable extends StatelessWidget {
   Widget build(BuildContext context) => const Scaffold(
     body: _Content(
       children: [
-        Icon(Icons.account_balance_outlined, size: 48),
+        NeneLogo(),
         SizedBox(height: 24),
         Text('Nene is unavailable', style: TextStyle(fontSize: 24)),
         SizedBox(height: 12),
@@ -127,16 +130,51 @@ class _SignInScreenState extends State<SignInScreen> {
   @override
   Widget build(BuildContext context) => Scaffold(
     body: _Content(
+      topAligned: true,
       children: [
-        const Icon(Icons.account_balance_outlined, size: 48),
-        const SizedBox(height: 24),
-        Text(
-          'Welcome to Nene',
-          style: Theme.of(context).textTheme.headlineMedium,
+        Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: NeneColors.pale,
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const NeneLogo(),
+              const SizedBox(height: 28),
+              const Text(
+                'A little clarity, every day',
+                style: TextStyle(color: NeneColors.muted, fontSize: 13),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Your money.\nWithin reach.',
+                style: Theme.of(context).textTheme.headlineLarge?.copyWith(
+                  color: NeneColors.action,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 20),
+              Container(
+                width: 48,
+                height: 5,
+                decoration: BoxDecoration(
+                  color: NeneColors.apricot,
+                  borderRadius: BorderRadius.circular(3),
+                ),
+              ),
+            ],
+          ),
         ),
+        const SizedBox(height: 28),
+        Text('Welcome back', style: Theme.of(context).textTheme.headlineSmall),
         const SizedBox(height: 8),
-        const Text('Sign in with your existing account.'),
-        const SizedBox(height: 32),
+        const Text(
+          'Sign in with the details provided by your bank officer.',
+          style: TextStyle(color: NeneColors.muted),
+        ),
+        const SizedBox(height: 24),
         Form(
           key: _form,
           child: Column(
@@ -185,7 +223,12 @@ class _SignInScreenState extends State<SignInScreen> {
                 const SizedBox(height: 16),
                 Semantics(
                   liveRegion: true,
-                  child: Text(widget.controller.message!),
+                  child: Text(
+                    widget.controller.message!,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.error,
+                    ),
+                  ),
                 ),
               ],
               const SizedBox(height: 24),
@@ -194,7 +237,16 @@ class _SignInScreenState extends State<SignInScreen> {
           ),
         ),
         const SizedBox(height: 20),
-        const Text('Need an account? Please contact your bank officer.'),
+        const Text(
+          'Need access? A bank officer can help you get started.',
+          style: TextStyle(color: NeneColors.muted),
+        ),
+        const SizedBox(height: 24),
+        const Text(
+          'Educational banking project · Demo only',
+          textAlign: TextAlign.center,
+          style: TextStyle(fontSize: 12, color: NeneColors.muted),
+        ),
       ],
     ),
   );
@@ -210,7 +262,7 @@ class _ProfileScreen extends StatelessWidget {
     final isOfficer = profile.role == AppRole.officer;
     return Scaffold(
       appBar: AppBar(
-        title: Text(isOfficer ? 'Officer workspace' : 'My profile'),
+        title: const NeneLogo(size: 30),
         actions: [
           IconButton(
             tooltip: 'Sign out',
@@ -220,18 +272,30 @@ class _ProfileScreen extends StatelessWidget {
         ],
       ),
       body: _Content(
+        topAligned: true,
         children: [
-          Icon(
-            isOfficer ? Icons.badge_outlined : Icons.person_outline,
-            size: 48,
+          Text(
+            isOfficer ? 'Officer workspace' : 'My profile',
+            style: const TextStyle(color: NeneColors.muted),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 12),
           Text(
             profile.displayName,
             style: Theme.of(context).textTheme.headlineMedium,
           ),
           const SizedBox(height: 8),
-          Text(isOfficer ? 'Bank officer' : 'Customer'),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Chip(
+              avatar: Icon(
+                isOfficer ? Icons.badge_outlined : Icons.person_outline,
+                size: 20,
+              ),
+              label: Text(isOfficer ? 'Bank officer' : 'Customer'),
+              backgroundColor: const Color(0xFFF9E7D8),
+              side: BorderSide.none,
+            ),
+          ),
           const SizedBox(height: 24),
           Card(
             child: Padding(
@@ -241,13 +305,50 @@ class _ProfileScreen extends StatelessWidget {
                 children: [
                   Text('Email', style: Theme.of(context).textTheme.labelLarge),
                   const SizedBox(height: 8),
-                  Text(profile.email ?? 'No email available'),
+                  SelectableText(profile.email ?? 'No email available'),
                 ],
               ),
             ),
           ),
           const SizedBox(height: 24),
-          const Text('Banking services are not available in this preview.'),
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: NeneColors.pale,
+              borderRadius: BorderRadius.circular(18),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(
+                  isOfficer
+                      ? Icons.people_outline
+                      : Icons.account_balance_outlined,
+                  color: NeneColors.action,
+                  size: 30,
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  isOfficer
+                      ? 'Customer services are taking shape'
+                      : 'Your banking starts here',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Banking services are not available in this preview.',
+                  style: TextStyle(color: NeneColors.muted),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  isOfficer
+                      ? 'Customer creation, identification assistance and saving rates are still under development.'
+                      : 'Accounts, transfers and payments are still under development.',
+                  style: const TextStyle(color: NeneColors.muted),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -260,7 +361,7 @@ class _ProfileUnavailable extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('Nene')),
+    appBar: AppBar(title: const NeneLogo(size: 30)),
     body: _Content(
       children: [
         const Icon(Icons.info_outline, size: 48),
@@ -281,12 +382,14 @@ class _ProfileUnavailable extends StatelessWidget {
 }
 
 class _Content extends StatelessWidget {
-  const _Content({required this.children});
+  const _Content({required this.children, this.topAligned = false});
   final List<Widget> children;
+  final bool topAligned;
 
   @override
   Widget build(BuildContext context) => SafeArea(
-    child: Center(
+    child: Align(
+      alignment: topAligned ? Alignment.topCenter : Alignment.center,
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
         child: ConstrainedBox(

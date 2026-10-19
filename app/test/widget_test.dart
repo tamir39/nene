@@ -21,6 +21,7 @@ void main() {
     final auth = FakeAuth();
     final controller = SessionController(auth: auth, profiles: FakeProfiles());
     await tester.pumpWidget(NeneApp(controller: controller));
+    await tester.ensureVisible(find.text('Sign in'));
     await tester.tap(find.text('Sign in'));
     await tester.pump();
     expect(find.text('Enter a valid email address.'), findsOneWidget);
@@ -48,14 +49,84 @@ void main() {
       'officer@example.test',
     );
     await tester.enterText(find.byType(TextFormField).at(1), 'test-password');
+    await tester.ensureVisible(find.text('Sign in'));
     await tester.tap(find.text('Sign in'));
     await tester.pumpAndSettle();
     expect(find.text('Officer workspace'), findsOneWidget);
     expect(find.text('Demo Officer'), findsOneWidget);
     await tester.tap(find.byTooltip('Sign out'));
     await tester.pumpAndSettle();
-    expect(find.text('Welcome to Nene'), findsOneWidget);
+    expect(find.text('Welcome back'), findsOneWidget);
     expect(find.text('Demo Officer'), findsNothing);
+    await tester.pumpWidget(const SizedBox());
+    await auth.events.close();
+  });
+
+  testWidgets(
+    'large text and keyboard keep sign-in reachable on a small phone',
+    (tester) async {
+      tester.view.physicalSize = const Size(320, 640);
+      tester.view.devicePixelRatio = 1;
+      tester.platformDispatcher.textScaleFactorTestValue = 2;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      addTearDown(tester.view.resetViewInsets);
+      final auth = FakeAuth()..signInError = StateError('Unavailable');
+      final controller = SessionController(
+        auth: auth,
+        profiles: FakeProfiles(),
+      );
+      await tester.pumpWidget(NeneApp(controller: controller));
+      await tester.enterText(
+        find.byType(TextFormField).at(0),
+        'demo@example.test',
+      );
+      await tester.enterText(find.byType(TextFormField).at(1), 'test-password');
+      tester.view.viewInsets = const FakeViewPadding(bottom: 280);
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      await tester.ensureVisible(find.text('Sign in'));
+      await tester.tap(find.text('Sign in'));
+      await tester.pumpAndSettle();
+      expect(auth.signInCount, 1);
+      expect(
+        find.text('Unable to sign in. Check your details and connection.'),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+      await auth.events.close();
+    },
+  );
+
+  testWidgets('customer profile remains truthful at large text size', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 640);
+    tester.view.devicePixelRatio = 1;
+    tester.platformDispatcher.textScaleFactorTestValue = 2;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+    final auth = FakeAuth()
+      ..userId = 'user-id'
+      ..accessToken = 'test-token';
+    final controller = SessionController(auth: auth, profiles: FakeProfiles());
+    await tester.pumpWidget(NeneApp(controller: controller));
+    await tester.pumpAndSettle();
+    expect(find.text('Demo Student'), findsOneWidget);
+    expect(find.text('Customer'), findsOneWidget);
+    expect(find.text('Officer workspace'), findsNothing);
+    expect(
+      find.text('Banking services are not available in this preview.'),
+      findsOneWidget,
+    );
+    expect(find.text('Transfer'), findsNothing);
+    expect(tester.takeException(), isNull);
+    await tester.tap(find.byTooltip('Sign out'));
+    await tester.pumpAndSettle();
+    expect(find.text('Demo Student'), findsNothing);
     await tester.pumpWidget(const SizedBox());
     await auth.events.close();
   });

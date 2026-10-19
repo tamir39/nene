@@ -1,6 +1,6 @@
 # Nene screen map
 
-Status: proposed design for discussion, 2026-10-19. The user approved the Open pocket logo and palette; this screen map and UI styling are not yet approved or implemented. The app still contains only the sign-in/profile foundation.
+Status: screen map proposed for discussion, 2026-10-19. The user approved the lighter Open pocket logo and UI direction, now applied to the Flutter sign-in/profile foundation. The broader screen map and business layouts below remain proposals; their approval and implementation must be tracked separately.
 
 Source: [assignment PDF](../FinalProject_2026_2027.pdf), visually reviewed in full: p. 1 Business 1; p. 2 Business 2–7; p. 3 Technical 1–5. Requirement IDs follow [REQUIREMENTS.md](../REQUIREMENTS.md); interpretations follow [SCOPE.md](../SCOPE.md). Screen boundaries, labels, navigation, and reusable steps below are design proposals, not extra assignment requirements. This map supports TR-05/TR-06; screenshots alone do not complete a BR requirement.
 
