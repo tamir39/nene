@@ -1,7 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 320" role="img" aria-labelledby="title">
   <title id="title">Nene Open pocket — UI study vector</title>
   <!-- Study traced in code from the main B reference; not a final production master. -->
-  <path fill="#164E63" d="M8 92Q8 68 34 61L239 7Q278-3 278 39V78L155 118Q55 86 8 92Z"/>
-  <path fill="#F2BB91" d="M168 125L282 86Q306 78 306 102V145Q236 143 168 125Z"/>
-  <path fill="#164E63" d="M4 120Q4 102 25 107C98 115 173 156 302 159Q320 159 320 181V267Q320 320 269 320H55Q4 320 4 269Z"/>
+  <path fill="#4C929E" d="M8 92Q8 68 34 61L239 7Q278-3 278 39V78L155 118Q55 86 8 92Z"/>
+  <path fill="#F6C9A5" d="M168 125L282 86Q306 78 306 102V145Q236 143 168 125Z"/>
+  <path fill="#4C929E" d="M4 120Q4 102 25 107C98 115 173 156 302 159Q320 159 320 181V267Q320 320 269 320H55Q4 320 4 269Z"/>
 </svg>

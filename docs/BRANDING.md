@@ -18,15 +18,20 @@ The intended meaning is **clarity and control over everyday money**:
 
 These are design intentions, not claims about implemented banking capabilities, regulated status, or security guarantees. The insert is a visual metaphor; it does not add payment-card issuance or a separate wallet product to the PDF scope.
 
-## Selected logo colors
+## Lighter palette refinement
+
+After reviewing the first UI study on 2026-10-19, the user requested lighter surfaces and a lighter logo too. Preserve Open pocket's geometry. The current preview uses the softer values below; these exact shades are proposed for review. The original comparison board above remains historical shape/reference evidence, not the current color target.
+
+![Lighter Open pocket palette study](ui/logo-light.png)
 
 | Color | Value | Intended use |
 | --- | --- | --- |
-| Deep teal | `#164E63` | Main mark and wordmark |
-| Apricot | `#F2BB91` | Focus detail |
+| Soft teal | `#4C929E` | Main mark and study wordmark |
+| Light apricot | `#F6C9A5` | Focus detail |
 | Ivory | `#F8F7F2` | Light presentation background and reversed mark |
+| Action teal | `#286E78` | Companion UI color for readable buttons, links and essential icons |
 
-These are target colors for the production artwork. The generated preview can contain shading and color variation. A [three-screen UI study](UI_DIRECTION.md) now proposes screen styling and records measured contrast for its exact color pairs. Typography, screen theme and semantic colors are not yet approved for the app. Do not infer that apricot on ivory is suitable for text or essential controls.
+The original logo colors were deep teal `#164E63` and apricot `#F2BB91`; the lighter study supersedes those as the current proposal. The [three-screen UI study](UI_DIRECTION.md) records measured contrast for its revised pairs. Soft teal is reserved for the logo/large brand lettering; normal UI text and buttons use darker colors. Apricot remains decorative. Typography, screen theme and semantic colors are not yet approved for the app.
 
 ## Reference and visual check
 
