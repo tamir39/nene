@@ -14,6 +14,7 @@ The stack was confirmed on 2026-10-13 and local scaffolding authorized on 2026-1
 - [REQUIREMENTS.md](REQUIREMENTS.md): assignment requirements, rubric, and open questions.
 - [DESIGN.md](DESIGN.md): confirmed stack, proposed architecture, data model, screen flows, and delivery order.
 - [docs/BRANDING.md](docs/BRANDING.md): selected Open pocket direction, palette, reference artwork, and production limits.
+- [docs/SCREEN_MAP.md](docs/SCREEN_MAP.md) and [docs/UI_DIRECTION.md](docs/UI_DIRECTION.md): proposed PDF-linked screen map and three-screen UI study; not approved styling or implemented app behavior.
 - [docs/SETUP.md](docs/SETUP.md) and [docs/API.md](docs/API.md): local commands, verification limits, and the implemented API contract.
 - `FinalProject_2026_2027.pdf`: authoritative assignment brief.
 - `Marking.xlsx`, worksheet `Marking`: authoritative assessment rubric.
