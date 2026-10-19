@@ -26,6 +26,7 @@ The submission portal shows **1 December 2026 at 12:00 AM**, the start of Tuesda
 - [SCOPE.md](SCOPE.md): detailed PDF/rubric audit, required outcomes, examples, open interpretations, and boundaries against scope expansion.
 - [REQUIREMENTS.md](REQUIREMENTS.md): all assignment requirements, the 10-point rubric, source issues, and open decisions.
 - [DESIGN.md](DESIGN.md): confirmed stack, proposed architecture, roles/screens, transaction flow, conceptual data model, and implementation order.
+- [docs/BRANDING.md](docs/BRANDING.md): selected Open pocket logo direction, palette, reference artwork, and remaining asset work.
 - [AGENTS.md](AGENTS.md): instructions for working in this repository.
 
 ## Assignment sources
@@ -48,4 +49,4 @@ This is partial support for BR-01/BR-03 and TR-03, not completion of any busines
 
 Start Docker, then use the commands in [the setup guide](docs/SETUP.md). Local configuration and SDK files are ignored by Git. Never put database or Supabase administrative credentials in the app.
 
-Team responsibilities, backend hosting, integration expectations/providers, account rules, and UI branding remain open. The foundation does not add an iOS release, a separate officer application, or extra business features to the PDF scope.
+Open pocket in teal + apricot is the selected logo direction. Production artwork, typography, screen styling, and app integration remain to do; see [the branding decision](docs/BRANDING.md). Team responsibilities, backend hosting, integration expectations/providers, and account rules remain open. The foundation does not add an iOS release, a separate officer application, or extra business features to the PDF scope.

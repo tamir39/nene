@@ -1,6 +1,6 @@
 # Design and technology decisions
 
-Status: updated 2026-10-17. Flutter + NestJS + Supabase is confirmed and the local foundation is implemented. The base includes sign-in, a server-authorized profile, a profile migration, and private storage configuration. Financial flows and the larger schema below remain proposals; no cloud services are deployed. The assignment requirements are recorded in [REQUIREMENTS.md](REQUIREMENTS.md).
+Status: updated 2026-10-19. Flutter + NestJS + Supabase is confirmed and the local foundation is implemented. The base includes sign-in, a server-authorized profile, a profile migration, and private storage configuration. Financial flows and the larger schema below remain proposals; no cloud services are deployed. The assignment requirements are recorded in [REQUIREMENTS.md](REQUIREMENTS.md).
 
 Scope boundary: [SCOPE.md](SCOPE.md) records the detailed PDF/rubric audit. The mechanisms and schemas below are candidates for implementation, not extra assignment features. Use the smallest design that demonstrates the required outcomes reliably.
 
@@ -111,7 +111,9 @@ Proposed customer navigation: Home, Accounts, Services, Assistant, Profile. Bran
 
 Proposed financial flow: input -> review -> chosen 2FA -> backend result -> receipt/history. OTP is a candidate mechanism. Show amount, currency, recipient/provider, fees if applicable, and total before authorization. Handle loading, empty, error, permission-denied, cancellation, and uncertain network outcomes explicitly. On an uncertain outcome, look up the existing operation instead of submitting a new debit.
 
-Visual direction, colors, typography, and branding remain open. The initial UI priorities are readable amounts, clear account types, consistent controls, accessible labels, and predictable confirmation flows.
+The user selected the Open pocket logo direction with deep teal (`#164E63`), apricot (`#F2BB91`), and ivory (`#F8F7F2`) on 2026-10-19. Its wallet silhouette represents everyday money in one place; the open fold and apricot detail express visibility and focus. [docs/BRANDING.md](docs/BRANDING.md) preserves the selected reference and distinguishes the confirmed direction from unfinished production artwork and app integration. A wallet-shaped logo does not narrow the banking assignment to an e-wallet product or add card-issuing features.
+
+Typography, screen styling, and semantic UI colors remain open. The initial UI priorities are readable amounts, clear account types, consistent controls, accessible labels, and predictable confirmation flows. The logo palette is not yet a validated accessibility palette for controls or text.
 
 ## Transaction and identity design
 
