@@ -14,7 +14,7 @@ The local base already supports sign-in, server-controlled profiles, and restric
 
 Supports BR-01–BR-14 and TR-05.
 
-- [ ] Map the customer and officer journeys and sketch the main screens, including loading, empty, error, and confirmation states.
+- [ ] Review the proposed [customer/officer screen map](docs/SCREEN_MAP.md) and [three-screen UI direction](docs/UI_DIRECTION.md), then detail the remaining screens. The first study includes sign-in, customer home and officer workspace with loading/error/empty variants; financial confirmation, identity, map and chat layouts remain to draw. This item stays open until the broader design work is complete.
 - [ ] Prepare consistent vector/app-icon assets from the selected [Open pocket logo direction](docs/BRANDING.md), check small-size and single-color rendering, and apply them to the app. Direction and palette are selected; production assets and screen styling are unfinished. This supports UI/report presentation (TR-05/TR-06), not an additional business feature.
 - [ ] Define editable profile fields, account ownership, allowed deposits/withdrawals, currency, savings calculations/rate changes, mortgage repayment convention, and the high-value threshold.
 - [ ] Choose how eKYC, high-value identity checks, and transaction 2FA will work. Preserve officer-assisted identification; login alone does not cover these requirements.

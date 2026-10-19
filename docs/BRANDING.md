@@ -26,7 +26,7 @@ These are design intentions, not claims about implemented banking capabilities, 
 | Apricot | `#F2BB91` | Focus detail |
 | Ivory | `#F8F7F2` | Light presentation background and reversed mark |
 
-These are target colors for the production artwork. The generated preview can contain shading and color variation. Screen themes, semantic success/error colors, contrast, and typography have not been approved or verified. Do not infer that apricot on ivory is suitable for text or essential controls.
+These are target colors for the production artwork. The generated preview can contain shading and color variation. A [three-screen UI study](UI_DIRECTION.md) now proposes screen styling and records measured contrast for its exact color pairs. Typography, screen theme and semantic colors are not yet approved for the app. Do not infer that apricot on ivory is suitable for text or essential controls.
 
 ## Reference and visual check
 
@@ -44,4 +44,4 @@ Design judgment: keep the selected direction; no near-duplicate was identified i
 - Export transparent assets and Android launcher resources, then integrate with the existing app. Preserve future iOS compatibility without adding an iOS release to the assignment.
 - Review the final geometry again for visual similarity before public release; the current check applies only to this draft. Name/trademark clearance remains unresolved.
 
-The app still uses its existing foundation UI and launcher assets. This decision does not authorize cloud provisioning, purchases, store publication, or a broader UI redesign. Continue the customer/officer screen discussion within [SCOPE.md](../SCOPE.md).
+The app still uses its existing foundation UI and launcher assets. On 2026-10-19 the user requested the PDF-based screen map and UI direction for sign-in, customer home and officer workspace; those proposals are in [SCREEN_MAP.md](SCREEN_MAP.md) and [UI_DIRECTION.md](UI_DIRECTION.md). The code-authored vector used there is a study, not a finalized production asset. Cloud provisioning, purchases and store publication remain outside this work. Keep implementation within [SCOPE.md](../SCOPE.md).
