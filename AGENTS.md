@@ -13,6 +13,7 @@ The stack was confirmed on 2026-10-13 and local scaffolding authorized on 2026-1
 - [SCOPE.md](SCOPE.md): detailed source audit, required outcomes, unresolved interpretations, and scope boundaries.
 - [REQUIREMENTS.md](REQUIREMENTS.md): assignment requirements, rubric, and open questions.
 - [DESIGN.md](DESIGN.md): confirmed stack, proposed architecture, data model, screen flows, and delivery order.
+- [docs/BRANDING.md](docs/BRANDING.md): selected Open pocket direction, palette, reference artwork, and production limits.
 - [docs/SETUP.md](docs/SETUP.md) and [docs/API.md](docs/API.md): local commands, verification limits, and the implemented API contract.
 - `FinalProject_2026_2027.pdf`: authoritative assignment brief.
 - `Marking.xlsx`, worksheet `Marking`: authoritative assessment rubric.
@@ -23,7 +24,7 @@ Keep original assessment files intact unless the user explicitly requests change
 
 The user supplied global Twohearts workspace notes. They identify `D:\Data\Downloads\Policies` as the policy bundle to consult for collaboration, branching/releases, testing gates, issue/spec/PR review, product intake, engineering standards, and QA.
 
-The supplied path was checked on 2026-10-12, 2026-10-13, 2026-10-15, and 2026-10-17 and was unavailable. No policy contents were read. When those areas are touched, check for the bundle again and apply relevant available instructions. If it remains unavailable, state the limitation and proceed with work that does not depend on knowing its contents. Do not invent policy gates or claim policy compliance.
+The supplied path was checked on 2026-10-12, 2026-10-13, 2026-10-15, 2026-10-17, and 2026-10-19 and was unavailable. No policy contents were read. When those areas are touched, check for the bundle again and apply relevant available instructions. If it remains unavailable, state the limitation and proceed with work that does not depend on knowing its contents. Do not invent policy gates or claim policy compliance.
 
 The notes identify `D:\Projects\TwoheartsMissonControl`, `D:\Projects\TwoheartsDeliveryDashboard`, and `D:\Projects\Whitelable` as a related product/workflow family. Nene's membership in that family has not been established; do not import their product requirements or modify those repositories as part of this assignment.
 
@@ -40,6 +41,7 @@ The notes identify `D:\Projects\TwoheartsMissonControl`, `D:\Projects\TwoheartsD
 - Keep work tied to a BR/TR requirement or the minimal engineering support needed to implement it correctly. Use `SCOPE.md` to avoid expanding into extra apps, a full banking/booking platform, or an unrequested iOS release. Future iOS flexibility is a user goal; its release deadline is not established.
 - Use requirement IDs from `REQUIREMENTS.md` in implementation plans and acceptance evidence. Explain each architecture and technology choice so it can support the project report.
 - Keep changes focused and keep documentation aligned when behavior or decisions change. Prefer a simple structure suitable for a team of 2-3 people.
+- Use the user-selected Open pocket logo direction and teal + apricot palette from `docs/BRANDING.md`. Its generated reference is not a production asset or trademark clearance; typography, screen styling, and app integration remain open. Do not substitute a different concept or describe the logo as installed before implementation.
 - Do not create accounts, incur provider costs, publish to Google Play, or use real customer data as a side effect of local implementation.
 - Record mocks and sandbox integrations explicitly. A simulated service must not be presented as a live banking integration or as satisfying an unresolved lecturer expectation.
 
