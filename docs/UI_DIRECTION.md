@@ -1,8 +1,8 @@
 # Nene UI direction study
 
-Status: proposed for user review, 2026-10-19. Open pocket and the teal/apricot palette are confirmed; this layout, typography and screen styling are proposals. No Flutter screens or launcher assets changed. All sample identities, references, dates, amounts and rates are synthetic layout fixtures, not financial calculation results or integration evidence.
+Status: lighter visual direction approved for Flutter implementation on 2026-10-19. The actual app now uses it on sign-in, role-specific profile, loading and unavailable screens, with an Android launcher icon. The complete home/workspace business layouts below remain design studies. All sample identities, references, dates, amounts and rates in the study are synthetic fixtures, not app data or integration evidence.
 
-Revision 02 follows the user's request to lighten both the screens and logo. The exact softer shades remain a proposal. [View the lighter logo](ui/logo.html).
+Revision 02 follows the user's request to lighten both the screens and logo; the user approved this version. [View the lighter logo](ui/logo.html).
 
 [Open the interactive study](ui/index.html) · [Complete screen map](SCREEN_MAP.md) · [Brand reference](BRANDING.md)
 
@@ -50,8 +50,8 @@ Initial interaction/layout checks on 2026-10-19 used a temporary headless Micros
 - Revision 02 solid-color text pairs, using WCAG relative luminance: white/action teal **5.85:1**, action teal/ivory **5.45:1**, balance ink/white **14.00:1**, secondary ink/white **6.41:1**, secondary ink/pale teal **5.89:1**, action teal/avatar tint **4.86:1**. These text pairs exceed 4.5:1. Unchanged error text/ivory remains **6.67:1** and input border/white **3.99:1**. Soft logo teal on ivory is **3.31:1** and on pale teal **3.26:1**; use it only for the mark and large brand lettering, not small text. Light apricot/ivory is **1.42:1**, so apricot is decoration, not an essential icon or text color.
 - Reviewed Markdown links and Git diff before publishing. No application tests were needed for this isolated design/documentation change; no application behavior changed.
 
-Still to verify: user preference, all remaining screen layouts, production logo and font treatment, full screen-reader traversal, platform semantics, large-text navigation and touch targets on Android, keyboard occlusion, and final implemented financial/security behavior. Banking/provider choices and lecturer interpretations remain in [SCREEN_MAP.md](SCREEN_MAP.md) and [SCOPE.md](../SCOPE.md).
+Flutter foundation verification is recorded in [SETUP.md](SETUP.md). It includes tests for sign-in with 200% text and keyboard insets on a small phone, plus role-based profile/sign-out behavior. The app does not yet implement the study's bottom navigation, balances or officer provisioning controls. Still to verify: remaining screen layouts, final wordmark, full screen-reader traversal, large-text navigation once implemented, and actual financial/security behavior. Banking/provider choices and lecturer interpretations remain in [SCREEN_MAP.md](SCREEN_MAP.md) and [SCOPE.md](../SCOPE.md).
 
 ## Next implementation boundary
 
-Review this visual direction, then detail the first officer-to-customer journey: officer creation of a synthetic customer plus initial account, customer sign-in, own profile/account display and permitted profile edits. Keep identity status truthful; do not enable financial posting before the required identity and transaction-2FA mechanisms are implemented. Keep all later PDF features in the roadmap.
+With the lighter visual direction approved and applied to the foundation, detail the first officer-to-customer journey: officer creation of a synthetic customer plus initial account, customer sign-in, own profile/account display and permitted profile edits. Keep identity status truthful; do not enable financial posting before the required identity and transaction-2FA mechanisms are implemented. Keep all later PDF features in the roadmap.

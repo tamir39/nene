@@ -1,6 +1,6 @@
 # Nene branding decision
 
-Status: direction selected by the user on 2026-10-19. Production artwork and app integration are not implemented. This is a user design choice supporting UI/report presentation (TR-05/TR-06), not an extra assignment requirement. All seven banking feature groups remain in scope.
+Status: Open pocket selected and its lighter palette approved by the user on 2026-10-19. Applied to the Flutter foundation and Android launcher artwork; final wordmark and release asset review remain open. This is a user design choice supporting UI/report presentation (TR-05/TR-06), not an extra assignment requirement. All seven banking feature groups remain in scope.
 
 ## Selected direction
 
@@ -20,7 +20,7 @@ These are design intentions, not claims about implemented banking capabilities, 
 
 ## Lighter palette refinement
 
-After reviewing the first UI study on 2026-10-19, the user requested lighter surfaces and a lighter logo too. Preserve Open pocket's geometry. The current preview uses the softer values below; these exact shades are proposed for review. The original comparison board above remains historical shape/reference evidence, not the current color target.
+After reviewing the first UI study on 2026-10-19, the user requested lighter surfaces and a lighter logo, then approved the revised version for Flutter implementation. Preserve Open pocket's geometry and the approved values below. The original comparison board above remains historical shape/reference evidence, not the current color target.
 
 ![Lighter Open pocket palette study](ui/logo-light.png)
 
@@ -31,7 +31,7 @@ After reviewing the first UI study on 2026-10-19, the user requested lighter sur
 | Ivory | `#F8F7F2` | Light presentation background and reversed mark |
 | Action teal | `#286E78` | Companion UI color for readable buttons, links and essential icons |
 
-The original logo colors were deep teal `#164E63` and apricot `#F2BB91`; the lighter study supersedes those as the current proposal. The [three-screen UI study](UI_DIRECTION.md) records measured contrast for its revised pairs. Soft teal is reserved for the logo/large brand lettering; normal UI text and buttons use darker colors. Apricot remains decorative. Typography, screen theme and semantic colors are not yet approved for the app.
+The original logo colors were deep teal `#164E63` and apricot `#F2BB91`; the lighter version supersedes those. The [three-screen UI study](UI_DIRECTION.md) records measured contrast for its revised pairs. Soft teal is reserved for the logo/large brand lettering; normal UI text and buttons use darker colors. Apricot remains decorative. Flutter uses platform typography; the system-font wordmark is not custom final lettering.
 
 ## Reference and visual check
 
@@ -41,12 +41,14 @@ On 2026-10-19, a Google Lens search was narrowed to the main B symbol, excluding
 
 Design judgment: keep the selected direction; no near-duplicate was identified in the results reviewed. Wallet imagery is common, so this is a limited preliminary visual assessment, not proof of originality, name availability, or trademark clearance. No completed trademark registry search establishes availability for this concept or the Nene name.
 
-## Remaining production work
+## App integration and remaining production work
 
-- Rebuild one consistent editable vector master from the selected main B symbol. The concept board's small monochrome sample changes the insert treatment; resolve that discrepancy from the master instead of treating each generated sample as authoritative.
+`app/lib/ui/nene_brand.dart` provides the shared palette, light theme and dependency-free vector painter matching the study SVG's three paths. Sign-in, role-specific profile, loading and unavailable states use it. Android has a vector legacy icon, an adaptive launcher icon and a matching startup background. No authentication, role, financial or provider behavior changes accompany this styling. The mockup's account balances, transaction lists and officer actions are not added to the app.
+
+- Consolidate and review the app's editable SVG/path geometry as the release master. The concept board's small monochrome sample changes the insert treatment; resolve that discrepancy from the master instead of treating each generated sample as authoritative.
 - Produce color, reversed, and single-color variants with the same silhouette. Establish clear space and a minimum size after checking 16, 24, and 48 pixel rendering and Android launcher masks.
 - Choose licensed wordmark typography or deliberately drawn lettering; the preview does not identify a production font.
-- Export transparent assets and Android launcher resources, then integrate with the existing app. Preserve future iOS compatibility without adding an iOS release to the assignment.
+- Review final export/launcher mask variants before publication. Android launcher resources are now integrated; iOS launcher artwork and iOS testing remain outstanding. Preserve future iOS compatibility without adding an iOS release to the assignment.
 - Review the final geometry again for visual similarity before public release; the current check applies only to this draft. Name/trademark clearance remains unresolved.
 
-The app still uses its existing foundation UI and launcher assets. On 2026-10-19 the user requested the PDF-based screen map and UI direction for sign-in, customer home and officer workspace; those proposals are in [SCREEN_MAP.md](SCREEN_MAP.md) and [UI_DIRECTION.md](UI_DIRECTION.md). The code-authored vector used there is a study, not a finalized production asset. Cloud provisioning, purchases and store publication remain outside this work. Keep implementation within [SCOPE.md](../SCOPE.md).
+The approved lighter visual direction is applied to the existing Flutter foundation. The complete customer home/officer business workflows in [SCREEN_MAP.md](SCREEN_MAP.md) and [UI_DIRECTION.md](UI_DIRECTION.md) remain to implement. The vector is usable app artwork, but does not establish final wordmark approval or trademark clearance. Cloud provisioning, purchases and store publication remain outside this work. Keep implementation within [SCOPE.md](../SCOPE.md).

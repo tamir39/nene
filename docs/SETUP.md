@@ -35,7 +35,7 @@ npm run api:dev
 
 It refuses to overwrite existing backend/app configuration. Reuse those files on subsequent starts; update them deliberately if necessary. No cloud project, payment service, or provider account is created.
 
-The API listens on `127.0.0.1:3000`, Supabase on `127.0.0.1:54321`, and local Studio on `127.0.0.1:54323`. The API prefix is `/api/v1`. `GET /api/v1/health` checks process liveness only. See [API.md](API.md) for authentication and profile behavior.
+The API defaults to `127.0.0.1:3000`, Supabase to `127.0.0.1:54321`, and local Studio to `127.0.0.1:54323`. This workstation's manual demo uses API port **3001** because another application uses 3000: set `$env:PORT='3001'` before starting the API and use `http://10.0.2.2:3001/api/v1` as `API_BASE_URL` in the ignored app configuration. The API prefix is `/api/v1`. `GET /api/v1/health` checks process liveness only. See [API.md](API.md) for authentication and profile behavior.
 
 Local Supabase includes development administration tools. Keep it on a trusted development machine. `npm run db:status` displays local credentials, so do not paste its output into reports, screenshots, or chat. `npm run db:stop` stops the local stack while retaining its data. Stop the API with Ctrl+C.
 
@@ -83,14 +83,25 @@ From `app/`:
 ..\.tools\flutter\bin\flutter.bat --no-version-check build apk --debug --dart-define-from-file=config/local.json
 ```
 
-Review fixes verified on 2026-10-17: backend lint, build, formatting, and all 23 tests passed. Flutter analysis and formatting passed, and all 24 mobile tests passed, including stalled Auth response and late-login regressions. The Android debug APK was rebuilt successfully at `app/build/app/outputs/flutter-apk/app-debug.apk` (173,197,097 bytes). APK metadata confirms the development application ID, version `0.1.0`, target SDK 36, and debug status. Emulator/device runtime and iOS builds have not been verified.
+Review fixes verified on 2026-10-17: backend lint, build, formatting, and all 23 tests passed. Flutter analysis and formatting passed, and all 24 mobile tests passed, including stalled Auth response and late-login regressions. The Android debug APK was rebuilt successfully at `app/build/app/outputs/flutter-apk/app-debug.apk` (173,197,097 bytes). APK metadata confirms the development application ID, version `0.1.0`, target SDK 36, and debug status. Emulator/device runtime was not verified in that check; see the later preview check below. iOS builds remain unverified.
 
 The 24 database assertions and real local Auth/API/PostgreSQL integration passed on 2026-10-15, and the integration check removed its temporary identity. Public signup was separately rejected with `signup_disabled`. A fresh integration attempt on 2026-10-17 stopped during local service configuration because the Docker engine was unavailable, before creating a fixture; it is not a new passing integration result.
 
+## Lighter Flutter preview verification (19–20 October 2026)
+
+The approved lighter palette and scalable Open pocket mark are applied to sign-in, loading/error states, both server-controlled profile variants, and Android launcher/startup resources. No dependencies or authentication/backend behavior changed. Full business screens remain planned.
+
+- Flutter analysis passed and all **26 tests** passed. Added checks cover a 320×640 viewport at 200% text size with the keyboard open, reachable sign-in/error feedback, customer profile boundaries and sign-out. Officer display and existing session/API tests also passed.
+- The debug APK built with `--no-pub --dart-define-from-file=config/local.json`, installed successfully with `adb install -r`, and launched on `emulator-5554`. The existing `Medium_Tablet` AVD uses a phone-sized 1080×2400 override at density 420. [Actual emulator sign-in capture](ui/android-signin.png) records the lighter design. Full screen-reader, physical-device and launcher-mask testing remain open.
+- Docker's Nene containers are running. The existing synthetic customer login was verified directly against local Supabase Auth, NestJS on port 3001, and PostgreSQL. This was a targeted manual-demo check, not a rerun of the full integration suite or an on-device sign-in assertion. Backend/database code was unchanged; prior checks above remain the recorded evidence.
+- Existing local demo credentials are retained only in ignored `.tmp/nene-demo-login.json`; no credentials, tokens or local configuration are committed. The app is left at sign-in for manual testing. Officer provisioning, accounts, transfers, eKYC and transaction 2FA remain unimplemented.
+
+For cached dependencies, the three Flutter check/build commands above accept `--no-pub`; this avoids an unnecessary package fetch. The SDK and package cache remain local and ignored.
+
 ## Scope and release boundaries
 
-`com.example.nene_app` is the development Android application ID; the generated iOS bundle ID is `com.example.neneApp`. Final bank/app branding, identifiers, icons, release signing, cloud hosting, and Play configuration remain open. Release signing must use a separately managed release key; no debug signing fallback is provided for publishing.
+`com.example.nene_app` is the development Android application ID; the generated iOS bundle ID is `com.example.neneApp`. The Open pocket direction and lighter palette are approved and Android icons are integrated. Final wordmark/release asset review, iOS icons, identifiers, release signing, cloud hosting, and Play configuration remain open. Release signing must use a separately managed release key; no debug signing fallback is provided for publishing.
 
 The private identity bucket is configured, but no upload API, identity review, or high-value verification exists. Password login is not transaction 2FA. No financial endpoint is exposed before the required authorization flow is designed. All seven assignment feature groups remain in [REQUIREMENTS.md](../REQUIREMENTS.md) and [SCOPE.md](../SCOPE.md).
 
-The shared policy directory `D:\Data\Downloads\Policies` was unavailable when rechecked on 2026-10-15. No contents were read or policy compliance claimed.
+The shared policy directory `D:\Data\Downloads\Policies` was unavailable when rechecked on 2026-10-19. No contents were read or policy compliance claimed.

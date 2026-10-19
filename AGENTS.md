@@ -14,7 +14,7 @@ The stack was confirmed on 2026-10-13 and local scaffolding authorized on 2026-1
 - [REQUIREMENTS.md](REQUIREMENTS.md): assignment requirements, rubric, and open questions.
 - [DESIGN.md](DESIGN.md): confirmed stack, proposed architecture, data model, screen flows, and delivery order.
 - [docs/BRANDING.md](docs/BRANDING.md): selected Open pocket direction, palette, reference artwork, and production limits.
-- [docs/SCREEN_MAP.md](docs/SCREEN_MAP.md) and [docs/UI_DIRECTION.md](docs/UI_DIRECTION.md): proposed PDF-linked screen map and three-screen UI study; not approved styling or implemented app behavior.
+- [docs/SCREEN_MAP.md](docs/SCREEN_MAP.md) and [docs/UI_DIRECTION.md](docs/UI_DIRECTION.md): PDF-linked screen map and UI study. The lighter palette is approved and applied to the Flutter foundation; the study's banking screens remain planned behavior.
 - [docs/SETUP.md](docs/SETUP.md) and [docs/API.md](docs/API.md): local commands, verification limits, and the implemented API contract.
 - `FinalProject_2026_2027.pdf`: authoritative assignment brief.
 - `Marking.xlsx`, worksheet `Marking`: authoritative assessment rubric.
@@ -42,7 +42,7 @@ The notes identify `D:\Projects\TwoheartsMissonControl`, `D:\Projects\TwoheartsD
 - Keep work tied to a BR/TR requirement or the minimal engineering support needed to implement it correctly. Use `SCOPE.md` to avoid expanding into extra apps, a full banking/booking platform, or an unrequested iOS release. Future iOS flexibility is a user goal; its release deadline is not established.
 - Use requirement IDs from `REQUIREMENTS.md` in implementation plans and acceptance evidence. Explain each architecture and technology choice so it can support the project report.
 - Keep changes focused and keep documentation aligned when behavior or decisions change. Prefer a simple structure suitable for a team of 2-3 people.
-- Use the user-selected Open pocket logo direction and teal + apricot palette from `docs/BRANDING.md`. Its generated reference is not a production asset or trademark clearance; typography, screen styling, and app integration remain open. Do not substitute a different concept or describe the logo as installed before implementation.
+- Use the user-approved lighter Open pocket palette from `docs/BRANDING.md`: soft teal `#4C929E`, light apricot `#F6C9A5`, ivory `#F8F7F2`, and action teal `#286E78` for readable controls. Flutter sign-in/profile/loading/error screens and Android launcher artwork use this identity. The broader banking mockups remain planned; do not add their fictional balances as real data. The reference is not trademark clearance; final wordmark and iOS launcher artwork remain open.
 - Do not create accounts, incur provider costs, publish to Google Play, or use real customer data as a side effect of local implementation.
 - Record mocks and sandbox integrations explicitly. A simulated service must not be presented as a live banking integration or as satisfying an unresolved lecturer expectation.
 
