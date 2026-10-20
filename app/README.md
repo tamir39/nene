@@ -1,6 +1,6 @@
 # Nene mobile app
 
-Flutter/Dart app for the Android assignment and future iOS compatibility. The first customer flow supports officer customer creation with an initial account, officer search and customer-requested profile edits, customer account viewing and phone/address edits, existing-account sign-in and sign-out. The approved lighter Open pocket identity is shared across these screens. Money movements, eKYC, transaction 2FA, saving/mortgage management, utilities, maps and chat remain unimplemented. The complete requirements remain in [REQUIREMENTS.md](../REQUIREMENTS.md) and [SCOPE.md](../SCOPE.md).
+Flutter/Dart app for the Android assignment and future iOS compatibility, with a local Microsoft Edge preview of the same app. The first customer flow supports officer customer creation with an initial account, officer search and customer-requested profile edits, customer account viewing and phone/address edits, existing-account sign-in and sign-out. The approved lighter Open pocket identity is shared across these screens. Money movements, eKYC, transaction 2FA, saving/mortgage management, utilities, maps and chat remain unimplemented. The complete requirements remain in [REQUIREMENTS.md](../REQUIREMENTS.md) and [SCOPE.md](../SCOPE.md).
 
 ## Structure
 
@@ -20,6 +20,8 @@ The first demo defaults are one VND checking account with a zero balance. Accoun
 
 Copy `config/local.example.json` to ignored `config/local.json` and replace its key with the local Supabase publishable key (or legacy **anon** key). Supply the file with Flutter's `--dart-define-from-file=config/local.json` option. See the root [README](../README.md) for setup and verified commands.
 
+For the Windows browser preview, run `npm run setup:browser` from the repository root after local setup. It regenerates ignored `web_dev_config.yaml` and `config/browser.local.json` from the existing local settings, leaving Android configuration unchanged. From `app/`, run `flutter --no-version-check run -d edge --no-pub --dart-define-from-file=config/browser.local.json`. The preview binds only to `http://127.0.0.1:4179`; its development proxy forwards `/api/v1/` to NestJS. See the [Microsoft Edge setup instructions](../docs/SETUP.md#preview-the-app-in-microsoft-edge) for the installed SDK path and the `web-server` alternative.
+
 | Setting | Meaning |
 | --- | --- |
 | `API_BASE_URL` | NestJS URL including `/api/v1`, without a trailing endpoint such as `/me`. |
@@ -32,7 +34,7 @@ Configuration values are compiled into the application and are **not secrets**. 
 
 ## Authentication boundary
 
-Session persistence is disabled for this base; tokens live in memory and a new app process requires sign-in. The default preferences-based persistence is intentionally unused. Secure platform-backed persistence and a complete timeout/device-security policy must be reviewed before a production release. Supabase Auth is not the assignment's eKYC or transaction-bound 2FA implementation.
+Session persistence is disabled for this base; tokens live in memory and a new app process or browser refresh requires sign-in. The default preferences-based persistence is intentionally unused. Secure platform-backed persistence and a complete timeout/device-security policy must be reviewed before a production release. Supabase Auth is not the assignment's eKYC or transaction-bound 2FA implementation.
 
 Auth HTTP exchanges have a 15-second deadline covering both response headers and body. A deadline closes that request's transport, and a stalled sign-in returns to the sign-in screen. Late responses cannot install an old session or replace a successful retry. Each Auth request uses its own connection client so canceling one request does not interrupt another.
 
