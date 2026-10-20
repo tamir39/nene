@@ -20,7 +20,9 @@ void main() {
   ) async {
     final auth = FakeAuth();
     final controller = SessionController(auth: auth, profiles: FakeProfiles());
-    await tester.pumpWidget(NeneApp(controller: controller));
+    await tester.pumpWidget(
+      NeneApp(controller: controller, banking: FakeBanking()),
+    );
     await tester.ensureVisible(find.text('Sign in'));
     await tester.tap(find.text('Sign in'));
     await tester.pump();
@@ -43,7 +45,9 @@ void main() {
         role: AppRole.officer,
       );
     final controller = SessionController(auth: auth, profiles: profiles);
-    await tester.pumpWidget(NeneApp(controller: controller));
+    await tester.pumpWidget(
+      NeneApp(controller: controller, banking: FakeBanking()),
+    );
     await tester.enterText(
       find.byType(TextFormField).at(0),
       'officer@example.test',
@@ -77,7 +81,9 @@ void main() {
         auth: auth,
         profiles: FakeProfiles(),
       );
-      await tester.pumpWidget(NeneApp(controller: controller));
+      await tester.pumpWidget(
+        NeneApp(controller: controller, banking: FakeBanking()),
+      );
       await tester.enterText(
         find.byType(TextFormField).at(0),
         'demo@example.test',
@@ -113,13 +119,18 @@ void main() {
       ..userId = 'user-id'
       ..accessToken = 'test-token';
     final controller = SessionController(auth: auth, profiles: FakeProfiles());
-    await tester.pumpWidget(NeneApp(controller: controller));
+    await tester.pumpWidget(
+      NeneApp(controller: controller, banking: FakeBanking()),
+    );
     await tester.pumpAndSettle();
     expect(find.text('Demo Student'), findsOneWidget);
     expect(find.text('Customer'), findsOneWidget);
     expect(find.text('Officer workspace'), findsNothing);
     expect(
-      find.text('Banking services are not available in this preview.'),
+      find.text(
+        'Identity verification is not completed in this demo. '
+        'Deposits, withdrawals, transfers and payments are not available.',
+      ),
       findsOneWidget,
     );
     expect(find.text('Transfer'), findsNothing);

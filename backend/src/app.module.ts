@@ -7,13 +7,18 @@ import { DatabaseService } from './database/database.service.js';
 import { ProfilesRepository } from './profiles/profiles.repository.js';
 import { MeController } from './profiles/me.controller.js';
 import { HealthController } from './health/health.controller.js';
+import { SupabaseAdminService } from './auth/supabase-admin.service.js';
+import { CustomersService } from './customers/customers.service.js';
+import { OfficerCustomersController } from './customers/officer-customers.controller.js';
 
 @Module({
   imports: [ConfigModule],
-  controllers: [HealthController, MeController],
+  controllers: [HealthController, MeController, OfficerCustomersController],
   providers: [
     DatabaseService,
     SupabaseAuthService,
+    SupabaseAdminService,
+    CustomersService,
     ProfilesRepository,
     { provide: APP_GUARD, useClass: SessionGuard },
   ],

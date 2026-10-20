@@ -1,6 +1,6 @@
 # Nene assignment scope
 
-Status: detailed source audit retained; local foundation status updated 2026-10-15. Login and a server-authorized profile are implemented as a base, with no complete business feature group finished. No lecturer-approved exceptions have been supplied.
+Status: detailed source audit retained; local implementation status updated 2026-10-20. The first local officer/customer flow extends login with initial account creation and permitted profile edits. Full assignment acceptance remains open. No lecturer-approved exceptions have been supplied.
 
 ## Scope statement
 
@@ -8,7 +8,7 @@ Deliver one Android mobile banking application covering every business requireme
 
 On 2026-10-13, the user selected **Flutter/Dart + a single NestJS/TypeScript API + Supabase-hosted PostgreSQL, Supabase Auth, and private Supabase Storage**, then authorized the local base on 2026-10-15. The base implements email/password login, server-controlled profile reads, and local database/private storage configuration. It uses Flutter ChangeNotifier and NestJS `pg` access with SQL migrations. These are implementation choices supporting BR-01/BR-03 and TR-03, not additional product requirements or completion of those requirements. Banking data access uses NestJS. API hosting, external providers, eKYC/transaction-2FA mechanisms, financial policies, and integration realism remain open.
 
-The base adds no financial commands or fake completed feature screens. Identity upload/verification, officer provisioning and profile edits, account management, transactions, utilities, walking navigation, chatbot, and submission evidence remain future work. Its generated iOS shell is preparation for future compatibility, not an extra release deliverable. [docs/SETUP.md](docs/SETUP.md) records current checks and limitations.
+The [first customer flow](docs/CUSTOMER_FLOW.md) adds local officer provisioning, one zero-balance checking account and permitted customer/officer profile edits. It adds no financial commands or fake completed feature screens. Identity upload/verification, saving/mortgage management, transactions, utilities, walking navigation, chatbot and submission evidence remain future work. Its generated iOS shell is preparation for future compatibility, not an extra release deliverable. [docs/SETUP.md](docs/SETUP.md) records current checks and limitations.
 
 ## Evidence and interpretation
 

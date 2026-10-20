@@ -1,6 +1,6 @@
 # Nene UI direction study
 
-Status: lighter visual direction approved for Flutter implementation on 2026-10-19. The actual app now uses it on sign-in, role-specific profile, loading and unavailable screens, with an Android launcher icon. The complete home/workspace business layouts below remain design studies. All sample identities, references, dates, amounts and rates in the study are synthetic fixtures, not app data or integration evidence.
+Status: lighter visual direction approved on 2026-10-19; implementation status updated 2026-10-20. Flutter uses it on sign-in, role-specific workspaces, profile/checking-account display, customer contact edits, officer creation/search/detail/requested edits, and loading/unavailable states, with an Android launcher icon. The wider home/workspace layouts below remain design studies. All sample identities, references, dates, amounts and rates in the HTML study are synthetic fixtures, not app data or integration evidence.
 
 Revision 02 follows the user's request to lighten both the screens and logo; the user approved this version. [View the lighter logo](ui/logo.html).
 
@@ -20,12 +20,12 @@ The HTML is a self-contained, local design artifact, not a new web banking produ
 
 Phone frames are approximately 390 × 844 CSS pixels on the desktop board. Content scrolls within them; bottom navigation stays reachable. Some secondary content is intentionally below the first viewport. Small displays stack the three studies vertically. The customer account summary is not the complete account-detail layout: saving details must show monthly monetary profit, and mortgage details must show the chosen repayment convention and due amount.
 
-## Visual decisions proposed
+## Visual direction and implementation status
 
 - **Surfaces:** warm ivory page, white form/account surfaces including the checking summary, pale teal supporting surfaces, and limited action-teal controls. Use open spacing and modest rounding, not a card around every paragraph.
 - **Apricot:** retain the logo insert and small emphasis details. Do not use apricot text on ivory or rely on an apricot outline to identify an essential control. Officer/customer avatar tints are decorative.
-- **Typography:** use a familiar system sans for the study, with 23–25px screen titles, 32px balance, 16px inputs, 14–16px main copy and 12px secondary copy. Compact navigation labels are 11px. Browser rendering uses Segoe UI/Arial; propose platform-aware Flutter typography and validate Android text scaling during implementation. No font package is added. The plain `nene` text beside the mark is a study lockup, not approved production wordmark lettering.
-- **Numbers and language:** use tabular numerals; separate amounts by account type; write status in words. English and VND are preview assumptions, not a new multilingual or currency requirement. Display formatting/calculation policy remains unresolved.
+- **Typography:** use a familiar system sans for the study, with 23–25px screen titles, 32px balance, 16px inputs, 14–16px main copy and 12px secondary copy. Compact navigation labels are 11px. Browser rendering uses Segoe UI/Arial; Flutter uses platform typography with text-scaling checks for the implemented forms. No font package is added. The plain `nene` text beside the mark is a study lockup, not approved production wordmark lettering.
+- **Numbers and language:** separate amounts by account type and write status in words. English is the current UI language. The first Flutter account uses VND and integer grouping without fractional units; the HTML's nonzero amounts remain fixtures. Other currency and savings/mortgage calculation policies remain open. These choices do not add multilingual or multi-currency requirements.
 - **Controls:** consistent outline icons, labeled actions, visible keyboard focus, neutral secondary actions and action-teal (`#286E78`) primary controls. The lighter logo teal (`#4C929E`) is not used behind white button text or for small UI text. Proposed Flutter touch targets should be at least 48 logical pixels. Final platform accessibility must be verified in the implementation.
 - **Tone:** short, calm instructions. Missing data is not zero; uncertain financial outcomes are not success. Errors explain a next action without exposing provider or database internals.
 
@@ -36,7 +36,7 @@ The code-authored [study SVG](ui/open-pocket-study.svg) follows the selected mai
 - Each screen's **Preview state** selector exposes default/loading/error; customer and officer also expose empty states. They are manual fixtures and do not call services.
 - Sign-in provides a password visibility toggle. Submitting displays a preview-only message and does not authenticate or transmit/store input.
 - Customer home can hide/show the checking amount. Account, service, history, branch and assistant actions open requirement-linked notes.
-- Officer search filters the two synthetic customer examples. Real search permissions, queries and provisioning are not implemented.
+- Officer search in the HTML filters two synthetic examples. Flutter's separate first flow now calls NestJS for authorized customer search and local synthetic provisioning; the HTML does not connect to it.
 - Planning-note dialogs support Escape and restore focus to the initiating control. The state “Try again” action returns to the default fixture; it does not imply server recovery.
 
 ## Verification record
@@ -50,8 +50,8 @@ Initial interaction/layout checks on 2026-10-19 used a temporary headless Micros
 - Revision 02 solid-color text pairs, using WCAG relative luminance: white/action teal **5.85:1**, action teal/ivory **5.45:1**, balance ink/white **14.00:1**, secondary ink/white **6.41:1**, secondary ink/pale teal **5.89:1**, action teal/avatar tint **4.86:1**. These text pairs exceed 4.5:1. Unchanged error text/ivory remains **6.67:1** and input border/white **3.99:1**. Soft logo teal on ivory is **3.31:1** and on pale teal **3.26:1**; use it only for the mark and large brand lettering, not small text. Light apricot/ivory is **1.42:1**, so apricot is decoration, not an essential icon or text color.
 - Reviewed Markdown links and Git diff before publishing. No application tests were needed for this isolated design/documentation change; no application behavior changed.
 
-Flutter foundation verification is recorded in [SETUP.md](SETUP.md). It includes tests for sign-in with 200% text and keyboard insets on a small phone, plus role-based profile/sign-out behavior. The app does not yet implement the study's bottom navigation, balances or officer provisioning controls. Still to verify: remaining screen layouts, final wordmark, full screen-reader traversal, large-text navigation once implemented, and actual financial/security behavior. Banking/provider choices and lecturer interpretations remain in [SCREEN_MAP.md](SCREEN_MAP.md) and [SCOPE.md](../SCOPE.md).
+Flutter verification is recorded in [SETUP.md](SETUP.md). The first customer flow passes analysis and 54 mobile tests, including sign-in/creation at 200% text with keyboard insets on a small phone, role boundaries, protected-page clearing, exact creation retries and background/resume preservation. The backend and database checks are recorded separately there. Flutter displays actual API-backed checking accounts and provides local officer provisioning and permitted edits. The HTML's fixed bottom navigation, sample balances/history, saving/mortgage summaries, identity assistance and financial controls remain unimplemented. Still to verify: remaining screen layouts, final wordmark, full screen-reader traversal, large-text navigation once implemented, and actual financial/security behavior. Banking/provider choices and lecturer interpretations remain in [SCREEN_MAP.md](SCREEN_MAP.md) and [SCOPE.md](../SCOPE.md).
 
 ## Next implementation boundary
 
-With the lighter visual direction approved and applied to the foundation, detail the first officer-to-customer journey: officer creation of a synthetic customer plus initial account, customer sign-in, own profile/account display and permitted profile edits. Keep identity status truthful; do not enable financial posting before the required identity and transaction-2FA mechanisms are implemented. Keep all later PDF features in the roadmap.
+The [first local officer-to-customer journey](CUSTOMER_FLOW.md) is implemented. Next choose and document identity verification, officer assistance, high-value checks and transaction 2FA, then detail their screens and behavior. Hosted activation and the remaining account types stay open. Keep identity status truthful and financial posting unavailable until the required security mechanisms are implemented. Keep all later PDF features in the roadmap.

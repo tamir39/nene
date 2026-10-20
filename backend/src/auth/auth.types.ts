@@ -8,6 +8,8 @@ export interface VerifiedIdentity {
 export interface CurrentUser extends VerifiedIdentity {
   displayName: string;
   role: 'customer' | 'officer';
+  phone: string | null;
+  address: string | null;
 }
 
 export interface AuthenticatedRequest extends Request {

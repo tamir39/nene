@@ -1,10 +1,13 @@
-# Nene API foundation
+# Nene API
 
 This is the single NestJS backend selected for Nene. It establishes configuration,
-session verification, and a read-only application profile boundary supporting
-BR-01/BR-03 and TR-03. It does not complete those requirements: customer creation,
-profile editing, eKYC, financial accounts, transaction 2FA, payments, utilities,
-navigation, and chatbot behavior remain to be implemented under [SCOPE.md](../SCOPE.md).
+session verification, customer/officer permissions, local synthetic customer
+creation, requested officer profile edits, customer contact edits and own account
+views. This supports BR-01/BR-02, the login part of BR-03, partial BR-05 and TR-03.
+The first demo creates one zero-balance VND checking account. These are project
+choices, not PDF rules. eKYC, saving/mortgage behavior, transaction 2FA, financial
+operations, utilities, maps and chatbot remain to implement under
+[SCOPE.md](../SCOPE.md).
 
 ## Local setup
 
@@ -36,10 +39,18 @@ module and HTTP requests. `npm run check` combines lint, build, and tests.
 
 ## API contract
 
-| Method and path      | Access                                     | Response                                                                                           |
-| -------------------- | ------------------------------------------ | -------------------------------------------------------------------------------------------------- |
-| `GET /api/v1/health` | Public                                     | `{ "status": "ok", "service": "nene-api", "check": "liveness" }`                                   |
-| `GET /api/v1/me`     | Verified bearer session and active profile | `{ "id": "uuid", "email": "email or null", "displayName": "name", "role": "customer or officer" }` |
+| Method and path                           | Access         | Purpose                                                           |
+| ----------------------------------------- | -------------- | ----------------------------------------------------------------- |
+| `GET /api/v1/health`                      | Public         | Process liveness only                                             |
+| `GET /api/v1/me`                          | Active profile | ID, Auth email, display name, role, nullable phone/address        |
+| `GET /api/v1/me/accounts`                 | Customer       | Own stored accounts; money is an integer string                   |
+| `PATCH /api/v1/me/contact`                | Customer       | Update own phone/address                                          |
+| `POST /api/v1/officer/customers`          | Officer        | Idempotent local demo identity/profile/initial account creation   |
+| `GET /api/v1/officer/customers?query=...` | Officer        | Search name/email/phone; blank search returns no rows, maximum 20 |
+| `GET /api/v1/officer/customers/:id`       | Officer        | Customer detail and accounts                                      |
+| `PATCH /api/v1/officer/customers/:id`     | Officer        | Requested name/phone/address edit with an audit reason            |
+
+See [the full API contract](../docs/API.md) for request fields and status codes.
 
 Health confirms only that the process serves requests. It performs no database or
 Supabase check. `/me` verifies the token through Supabase Auth's `getUser(token)`,
@@ -48,15 +59,36 @@ come from this table, never editable authentication metadata. All routes are
 protected by default; only health opts out. Missing/invalid sessions return 401;
 missing/disabled profiles return 403; dependency failures return 503.
 
-The SQL role has SELECT access only. Profiles must be provisioned through the
-trusted local development procedure; this base does not expose account creation
-or role changes. Future officer operations need explicit permissions. Session
-authentication is not eKYC or transaction-bound 2FA.
+The SQL role has narrowly scoped column grants for this flow. Customer creation
+cannot choose a role or opening balance. Profile edits cannot modify roles, status,
+sign-in email or banking balances. An officer profile must still be provisioned
+through a trusted local development procedure; there is no officer creation or
+public signup API. Session authentication is not eKYC or transaction-bound 2FA.
+
+## Provisioning and retry behavior
+
+Creation requires a UUID `Idempotency-Key` and the same original payload on retry,
+including the initial password. The server commits a request row with reserved
+customer/account UUIDs before contacting Auth. A salted scrypt fingerprint checks
+payload equality without persisting plaintext credentials. A bounded row lock
+serializes a request; Auth lookup reconciles the reserved identity after a crash or
+timeout. Profile, initial account and request completion commit together. An
+uncertain result never causes automatic deletion or a replacement identity.
+
+The initial password is supplied for the synthetic demo, not sent by email or
+returned in the API response. Existing unrelated sign-in identities are never
+adopted. The local adapter explicitly confirms the email for demo activation; this
+does not establish email ownership or eKYC. Creation returns 503 without a backend
+secret, in production, or with a non-loopback Auth URL. Hosted activation and
+password recovery remain separate work. A caller must retain the request key and
+original payload to recover a pending creation; plaintext passwords are held only
+in request memory. There is no background creation worker or request-expiry cleanup.
 
 ## Configuration and data boundary
 
-- `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` configure Auth validation only.
-  The backend currently needs no Supabase secret/service-role key.
+- `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` configure session validation.
+  Optional `SUPABASE_SECRET_KEY` enables the local demo Auth administrator adapter.
+  Existing reads and login work without it. Keep this value on the backend only.
 - `DATABASE_URL` must use `nene_api` (or the Supabase pooler form
   `nene_api.<project-ref>`). Never connect the running API as `postgres`.
   Put credentials, host, and port in the URL authority and URI-encode reserved
@@ -69,13 +101,16 @@ authentication is not eKYC or transaction-bound 2FA.
 - Banking tables are accessed through NestJS, not the client-facing Supabase data
   API. Database credentials never belong in Flutter. Private identity-file APIs
   are not implemented yet.
-- The pool is bounded to five connections with connection/query timeouts. No
-  transaction-writing abstraction, ORM, or extra backend deployment is introduced
-  before an actual financial flow needs it.
+- The pool is bounded to five connections with connection/query timeouts. The
+  transaction helper rolls back local writes on failure and uses a three-second
+  lock timeout and twenty-second idle transaction timeout. Auth calls have a
+  five-second timeout. No ORM or extra backend is introduced.
 
 Tests use synthetic identities and mocked dependencies. They verify default
 protection, malformed/invalid tokens, profile restrictions, trusted roles,
-parameterized subject lookup, service failure handling, and TLS configuration.
+parameterized subject lookup, service failure handling, TLS configuration, strict
+input validation, own-contact/account access, duplicate requests, concurrent
+retries, payload conflicts and recovery after Auth/database failures.
 They do not establish that a live Supabase project or payment integration works.
 
 Versions are pinned in `package.json` and `package-lock.json`. TypeScript 6.0.3 is
