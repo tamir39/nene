@@ -62,6 +62,41 @@ There is no public signup or automatic persistent demo user in the tracked setup
 
 Sessions currently remain in memory; restarting the app requires signing in again. Secure persistent sessions can be added deliberately later. The app does not store refresh tokens in plaintext preferences.
 
+## Preview the app in Microsoft Edge
+
+The same Flutter app can run as a local browser preview on this Windows PC. Use **Microsoft Edge**. This is a convenient way to exercise the existing customer/officer flow; Android remains the assignment delivery target. A browser check does not replace Android device, camera/location, lifecycle or store-delivery verification.
+
+Start Docker, the existing Nene Supabase stack and the NestJS API as described above. With `backend/.env` and the Android `app/config/local.json` already present, run from the repository root:
+
+```powershell
+npm run setup:browser
+cd app
+..\.tools\flutter\bin\flutter.bat --no-version-check run -d edge --no-pub --dart-define-from-file=config/browser.local.json
+```
+
+If this workstation's package cache is needed, set `$env:PUB_CACHE = Join-Path (Resolve-Path '..').Path '.cache\pub'` from `app/` before running Flutter. On a fresh checkout, run `flutter pub get` first; `--no-pub` above reuses the installed dependencies.
+
+For a server that stays attached to the terminal while you open Edge yourself, use:
+
+```powershell
+..\.tools\flutter\bin\flutter.bat --no-version-check run -d web-server --no-pub --dart-define-from-file=config/browser.local.json
+```
+
+Then open [the local app preview](http://127.0.0.1:4179) in Microsoft Edge. Keep the Flutter terminal running; Ctrl+C stops this preview server. It does not stop the separately running API or Supabase stack.
+
+`setup:browser` deliberately regenerates only these ignored browser files:
+
+- `app/web_dev_config.yaml`: binds Flutter's development server to `127.0.0.1:4179` and proxies `/api/v1/` to the local API host/port from `backend/.env`.
+- `app/config/browser.local.json`: points the app at that same-origin API, the backend's local Supabase URL on port 54321, and the public client key from `app/config/local.json`.
+
+The script rejects production settings, non-loopback backend targets, hosted Supabase URLs and administrative keys. It makes no provider calls, leaves Android/backend configuration unchanged, and prints no keys. The API port must match the running backend: if you override `PORT` only in a terminal, update the local backend configuration deliberately and rerun `setup:browser` before starting the preview. The API cannot use the preview server's port 4179.
+
+The narrow development proxy uses Flutter's [web development configuration](https://docs.flutter.dev/platform-integration/web/web-dev-config-file); it does not enable broad CORS access on NestJS or bypass bearer-session/role checks. Supabase Auth still uses its local service endpoint. The committed [server example](../app/web_dev_config.example.yaml) and [public app example](../app/config/browser.example.json) contain no actual credentials. Do not use this loopback/debug setup for hosting or a release build.
+
+Sessions and unfinished creation retries remain in memory. **Refreshing or closing the browser tab requires signing in again and discards pending creation details.** Confirm a creation outcome before reloading; if interrupted, find the customer by email before attempting another creation, following the recovery limits in [CUSTOMER_FLOW.md](CUSTOMER_FLOW.md). Use synthetic local demo identities only.
+
+Preview setup verified on 20 October 2026: the Flutter web SDK was installed locally, the app compiled for the web development server, and the proxied API health endpoint responded successfully. Configuration checks rejected 14 unsafe inputs and confirmed that source Android/backend files and private credentials were not copied into browser output. Actual Edge sign-in remains a manual check: the user stopped remote UI control and chose to operate Edge themselves. These checks do not establish a browser login result.
+
 ## Checks
 
 From the repository root:

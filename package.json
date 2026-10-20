@@ -12,6 +12,7 @@
     "db:migrate:docker": "node scripts/migrate-local.mjs",
     "db:test": "node infrastructure/scripts/test-local-db.mjs",
     "setup:local": "node scripts/configure-local.mjs",
+    "setup:browser": "node scripts/configure-browser-preview.mjs",
     "setup:local:provisioning": "node scripts/enable-local-provisioning.mjs",
     "check:local": "npm --prefix backend run build && node scripts/smoke-local.mjs",
     "check:customer-flow": "npm --prefix backend run build && node scripts/smoke-customer-flow.mjs",

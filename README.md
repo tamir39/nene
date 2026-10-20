@@ -43,7 +43,7 @@ The brief requires Android, permits on-device SQLite, and prefers a cloud databa
 
 ## Current foundation
 
-- `app/`: Flutter sign-in and distinct customer/officer workspaces. Customer profiles/accounts and permitted edits come through the API. Android is the delivery target; iOS platform files preserve a future starting point.
+- `app/`: Flutter sign-in and distinct customer/officer workspaces. Customer profiles/accounts and permitted edits come through the API. Android is the delivery target; iOS platform files preserve a future starting point. A local Microsoft Edge preview runs the same app for development.
 - `backend/`: one NestJS API with server-verified sessions, scoped customer/account reads and writes, local Auth provisioning and safe creation retries.
 - `infrastructure/`: local Supabase configuration, restricted database privileges, profile/account/request/audit migrations, private identity bucket and access tests.
 - `scripts/`: local configuration, an explicit local migration fallback, and API/Auth/database checks that remove their synthetic fixtures afterward.
@@ -51,5 +51,7 @@ The brief requires Android, permits on-device SQLite, and prefers a cloud databa
 This demonstrates a local BR-01/BR-02 customer flow and partial BR-03/BR-05/TR-03 support. There are no money movements, saving/mortgage flows, eKYC checks, transaction 2FA, external integrations, maps or chatbot yet. Customer creation uses local-only synthetic activation; hosted onboarding remains open. No cloud resources or store release have been provisioned. The identity bucket has no app upload flow yet.
 
 Start Docker, then use the commands in [the setup guide](docs/SETUP.md). Local configuration and SDK files are ignored by Git. Never put database or Supabase administrative credentials in the app.
+
+For a browser preview on this Windows PC, use `npm run setup:browser` and the [Microsoft Edge run instructions](docs/SETUP.md#preview-the-app-in-microsoft-edge). This loopback preview uses the existing local backend and database; it adds no hosted web release or separate banking application. Browser refresh drops the memory-only session.
 
 The lighter Open pocket identity is approved and applied to Flutter sign-in/profile/loading/error screens and the Android launcher. The [screen map](docs/SCREEN_MAP.md) and [three-screen UI study](docs/UI_DIRECTION.md) describe the wider planned app; their sample balances and financial controls are not implemented. Final wordmark/release asset review and iOS launcher artwork remain open; see [the branding decision](docs/BRANDING.md). Team responsibilities, backend hosting, integration expectations/providers, and account rules remain open. The foundation does not add an iOS release, a separate officer application, or extra business features to the PDF scope.

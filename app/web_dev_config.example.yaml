@@ -1,0 +1,8 @@
+# Reference only. Run npm run setup:browser from the repository root to generate
+# ignored web_dev_config.yaml using the existing local backend HOST and PORT.
+server:
+  host: "127.0.0.1"
+  port: 4179
+  proxy:
+    - target: "http://127.0.0.1:3001/"
+      prefix: "/api/v1/"
