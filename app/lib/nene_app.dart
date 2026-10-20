@@ -2,14 +2,17 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import 'data/user_profile.dart';
+import 'data/banking_repository.dart';
 import 'session_controller.dart';
+import 'ui/customer_workspace.dart';
 import 'ui/nene_brand.dart';
 
 class NeneApp extends StatefulWidget {
-  const NeneApp({super.key, this.controller, this.onDispose});
+  const NeneApp({super.key, this.controller, this.banking, this.onDispose})
+    : assert((controller == null) == (banking == null));
 
   final SessionController? controller;
+  final BankingRepository? banking;
   final VoidCallback? onDispose;
 
   @override
@@ -28,7 +31,7 @@ class _NeneAppState extends State<NeneApp> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed &&
         widget.controller?.status == SessionStatus.ready) {
-      unawaited(widget.controller?.loadProfile());
+      unawaited(widget.controller?.revalidateProfile());
     }
   }
 
@@ -68,9 +71,10 @@ class _NeneAppState extends State<NeneApp> with WidgetsBindingObserver {
                     ],
                   ),
                 ),
-                SessionStatus.ready => _ProfileScreen(
-                  profile: controller.profile!,
-                  onSignOut: controller.signOut,
+                SessionStatus.ready => CustomerWorkspace(
+                  key: ValueKey(controller.generation),
+                  session: controller,
+                  repository: widget.banking!,
                 ),
                 SessionStatus.unavailable => _ProfileUnavailable(
                   controller: controller,
@@ -250,109 +254,6 @@ class _SignInScreenState extends State<SignInScreen> {
       ],
     ),
   );
-}
-
-class _ProfileScreen extends StatelessWidget {
-  const _ProfileScreen({required this.profile, required this.onSignOut});
-  final UserProfile profile;
-  final Future<void> Function() onSignOut;
-
-  @override
-  Widget build(BuildContext context) {
-    final isOfficer = profile.role == AppRole.officer;
-    return Scaffold(
-      appBar: AppBar(
-        title: const NeneLogo(size: 30),
-        actions: [
-          IconButton(
-            tooltip: 'Sign out',
-            onPressed: onSignOut,
-            icon: const Icon(Icons.logout),
-          ),
-        ],
-      ),
-      body: _Content(
-        topAligned: true,
-        children: [
-          Text(
-            isOfficer ? 'Officer workspace' : 'My profile',
-            style: const TextStyle(color: NeneColors.muted),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            profile.displayName,
-            style: Theme.of(context).textTheme.headlineMedium,
-          ),
-          const SizedBox(height: 8),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: Chip(
-              avatar: Icon(
-                isOfficer ? Icons.badge_outlined : Icons.person_outline,
-                size: 20,
-              ),
-              label: Text(isOfficer ? 'Bank officer' : 'Customer'),
-              backgroundColor: const Color(0xFFF9E7D8),
-              side: BorderSide.none,
-            ),
-          ),
-          const SizedBox(height: 24),
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Text('Email', style: Theme.of(context).textTheme.labelLarge),
-                  const SizedBox(height: 8),
-                  SelectableText(profile.email ?? 'No email available'),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 24),
-          Container(
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: NeneColors.pale,
-              borderRadius: BorderRadius.circular(18),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Icon(
-                  isOfficer
-                      ? Icons.people_outline
-                      : Icons.account_balance_outlined,
-                  color: NeneColors.action,
-                  size: 30,
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  isOfficer
-                      ? 'Customer services are taking shape'
-                      : 'Your banking starts here',
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Banking services are not available in this preview.',
-                  style: TextStyle(color: NeneColors.muted),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  isOfficer
-                      ? 'Customer creation, identification assistance and saving rates are still under development.'
-                      : 'Accounts, transfers and payments are still under development.',
-                  style: const TextStyle(color: NeneColors.muted),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 class _ProfileUnavailable extends StatelessWidget {

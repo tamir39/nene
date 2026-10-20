@@ -7,6 +7,7 @@ export interface Environment {
   port: number;
   supabaseUrl: string;
   supabasePublishableKey: string;
+  supabaseSecretKey?: string;
   database: PoolConfig;
 }
 
@@ -102,6 +103,9 @@ export function readEnvironment(env: NodeJS.ProcessEnv): Environment {
     port,
     supabaseUrl: supabaseUrl.toString().replace(/\/$/, ''),
     supabasePublishableKey: required(env, 'SUPABASE_PUBLISHABLE_KEY'),
+    ...(env.SUPABASE_SECRET_KEY?.trim()
+      ? { supabaseSecretKey: env.SUPABASE_SECRET_KEY.trim() }
+      : {}),
     database: {
       connectionString,
       ssl:

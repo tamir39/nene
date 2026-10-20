@@ -2,7 +2,7 @@
 
 An Android mobile banking final project for Ton Duc Thang University's Mobile Apps Development course.
 
-Status: local project foundation created on 2026-10-15 using the stack confirmed on 2026-10-13. The app supports sign-in and a server-authorized profile; the complete assignment features remain in progress.
+Status: first customer/account flow added on 2026-10-20 using the stack confirmed on 2026-10-13. The app supports sign-in, local officer customer creation, a zero-balance checking account, own contact edits and requested officer edits; complete assignment coverage remains in progress.
 
 ## Confirmed technology stack
 
@@ -22,7 +22,8 @@ The submission portal shows **1 December 2026 at 12:00 AM**, the start of Tuesda
 
 - [ROADMAP.md](ROADMAP.md): the ordered checklist of remaining work and the immediate next feature flow.
 - [docs/SETUP.md](docs/SETUP.md): prerequisites, local setup, run commands, and verification.
-- [docs/API.md](docs/API.md): the implemented health and authenticated-profile contract.
+- [docs/API.md](docs/API.md): the implemented profile, customer and initial-account contract.
+- [docs/CUSTOMER_FLOW.md](docs/CUSTOMER_FLOW.md): first-demo decisions, provisioning/retry flow and implemented data relationships.
 - [SCOPE.md](SCOPE.md): detailed PDF/rubric audit, required outcomes, examples, open interpretations, and boundaries against scope expansion.
 - [REQUIREMENTS.md](REQUIREMENTS.md): all assignment requirements, the 10-point rubric, source issues, and open decisions.
 - [DESIGN.md](DESIGN.md): confirmed stack, proposed architecture, roles/screens, transaction flow, conceptual data model, and implementation order.
@@ -42,12 +43,12 @@ The brief requires Android, permits on-device SQLite, and prefers a cloud databa
 
 ## Current foundation
 
-- `app/`: Flutter sign-in, session state, authenticated profile, and sign-out. Customer/officer roles come from the backend. Android is the delivery target; iOS platform files preserve a future starting point.
-- `backend/`: one NestJS API, server-verified Supabase sessions, and read-only profile access through the PostgreSQL `pg` driver.
-- `infrastructure/`: local Supabase configuration, a restricted database role, profile migration, private identity bucket, and database access tests.
-- `scripts/`: local configuration and an API/Auth/database integration check using a temporary synthetic identity that is removed afterward.
+- `app/`: Flutter sign-in and distinct customer/officer workspaces. Customer profiles/accounts and permitted edits come through the API. Android is the delivery target; iOS platform files preserve a future starting point.
+- `backend/`: one NestJS API with server-verified sessions, scoped customer/account reads and writes, local Auth provisioning and safe creation retries.
+- `infrastructure/`: local Supabase configuration, restricted database privileges, profile/account/request/audit migrations, private identity bucket and access tests.
+- `scripts/`: local configuration, an explicit local migration fallback, and API/Auth/database checks that remove their synthetic fixtures afterward.
 
-This is partial support for BR-01/BR-03 and TR-03, not completion of any business feature group. There are no financial operations, eKYC checks, transaction 2FA, officer provisioning, profile editing, external integrations, maps, or chatbot yet. No cloud resources or store release have been provisioned. The identity bucket has no app upload flow yet.
+This demonstrates a local BR-01/BR-02 customer flow and partial BR-03/BR-05/TR-03 support. There are no money movements, saving/mortgage flows, eKYC checks, transaction 2FA, external integrations, maps or chatbot yet. Customer creation uses local-only synthetic activation; hosted onboarding remains open. No cloud resources or store release have been provisioned. The identity bucket has no app upload flow yet.
 
 Start Docker, then use the commands in [the setup guide](docs/SETUP.md). Local configuration and SDK files are ignored by Git. Never put database or Supabase administrative credentials in the app.
 

@@ -1,6 +1,6 @@
 # Design and technology decisions
 
-Status: updated 2026-10-19. Flutter + NestJS + Supabase is confirmed and the local foundation is implemented. The base includes sign-in, a server-authorized profile, a profile migration, and private storage configuration. Financial flows and the larger schema below remain proposals; no cloud services are deployed. The assignment requirements are recorded in [REQUIREMENTS.md](REQUIREMENTS.md).
+Status: updated 2026-10-20. Flutter + NestJS + Supabase is confirmed. The local first customer flow adds officer provisioning, an initial checking account, customer contact edits and requested officer edits to the sign-in foundation. Financial flows and most of the larger schema below remain proposals; no cloud services are deployed. The assignment requirements are recorded in [REQUIREMENTS.md](REQUIREMENTS.md).
 
 Scope boundary: [SCOPE.md](SCOPE.md) records the detailed PDF/rubric audit. The mechanisms and schemas below are candidates for implementation, not extra assignment features. Use the smallest design that demonstrates the required outcomes reliably.
 
@@ -43,8 +43,8 @@ Android is the submission platform. An iOS release is not added to the deadline 
 
 | Area | Proposed treatment / unresolved choice |
 | --- | --- |
-| Flutter organization | Built-in ChangeNotifier manages the small session flow; repositories isolate Supabase Auth and HTTP access from widgets. No state-management or routing package is needed for the base. |
-| Database access | NestJS uses `pg` and parameterized SQL. A restricted role can read `bank.user_profiles`; future writes need explicit privileges and transactions. SQL migrations own the schema. No ORM is introduced. |
+| Flutter organization | Built-in ChangeNotifier manages sessions and the first customer workflow; repositories isolate Supabase Auth and HTTP access from widgets. Protected pages remain inside the authenticated workspace. No state-management or routing package is needed for this flow. |
+| Database access | NestJS uses `pg` and parameterized SQL. A restricted role has explicit column grants for customer/account creation and contact/name edits, with SQL transactions. It cannot write roles, profile status or balances. SQL migrations own the schema. No ORM is introduced. |
 | Backend hosting and development | Local Supabase runs through its pinned CLI and Docker. NestJS runs on Node.js 24. Cloud hosting, Supabase project provisioning, and paid plans remain undecided. |
 | Identity and second factor | Choose the eKYC/high-value verification method and transaction 2FA mechanism. OTP is a proposal, not a confirmed channel or provider. |
 | Payments and other external services | Select one payment integration after checking access and course expectations; VNPay and Stripe are examples. Separately resolve interbank, biller, and purchase/booking fulfillment. |
@@ -55,13 +55,15 @@ Dependencies are pinned in lockfiles after compatibility checks; see [docs/SETUP
 
 ### Implemented base and its limits
 
-- The app uses Supabase email/password login with memory-only sessions. It calls `GET /api/v1/me` with the access token and displays the returned profile. No public signup or role selection is exposed.
+- The app uses Supabase email/password login with memory-only sessions. It calls `GET /api/v1/me` with the access token and opens the customer or officer workspace using the returned server role. No public signup or role selection is exposed.
 - NestJS validates the token through Supabase Auth, then queries the active profile by the verified subject. Roles come from PostgreSQL, never client-editable auth metadata. All API routes require authentication except the explicit liveness endpoint.
-- `bank.user_profiles` stores the Auth ID, display name, customer/officer role, active/disabled status, and timestamps. RLS and grants deny client-facing database roles; the backend role has SELECT only. The `bank` schema is excluded from the data API.
+- `bank.user_profiles` stores the Auth ID, display name, server role/status, contact fields and timestamps. RLS and grants deny client-facing database roles. The backend role has narrow customer creation/edit privileges; role/status remain protected. The `bank` schema is excluded from the data API.
 - The private `identity-evidence` bucket allows JPEG/PNG up to 10 MiB. Client roles cannot access its files. Upload, ownership, identity review, and eKYC verification are future work.
-- Local setup generates ignored configuration and a random restricted database password. Automated integration checks create and remove one synthetic identity. Persistent demo provisioning and officer account creation remain separate work.
+- Local setup generates ignored configuration and a random restricted database password. Automated integration checks create and remove synthetic fixtures. Initial officer identities require trusted local administration; the customer endpoint cannot create officers.
+- [The first customer flow](docs/CUSTOMER_FLOW.md) reserves customer/account UUIDs before calling local Auth, reconciles uncertain creation by UUID, and commits the profile/account together. Customers edit their own phone/address; officers edit customer name/contact fields with a request reason. Edits append the actor, customer, submitted field names and time, plus the officer's reason. VND/checking/zero are first-demo choices, not PDF requirements.
+- Ordinary background/resume and same-user token refresh retain pending creation details while revalidating the profile. Sign-out, confirmed expiry/access denial, or a changed identity/role clears the protected workspace. A process restart loses the memory-only draft and request key; recovery limits are documented in [docs/CUSTOMER_FLOW.md](docs/CUSTOMER_FLOW.md).
 
-This foundation supports BR-01/BR-03 and TR-03. It does not complete them. See [docs/API.md](docs/API.md) for current endpoints and [docs/SETUP.md](docs/SETUP.md) for verification evidence.
+This provides a local BR-01/BR-02 flow and partial BR-03/BR-05/TR-03 support. It does not complete identity verification or account-management scope. See [docs/API.md](docs/API.md) for current endpoints and [docs/SETUP.md](docs/SETUP.md) for verification evidence.
 
 ### Google Play status
 
@@ -71,7 +73,7 @@ Account type and creation date remain unknown. For personal accounts created aft
 
 ## Component boundaries
 
-The following is the target component arrangement. Flutter/Auth, authenticated NestJS profile reads, and PostgreSQL are implemented locally. Financial operations, provisioning, file transfer, and external-provider arrows remain future work. The mobile app has no direct table access.
+The following is the target component arrangement. Flutter/Auth, customer/profile/account access, local officer provisioning and PostgreSQL are implemented. Financial operations, hosted activation, file transfer and external-provider arrows remain future work. The mobile app has no direct table access.
 
 ```mermaid
 flowchart LR
@@ -94,7 +96,7 @@ NestJS verifies the Supabase access token and loads the active role from server-
 
 Keep banking tables out of client-accessible Supabase data APIs using schema exposure and database grants/policies appropriate to the final configuration. Do not rely on the Flutter UI to enforce this boundary. Use minimal database privileges for NestJS; privileged SDK/database connections still require explicit application authorization, including where they bypass row-level security.
 
-Supabase Auth handles login/session management; it does not automatically satisfy eKYC, officer-assisted verification, or transaction-bound 2FA. Future officer customer provisioning must use backend-only administrative access with the authenticated officer's permissions checked first. Keep database credentials and Supabase secret/service credentials out of Flutter and source control.
+Supabase Auth handles login/session management; it does not automatically satisfy eKYC, officer-assisted verification, or transaction-bound 2FA. Implemented local customer provisioning uses backend-only administrative access after the authenticated officer's permissions are checked. Hosted activation remains to design. Keep database credentials and Supabase secret/service credentials out of Flutter and source control.
 
 The private identity bucket is prepared; file upload and verification flows are not implemented. The initial proposal routes file operations through NestJS after ownership/role checks. A narrowly scoped, short-lived direct upload/download may be added if needed, with authorization still controlled by the backend; it must not allow the client to set its verification result. Persist evidence references and verification metadata in PostgreSQL when implementing this flow. This is the selected storage approach supporting BR-03, not an extra document-management feature.
 
@@ -109,13 +111,13 @@ Use one app with role-based navigation unless course guidance requires separate 
 
 Proposed customer navigation: Home, Accounts, Services, Assistant, Profile. Branch navigation is available from Home/Services. Show account-specific saving or mortgage information within account details. Keep the officer workspace distinct and make customer changes auditable.
 
-[docs/SCREEN_MAP.md](docs/SCREEN_MAP.md) expands this proposal into requirement-linked destinations, customer/officer journeys and state handling. Proposed officer navigation is Workspace, Customers, Rates, Profile. [docs/UI_DIRECTION.md](docs/UI_DIRECTION.md) contains the sign-in, customer home and officer workspace study requested on 2026-10-19. These are local design artifacts, not app implementation or a separate web product.
+[docs/SCREEN_MAP.md](docs/SCREEN_MAP.md) expands this proposal into requirement-linked destinations, customer/officer journeys and state handling. Proposed officer navigation is Workspace, Customers, Rates, Profile. [docs/UI_DIRECTION.md](docs/UI_DIRECTION.md) contains the sign-in, customer home and officer workspace study requested on 2026-10-19. Its HTML remains an isolated design artifact. Flutter separately implements the first customer/account workflow described in [docs/CUSTOMER_FLOW.md](docs/CUSTOMER_FLOW.md); the wider financial navigation remains planned.
 
 Proposed financial flow: input -> review -> chosen 2FA -> backend result -> receipt/history. OTP is a candidate mechanism. Show amount, currency, recipient/provider, fees if applicable, and total before authorization. Handle loading, empty, error, permission-denied, cancellation, and uncertain network outcomes explicitly. On an uncertain outcome, look up the existing operation instead of submitting a new debit.
 
 The user selected the Open pocket logo direction on 2026-10-19 and approved the lighter palette for both logo and UI. Flutter now uses soft teal (`#4C929E`), light apricot (`#F6C9A5`), ivory (`#F8F7F2`) and darker action teal (`#286E78`) for readable controls. Its wallet silhouette represents everyday money in one place; the open fold and apricot detail express visibility and focus. [docs/BRANDING.md](docs/BRANDING.md) records the reference, approved palette, Flutter painter and Android icon integration. A wallet-shaped logo does not narrow the banking assignment to an e-wallet product or add card-issuing features.
 
-The approved lighter direction is applied to the existing Flutter sign-in, loading/error and server-provided profile screens, using platform typography. Full customer home and officer workspace business layouts remain design studies. Color measurements and verification limits are recorded in [docs/UI_DIRECTION.md](docs/UI_DIRECTION.md); Flutter checks and emulator evidence are in [docs/SETUP.md](docs/SETUP.md). The priorities are readable amounts, clear account types, consistent controls, accessible labels, and predictable confirmation flows. Final custom typography, iOS icons and a full accessibility/release asset review remain open.
+The approved lighter direction is applied to Flutter sign-in, loading/error states, own profile/checking-account display, customer contact edits and officer creation/search/detail/requested-edit screens, using platform typography. The study's saving/mortgage summaries, transaction lists, financial controls, identification assistance and rates remain planned. Color measurements and verification limits are recorded in [docs/UI_DIRECTION.md](docs/UI_DIRECTION.md); Flutter checks and emulator evidence are in [docs/SETUP.md](docs/SETUP.md). The priorities are readable amounts, clear account types, consistent controls, accessible labels, and predictable confirmation flows. Final custom typography, iOS icons and a full accessibility/release asset review remain open.
 
 ## Transaction and identity design
 
@@ -131,7 +133,7 @@ Pre-authorization intent/challenge metadata is separate from financial transacti
 
 For an external provider, authorize first, then submit using a stable operation identifier. A signed, deduplicated provider result determines settlement. Provider cancellation/failure must not become a completed payment. Define reservation, settlement, release, timeout, and reconciliation behavior before implementing external debits; the local database and provider are not one atomic system.
 
-Use integer minor units and an explicit currency; VND-only is a proposal. Choose a transaction-record design that keeps balances and history consistent. A balanced-entry ledger, immutable journal, compensating reversals, and internal clearing accounts are possible mechanisms if needed by the chosen flows; they are not independent grading requirements or a reason to build a general accounting product. Define permitted deposit/withdrawal behavior for saving and mortgage accounts before implementation.
+Use integer minor units and an explicit currency; the first demo creates VND accounts. Choose a transaction-record design that keeps balances and history consistent. A balanced-entry ledger, immutable journal, compensating reversals, and internal clearing accounts are possible mechanisms if needed by the chosen flows; they are not independent grading requirements or a reason to build a general accounting product. Define permitted deposit/withdrawal behavior for saving and mortgage accounts before implementation.
 
 ## Initial data model
 
@@ -139,7 +141,7 @@ The following is a conceptual PostgreSQL model, not a finished schema. Use expli
 
 | Entity | Main fields and relationships |
 | --- | --- |
-| UserProfile | Supabase Auth user ID, application role, name, contact fields, status; linked customer accounts. Editable fields and officer permissions need explicit rules. |
+| UserProfile | Supabase Auth user ID, application role, name, contact fields, status; linked customer accounts. Implemented permissions allow own phone/address edits and officer-requested name/contact edits; email, role and status remain protected. |
 | IdentityVerification | User ID, private evidence references, enrollment/review status, reviewing officer, timestamps, method/results for high-value verification. |
 | BankingAccount | Owner ID, account number, type, currency, balance, status. Model internal settlement accounts only if the chosen external flow needs them. |
 | SavingTerms | Account ID, rate/policy reference, principal, effective dates, term and profit calculation convention. |
@@ -171,7 +173,7 @@ erDiagram
 
 Source/destination account references can be absent for an external side of an operation; validate which references are required for each transaction type. The diagram is not a completed schema.
 
-Before implementing each remaining flow, define exact PostgreSQL fields/types, required/optional values, foreign keys, uniqueness, ownership rules, query/index needs, state transitions, and retention rules. The initial migration defines only the profile foundation. Complete the class and use-case diagrams as responsibilities are agreed. This initial component/ER sketch does not fulfill the entire report requirement.
+Before implementing each remaining flow, define exact PostgreSQL fields/types, required/optional values, foreign keys, uniqueness, ownership rules, query/index needs, state transitions, and retention rules. The migrations now define profiles, initial accounts, creation requests and edit audits; their implemented relationships are recorded in [docs/CUSTOMER_FLOW.md](docs/CUSTOMER_FLOW.md). Complete the remaining class and use-case diagrams as responsibilities are agreed. This larger conceptual sketch does not fulfill the entire report requirement.
 
 Savings profit and mortgage repayment calculations need explicit policies: rate unit, accrual convention, rounding, rate-change behavior, repayment formula, and due-date handling. Do not invent these as if the assignment specified them.
 
@@ -187,7 +189,7 @@ Savings profit and mortgage repayment calculations need explicit policies: rate 
 
 [ROADMAP.md](ROADMAP.md) records the remaining work, dependencies, and immediate next feature flow. The internal submission target remains 29 November, with 30 November as contingency before the portal deadline at the start of 1 December. Planning uses Asia/Bangkok provisionally because the screenshot does not specify its timezone.
 
-Start with the customer/officer screen map and banking rules, then complete officer customer/account creation and the customer's own profile/account view. Add eKYC and transaction-bound 2FA before financial posting; build accounts, secure transactions, external services, branch navigation, and activity-linked chat on that foundation. Report evidence and Google Play preparation proceed alongside feature development.
+The first local customer/account flow is the current implementation slice. Next define and implement eKYC and transaction-bound 2FA before financial posting; build the remaining account types, secure transactions, external services, branch navigation and activity-linked chat on that foundation. Hosted customer activation also remains open. Report evidence and Google Play preparation proceed alongside feature development.
 
 ## Repository layout
 

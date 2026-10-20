@@ -88,6 +88,8 @@ void describe('HTTP authentication foundation (dependency fakes; no Supabase con
       display_name: 'Synthetic Customer',
       role: 'customer',
       status: 'active',
+      phone: null,
+      address: null,
     };
     verifiedTokens = [];
     queries = [];
@@ -171,7 +173,7 @@ void describe('HTTP authentication foundation (dependency fakes; no Supabase con
     assert.equal(result.body.user_metadata, undefined);
     assert.deepEqual(queries, [
       {
-        text: 'SELECT id, display_name, role, status FROM bank.user_profiles WHERE id = $1',
+        text: 'SELECT id, display_name, role, status, phone, address FROM bank.user_profiles WHERE id = $1',
         values: [id],
       },
     ]);

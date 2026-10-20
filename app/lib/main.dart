@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'config/app_config.dart';
 import 'data/auth_repository.dart';
 import 'data/bounded_auth_client.dart';
+import 'data/banking_api.dart';
 import 'data/profile_api.dart';
 import 'nene_app.dart';
 import 'session_controller.dart';
@@ -32,6 +33,7 @@ Future<void> main() async {
     runApp(
       NeneApp(
         controller: controller,
+        banking: BankingApi(baseUrl: config.apiBaseUrl, client: httpClient),
         onDispose: () {
           httpClient.close();
           authClient.close();

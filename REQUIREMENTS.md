@@ -1,6 +1,6 @@
 # Requirements and assessment
 
-Status: source audit retained; implementation status updated 2026-10-15. All three PDF pages and the rubric were reviewed. Required outcomes, confirmed choices, example mechanisms, and proposed acceptance evidence are distinguished below. The local base supports login and a server-authorized profile; no complete business feature group is finished.
+Status: source audit retained; implementation status updated 2026-10-20. All three PDF pages and the rubric were reviewed. Required outcomes, confirmed choices, example mechanisms, and proposed acceptance evidence are distinguished below. The first local officer/customer flow is implemented; full assignment acceptance remains open.
 
 ## Sources
 
@@ -17,9 +17,9 @@ On 2026-10-13, the user supplied a submission-portal screenshot (`codex-clipboar
 
 On 2026-10-13, the user confirmed free technology-stack choice and selected **Flutter/Dart + a single NestJS/TypeScript API + Supabase-hosted PostgreSQL, Supabase Auth, and private Supabase Storage**. These are implementation decisions, not technologies mandated by the assignment. The screenshot/user updates resolve the previously unknown deadline, framework restriction, and core stack selection; the original PDF/workbook remain unchanged. Actual team size and member experience remain unknown.
 
-Banking reads and writes pass through the NestJS API, with persistence in PostgreSQL. The base uses Supabase Auth, a read-only profile API using `pg`, Flutter ChangeNotifier session state, and private Supabase Storage configuration. The detailed access and future file-transfer design is in [DESIGN.md](DESIGN.md). API hosting, eKYC and transaction-2FA mechanisms, and external service providers remain open. Selecting managed authentication does not itself satisfy eKYC or transaction-bound 2FA.
+Banking reads and writes pass through the NestJS API, with persistence in PostgreSQL. The app uses Supabase Auth, scoped API access using `pg`, Flutter ChangeNotifier state, and private Supabase Storage configuration. The detailed access and future file-transfer design is in [DESIGN.md](DESIGN.md). API hosting, eKYC and transaction-2FA mechanisms, and external service providers remain open. Selecting managed authentication does not itself satisfy eKYC or transaction-bound 2FA.
 
-On 2026-10-15, the user authorized the local base project. Its sign-in/profile foundation and access-control tests provide partial support for BR-01, BR-03, and TR-03. Officer provisioning, profile editing, all banking account/transaction behavior, eKYC, transaction 2FA, utilities, maps, chatbot, and submission deliverables remain incomplete. No cloud or store deployment has occurred. See [docs/SETUP.md](docs/SETUP.md) for exact checks and limitations; the acceptance-evidence column below describes targets, not completed results.
+On 2026-10-15, the user authorized the local base project. On 2026-10-20 the first officer/customer flow adds local customer creation, an initial zero-balance VND checking account, own phone/address edits and requested officer name/contact edits. These are provisional demo rules, not PDF prescriptions; see [docs/CUSTOMER_FLOW.md](docs/CUSTOMER_FLOW.md). Hosted activation, saving/mortgage accounts, money movements, eKYC, transaction 2FA, utilities, maps, chatbot and submission deliverables remain incomplete. No cloud or store deployment has occurred. See [docs/SETUP.md](docs/SETUP.md) for exact checks and limitations; the acceptance-evidence column below describes targets, not blanket completion claims.
 
 The user additionally wants flexibility for Android and iOS and easier future technology upgrades. These are user design goals. The brief requires Android; an iOS release by the assignment deadline has not been requested or established.
 

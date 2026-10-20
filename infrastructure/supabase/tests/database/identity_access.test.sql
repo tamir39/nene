@@ -18,8 +18,8 @@ select ok(not has_table_privilege('authenticated', 'bank.user_profiles', 'SELECT
 select ok(not has_table_privilege('authenticated', 'bank.user_profiles', 'UPDATE'), 'Authenticated clients cannot grant themselves a role');
 select ok(has_schema_privilege('nene_api', 'bank', 'USAGE'), 'Backend role can use the bank schema');
 select ok(has_table_privilege('nene_api', 'bank.user_profiles', 'SELECT'), 'Backend role has profile SELECT grant');
-select ok(not has_table_privilege('nene_api', 'bank.user_profiles', 'INSERT'), 'Backend foundation has no profile INSERT grant');
-select ok(not has_table_privilege('nene_api', 'bank.user_profiles', 'UPDATE'), 'Backend foundation has no profile UPDATE grant');
+select ok(not has_table_privilege('nene_api', 'bank.user_profiles', 'INSERT'), 'Backend has no unrestricted whole-table profile INSERT grant');
+select ok(not has_table_privilege('nene_api', 'bank.user_profiles', 'UPDATE'), 'Backend has no unrestricted whole-table profile UPDATE grant');
 select ok(not has_table_privilege('nene_api', 'bank.user_profiles', 'DELETE'), 'Backend foundation has no profile DELETE grant');
 select ok(
   (select not rolsuper and not rolcreaterole and not rolcreatedb and not rolbypassrls from pg_roles where rolname = 'nene_api'),
@@ -55,7 +55,7 @@ select is(
 select throws_ok(
   $$update bank.user_profiles set role = 'officer' where id = 'd5000000-0000-4000-8000-000000000001'$$,
   '42501', 'permission denied for table user_profiles',
-  'Backend foundation cannot modify a profile role'
+  'Backend cannot modify a profile role'
 );
 select throws_ok(
   $$delete from bank.user_profiles where id = 'd5000000-0000-4000-8000-000000000001'$$,

@@ -6,7 +6,7 @@ The internal submission target remains **29 November 2026**, ahead of the portal
 
 ## Starting point
 
-The local base already supports sign-in, server-controlled profiles, and restricted database access. The private identity bucket is configured, but has no upload or verification flow. The approved lighter Open pocket design is applied to the Flutter foundation and Android icon; the debug build is installed and launched on the phone-sized emulator. Full device flow testing remains open. No complete business feature group is finished. See [docs/SETUP.md](docs/SETUP.md) for the verification record.
+The app supports sign-in, distinct customer/officer workspaces, local officer customer creation, an initial zero-balance VND checking account, customer contact edits and requested officer edits. The private identity bucket is configured but has no upload or verification flow. The lighter Open pocket design is applied. Full assignment and hosted onboarding acceptance remain open. See [docs/CUSTOMER_FLOW.md](docs/CUSTOMER_FLOW.md) for the first-demo rules and [docs/SETUP.md](docs/SETUP.md) for verification.
 
 ## Build order
 
@@ -16,7 +16,7 @@ Supports BR-01–BR-14 and TR-05.
 
 - [ ] Review the proposed [customer/officer screen map](docs/SCREEN_MAP.md) and [three-screen UI direction](docs/UI_DIRECTION.md), then detail the remaining screens. The first study includes sign-in, customer home and officer workspace with loading/error/empty variants; financial confirmation, identity, map and chat layouts remain to draw. This item stays open until the broader design work is complete.
 - [ ] Finish release assets from the selected [Open pocket logo direction](docs/BRANDING.md). The approved lighter palette, scalable logo, foundation screen styling and Android launcher/startup resources are applied. Final wordmark, small-size/single-color and launcher-mask review remain open; iOS assets are future work. This supports UI/report presentation (TR-05/TR-06), not an additional business feature.
-- [ ] Define editable profile fields, account ownership, allowed deposits/withdrawals, currency, savings calculations/rate changes, mortgage repayment convention, and the high-value threshold.
+- [ ] Finish banking rules: first-demo profile permissions, ownership and VND/zero-balance checking defaults are documented. Allowed deposits/withdrawals, savings calculations/rate changes, mortgage repayment convention and the high-value threshold remain open.
 - [ ] Choose how eKYC, high-value identity checks, and transaction 2FA will work. Preserve officer-assisted identification; login alone does not cover these requirements.
 - [ ] Resolve the lecturer's expectations for sandbox/simulated services and the purchase/booking categories before counting those flows as complete. Prove access to candidate providers early.
 
@@ -24,8 +24,9 @@ Supports BR-01–BR-14 and TR-05.
 
 BR-01, BR-02, BR-03, BR-04; TR-03.
 
-- [ ] Build distinct customer and officer navigation in the same app.
-- [ ] Let an officer create a customer identity and initial banking account, and make requested customer-data changes. Let customers view and edit permitted fields on their own profiles. Keep public signup and client-selected roles disabled.
+- [x] Build distinct customer and officer navigation for the first flow in the same app. Later financial/map/chat destinations remain to implement.
+- [x] Let an officer create a local synthetic customer identity and initial banking account, and make requested name/contact changes. Let customers view their own account/profile and edit phone/address. Keep public signup and client-selected roles disabled. See the local-only activation and retry limits in [CUSTOMER_FLOW.md](docs/CUSTOMER_FLOW.md).
+- [ ] Design hosted customer activation/password recovery and sign-in email changes before enabling hosted provisioning. Secure session persistence is separate work.
 - [ ] Implement private identity capture/upload, the chosen verification method, officer assistance, and high-value identity checks. A stored photo alone is not a completed verification flow.
 - [ ] Implement transaction-bound 2FA before enabling money movements. Recheck the exact operation and reject missing, invalid, expired, reused, or mismatched verification as applicable to the chosen method.
 
@@ -86,6 +87,6 @@ Maps can progress once navigation and provider access are settled. Chatbot links
 
 ## What we should do next
 
-**Define the customer/officer screen map and the small set of banking rules, then build the first complete officer-to-customer flow:** an officer creates a synthetic customer and initial account, the customer signs in, and sees their own editable profile and account. This extends the existing base and gives us the foundation for the remaining features.
+**Select and document the identity-verification and transaction-2FA mechanisms, then implement enrollment and officer assistance.** Preserve high-value verification and 2FA for every financial operation. The first local officer-to-customer flow now provides the profile/account foundation; hosted activation, saving/mortgage account views and their calculation policies remain open. Do not enable deposits/transfers merely because checking balances can now be displayed.
 
 Mark an item complete only when its behavior works, relevant checks pass, and evidence is recorded. Keep additional products, an iOS release, and unrelated banking features outside this assignment's scope. The original [PDF](FinalProject_2026_2027.pdf) and [marking workbook](Marking.xlsx) remain authoritative.

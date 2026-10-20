@@ -5,6 +5,7 @@ import { spawnSync } from 'node:child_process';
 const containerName = 'supabase_db_nene-local';
 const testFiles = [
   new URL('../supabase/tests/database/identity_access.test.sql', import.meta.url),
+  new URL('../supabase/tests/database/customer_accounts.test.sql', import.meta.url),
 ];
 
 try {

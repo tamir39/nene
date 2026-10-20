@@ -52,6 +52,8 @@ export class SessionGuard implements CanActivate {
       email: identity.email,
       displayName: profile.display_name,
       role: profile.role,
+      phone: profile.phone,
+      address: profile.address,
     };
     return true;
   }

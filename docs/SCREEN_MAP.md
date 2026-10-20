@@ -1,6 +1,6 @@
 # Nene screen map
 
-Status: screen map proposed for discussion, 2026-10-19. The user approved the lighter Open pocket logo and UI direction, now applied to the Flutter sign-in/profile foundation. The broader screen map and business layouts below remain proposals; their approval and implementation must be tracked separately.
+Status: screen inventory proposed on 2026-10-19; implementation updated 2026-10-20. The lighter Open pocket direction is approved. The first Flutter flow implements sign-in, own initial checking-account/profile/contact views, officer customer creation/search/detail and requested edits. The broader financial/identity/map/chat layouts below remain proposals; their implementation must be tracked separately.
 
 Source: [assignment PDF](../FinalProject_2026_2027.pdf), visually reviewed in full: p. 1 Business 1; p. 2 Business 2–7; p. 3 Technical 1–5. Requirement IDs follow [REQUIREMENTS.md](../REQUIREMENTS.md); interpretations follow [SCOPE.md](../SCOPE.md). Screen boundaries, labels, navigation, and reusable steps below are design proposals, not extra assignment requirements. This map supports TR-05/TR-06; screenshots alone do not complete a BR requirement.
 
@@ -68,14 +68,14 @@ IDs identify destinations or reusable steps, not an obligation to implement a se
 | C12 Purchase / booking | Preserve flight tickets, movie tickets, hotel rooms and e-commerce products as unresolved category coverage. Chosen coverage needs selection/quote, required booking details, review, payment and fulfillment result. Reuse provider flow; do not build four marketplaces. | BR-12, BR-10, BR-04; p. 2 §2, §4–5 |
 | C13 Branch map / walking route | Location permission, user marker, all nearby offices in declared coverage, nearest-office recommendation, shortest walking route and distance. Manual area browsing may help when location is denied but does not replace the required location demonstration. | BR-13; p. 2 §6 |
 | C14 Assistant | Chat messages and linked activities: bills, phone services, month-filtered history. Validate destinations and ownership; financial links open ordinary review/verification. | BR-14; p. 2 §7 |
-| C15 Customer profile / edit | Own information, edit permitted fields, identity status link and sign out. Immutable identity/account/rate/role fields are not customer-editable. Exact editable fields remain to define. | BR-01–BR-03; p. 1 §1, p. 2 §2 |
+| C15 Customer profile / edit | Own information, phone/address edits and sign out are implemented in the first flow. Identity enrollment/status remains planned. Name/email/account/rate/role fields are not customer-editable. | BR-01–BR-03; p. 1 §1, p. 2 §2 |
 | C16 Identity enrollment / status | Method-specific instructions, consent and evidence collection as needed, submission/status/retry, officer-assisted path. Camera/upload alone is not verification. | BR-03; p. 2 §2 |
 | S02 Review operation | Account, recipient/biller, amount/currency, any applicable fee and total; edit/cancel or continue. Editing invalidates prior authorization. | BR-04, BR-08–BR-12; p. 2 §2–5 |
 | S03 High-value identity check | Show the operation being checked; perform chosen identity method; failure/retry/cancel. Threshold/method unresolved. Does not replace S04. | BR-03; p. 2 §2 |
 | S04 Transaction 2FA | Verify the exact operation before posting. Method-neutral design until selected. If OTP: delivery guidance, expiry, resend/retry limits and invalid/reused/mismatched handling. | BR-04; p. 2 §2 |
 | S05 Processing / result / receipt | Processing, completed, rejected, cancelled or unknown status; stable reference, amount/currency, date and next action. For integrations, distinguish payment status from fulfillment; use provider checkout/return when required. No success until authoritative confirmation. | BR-04, BR-08–BR-12; p. 2 §2–5 |
 | O01 Officer workspace | Create customer primary action; customer search; continue assisted identification; savings-rate entry. No unrelated financial analytics or approval inbox. | BR-01–BR-03, BR-06; p. 1 §1, p. 2 §2–3 |
-| O02 Customer search | Authorized search by permitted name/customer reference, results or empty/retry state; select record. This is support for officer edits/assistance, not unrestricted browsing. | BR-01–BR-03; p. 1 §1, p. 2 §2 |
+| O02 Customer search | Authorized name/email search in Flutter, also phone through the API; results or empty/error state, then select a record. Queries are limited to 100 characters and 20 matches. Supports requested edits now and identification assistance later. | BR-01–BR-03; p. 1 §1, p. 2 §2 |
 | O03 Customer detail | Identity/profile, banking accounts, enrollment status; requested edit, account provisioning and identification assistance entry points, each permission-checked. | BR-02, BR-03, BR-05; p. 1 §1, p. 2 §2–3 |
 | O04 Create customer / account | Capture permitted customer fields, review, create authentication identity plus profile and initial banking account; show safe activation/access instructions. Do not expose administrative secrets or silently mark eKYC complete. Account creation is distinct from depositing funds. | BR-02, BR-03, BR-05; p. 1 §1, p. 2 §2–3 |
 | O05 Requested customer change | Customer context, permitted field edits, review changes and save/result; record request context/audit metadata without a new ticket product. | BR-02; p. 1 §1 |
@@ -85,7 +85,7 @@ IDs identify destinations or reusable steps, not an obligation to implement a se
 
 ## Critical journeys
 
-1. **First implementation slice:** officer signs in → O04 creates synthetic customer/profile/initial account → customer signs in → own profile and account → permitted profile edit persists. Protect permissions on the backend; creation retries must not duplicate identities/accounts. Keep enrollment status truthful and financial actions unavailable until the security flow exists.
+1. **Implemented local first flow:** officer signs in → O04 creates a synthetic customer/profile/zero-balance VND checking account → customer signs in → own profile/account → phone/address edit persists. Officer search/detail also supports requested name/contact changes with a reason. Backend permissions and stable creation keys protect the flow. Identity remains unverified and financial actions remain unavailable. Hosted activation is separate work.
 2. **Money movement:** C07/C08 → S02 → S03 when policy requires → S04 for every financial transaction → backend validation/posting → S05 → C06. Failed, expired or cancelled verification cannot change balances. No low-value 2FA exemption.
 3. **Utilities:** C10/C11/C12 → quote/details → S02–S05 → payment status and separate fulfillment result. Provider integration and interbank transfer are separate capabilities; neither is proved by a static success screen.
 4. **Assistance:** C14 request for a particular month's history → C06 with that month and permitted account context. Bill/top-up requests open their normal flows. The chatbot never authorizes a payment.
@@ -103,14 +103,16 @@ IDs identify destinations or reusable steps, not an obligation to implement a se
 | Officer | No search query vs no results vs no pending enrollments; distinguish each. | Unauthorized access, duplicate customer, create/edit failure, conflicting rate change; review before committing. Don't turn failed verification into “Approved.” |
 | Map / assistant | Location or response loading; no nearby office, no route or no answer. | Permission guidance, retry, unsupported area/query. Invalid activity links fail safely; they must not open unauthorized data. |
 
-State coverage is specified here; only the three representative screens and their preview variants are drawn in [the UI study](UI_DIRECTION.md). Remaining financial, map, identity and chat screens still need detailed layouts and implementation checks.
+The table describes the target state contract across the full app. [The HTML UI study](UI_DIRECTION.md) draws three representative screens with manual fixtures. Flutter separately implements first-flow loading, empty, error, creation-review and save-result states; it does not implement the study's full financial navigation.
+
+Creation correction is available after validation `400` or confirmed duplicate-email `409` with `CUSTOMER_EMAIL_EXISTS`. Uncertain outcomes retain the same key/body for retry. Ordinary background/resume and same-user token refresh preserve that in-memory state; confirmed session/permission changes or process termination clear it. See [CUSTOMER_FLOW.md](CUSTOMER_FLOW.md) for recovery limits. Remaining financial, map, identity and chat screens still need detailed layouts and implementation checks.
 
 ## Decisions before dependent implementation
 
-- Confirm permitted profile fields, account operations/funding methods, currency, calculation/rounding rules, rate-effective dates and mortgage frequency.
+- First-flow profile permissions and VND/zero-balance checking defaults are recorded in [CUSTOMER_FLOW.md](CUSTOMER_FLOW.md). Define remaining account operations/funding methods, calculation/rounding rules, rate-effective dates and mortgage frequency before their implementation.
 - Select eKYC/high-value verification and threshold, officer actor interpretation, and transaction-bound 2FA method. The previews choose none of these.
 - Clarify BR-12 category breadth and lecturer acceptance of external service sandboxes/simulations. Keep all named alternatives in planning until settled.
 - Define branch dataset, coverage/radius and nearest-office metric, then prove walking-route access.
-- English UI and VND amounts are preview assumptions, not approved language/currency policies. All people, accounts, balances and dates shown are synthetic fixtures.
+- English remains the current UI language. VND and a zero-balance initial checking account are provisional first-demo decisions in [CUSTOMER_FLOW.md](CUSTOMER_FLOW.md), not PDF rules or a permanent restriction to one account type/currency. The HTML study's people, balances and dates remain synthetic fixtures.
 
 Explicit exclusions remain those in [SCOPE.md](../SCOPE.md): no card issuance, QR payment, budgets, spending analytics, notification center, support tickets, loan origination, separate admin/web app, or additional iOS release.

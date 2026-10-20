@@ -1,16 +1,20 @@
-# Nene mobile foundation
+# Nene mobile app
 
-Flutter/Dart app for the Android assignment and future iOS compatibility. This base implements only configuration, existing-account sign-in, a backend-provided customer/officer profile, retry/error handling, and sign-out. It does not implement banking accounts, payments, eKYC, transaction 2FA, utilities, maps, or chat. The complete requirements remain in [REQUIREMENTS.md](../REQUIREMENTS.md) and [SCOPE.md](../SCOPE.md).
+Flutter/Dart app for the Android assignment and future iOS compatibility. The first customer flow supports officer customer creation with an initial account, officer search and customer-requested profile edits, customer account viewing and phone/address edits, existing-account sign-in and sign-out. The approved lighter Open pocket identity is shared across these screens. Money movements, eKYC, transaction 2FA, saving/mortgage management, utilities, maps and chat remain unimplemented. The complete requirements remain in [REQUIREMENTS.md](../REQUIREMENTS.md) and [SCOPE.md](../SCOPE.md).
 
 ## Structure
 
 - `lib/config/`: validates public build configuration before initializing services.
-- `lib/data/`: Supabase Auth adapter, NestJS profile client, and profile model.
+- `lib/data/`: Supabase Auth adapter, NestJS profile/banking clients, and typed models.
 - `lib/session_controller.dart`: session/profile state and request lifecycle.
-- `lib/nene_app.dart`: minimal Material 3 sign-in and role-specific profile UI.
+- `lib/customer_flow_controller.dart`: account/contact/customer request state and creation retries.
+- `lib/nene_app.dart`: Material 3 sign-in and session boundary.
+- `lib/ui/`: shared lighter theme/logo and the role-specific customer workspace.
 - `test/`: configuration, API contract, authorization state, and UI checks.
 
-There is no direct Supabase database or Storage access from Flutter. The app signs in through Supabase Auth and sends its bearer token to NestJS `GET /api/v1/me`. The backend supplies the application role. Neither a role selector nor editable auth metadata grants permissions.
+There is no direct Supabase database or Storage access from Flutter. The app signs in through Supabase Auth and sends its bearer token to NestJS. The backend supplies the application role, account type, currency and balance; the client cannot choose these in a creation request. Neither a role selector nor editable auth metadata grants permissions.
+
+The first demo defaults are one VND checking account with a zero balance. Account amounts use string-encoded integer minor units and are displayed without floating-point conversion. A missing/failed account response never becomes a zero balance. Customers edit only phone/address; officers can make a requested name/phone/address change with a reason. Sign-in email is read-only after creation. These are provisional design choices, not additional PDF requirements.
 
 ## Public configuration
 
@@ -32,6 +36,10 @@ Session persistence is disabled for this base; tokens live in memory and a new a
 
 Auth HTTP exchanges have a 15-second deadline covering both response headers and body. A deadline closes that request's transport, and a stalled sign-in returns to the sign-in screen. Late responses cannot install an old session or replace a successful retry. Each Auth request uses its own connection client so canceling one request does not interrupt another.
 
-Only existing users with a backend application profile can proceed. Account creation remains an officer workflow to implement later. Use synthetic local test identities during setup; the mobile app has no self-sign-up or role escalation route. API 401 responses clear the profile and return to sign-in; 403, unexpected roles, malformed responses, and cross-user profile responses fail closed.
+Only users with a backend application profile can proceed. Officers can provision synthetic demo customers from their workspace; the mobile app has no self-sign-up or role escalation route. API 401 responses clear protected state and return to sign-in. All protected pages live inside the session subtree, so expired or signed-out sessions cannot navigate back to customer details. Cross-user profile responses and unexpected roles fail closed.
+
+Returning from the background or refreshing a token revalidates the current profile without discarding an unfinished form or pending creation for the same principal. A transient revalidation failure retains the already loaded workspace; each API operation remains independently authorized by NestJS. A real user/role change, sign-out, rejected profile or expiry clears the workspace, and late request responses cannot repopulate it.
+
+Creation has a review step. Its initial password is masked, never logged or persisted, and absent from the creation response. The first submit generates a random UUID `Idempotency-Key`; uncertain retries retain the exact original body and key in memory. Only validation rejection or the backend's confirmed `CUSTOMER_EMAIL_EXISTS` code permits editing and starting a corrected attempt. Buttons prevent duplicate submits. Success and workspace disposal release password references. This is not secure session/draft persistence: after process death or sign-out, an officer must check the customer by email before attempting another creation; unresolved provisioning may need backend reconciliation. No invitation email or password-reset workflow is implemented.
 
 The application name `Nene`, Android application ID `com.example.nene_app`, and iOS bundle identifier `com.example.neneApp` are development placeholders. Choose the final bank/app name and unique owned identifiers before store configuration. Android signing/publication and any iOS release are separate tasks; the iOS shell requires macOS/Xcode for verification.

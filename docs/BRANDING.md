@@ -1,6 +1,6 @@
 # Nene branding decision
 
-Status: Open pocket selected and its lighter palette approved by the user on 2026-10-19. Applied to the Flutter foundation and Android launcher artwork; final wordmark and release asset review remain open. This is a user design choice supporting UI/report presentation (TR-05/TR-06), not an extra assignment requirement. All seven banking feature groups remain in scope.
+Status: Open pocket selected and its lighter palette approved by the user on 2026-10-19. Applied to Flutter, including the first customer/account flow added on 2026-10-20, and Android launcher artwork; final wordmark and release asset review remain open. This is a user design choice supporting UI/report presentation (TR-05/TR-06), not an extra assignment requirement. All seven banking feature groups remain in scope.
 
 ## Selected direction
 
@@ -43,7 +43,9 @@ Design judgment: keep the selected direction; no near-duplicate was identified i
 
 ## App integration and remaining production work
 
-`app/lib/ui/nene_brand.dart` provides the shared palette, light theme and dependency-free vector painter matching the study SVG's three paths. Sign-in, role-specific profile, loading and unavailable states use it. Android has a vector legacy icon, an adaptive launcher icon and a matching startup background. No authentication, role, financial or provider behavior changes accompany this styling. The mockup's account balances, transaction lists and officer actions are not added to the app.
+`app/lib/ui/nene_brand.dart` provides the shared palette, light theme and dependency-free vector painter matching the study SVG's three paths. Sign-in, customer/officer workspaces, account/profile views, creation/edit forms, loading and unavailable states use it. Android has a vector legacy icon, an adaptive launcher icon and a matching startup background.
+
+The original styling change did not add banking behavior. The later [first customer flow](CUSTOMER_FLOW.md) separately implements API-backed checking accounts, local synthetic provisioning, customer contact edits and requested officer edits. Its balances come from stored zero-balance accounts, not copied HTML fixtures. Transaction lists, money movements, saving/mortgage behavior and identity verification remain planned.
 
 - Consolidate and review the app's editable SVG/path geometry as the release master. The concept board's small monochrome sample changes the insert treatment; resolve that discrepancy from the master instead of treating each generated sample as authoritative.
 - Produce color, reversed, and single-color variants with the same silhouette. Establish clear space and a minimum size after checking 16, 24, and 48 pixel rendering and Android launcher masks.
@@ -51,4 +53,4 @@ Design judgment: keep the selected direction; no near-duplicate was identified i
 - Review final export/launcher mask variants before publication. Android launcher resources are now integrated; iOS launcher artwork and iOS testing remain outstanding. Preserve future iOS compatibility without adding an iOS release to the assignment.
 - Review the final geometry again for visual similarity before public release; the current check applies only to this draft. Name/trademark clearance remains unresolved.
 
-The approved lighter visual direction is applied to the existing Flutter foundation. The complete customer home/officer business workflows in [SCREEN_MAP.md](SCREEN_MAP.md) and [UI_DIRECTION.md](UI_DIRECTION.md) remain to implement. The vector is usable app artwork, but does not establish final wordmark approval or trademark clearance. Cloud provisioning, purchases and store publication remain outside this work. Keep implementation within [SCOPE.md](../SCOPE.md).
+The approved lighter visual direction is applied to the first Flutter customer/account flow. [SCREEN_MAP.md](SCREEN_MAP.md) and [UI_DIRECTION.md](UI_DIRECTION.md) distinguish that implementation from the wider planned financial, identity, map and chat workflows and the isolated HTML study. The vector is usable app artwork, but does not establish final wordmark approval or trademark clearance. Cloud provisioning, purchases and store publication remain outside this work. Keep implementation within [SCOPE.md](../SCOPE.md).
