@@ -1,6 +1,6 @@
 # Design and technology decisions
 
-Status: design updated 2026-10-27; application behavior remains the first customer flow from 2026-10-20. Flutter + NestJS + Supabase is confirmed. The local first customer flow adds officer provisioning, an initial checking account, customer contact edits and requested officer edits to the sign-in foundation. Identity screens/backend rules are now mapped, not implemented. Financial flows and most of the larger schema below remain proposals; no cloud services are deployed. The assignment requirements are recorded in [REQUIREMENTS.md](REQUIREMENTS.md).
+Status: identity direction simplified by the user on 2026-10-27; application behavior remains the first customer flow from 2026-10-20. Flutter + NestJS + Supabase is confirmed. The local first customer flow adds officer provisioning, an initial checking account, customer contact edits and requested officer edits to the sign-in foundation. Reference enrollment, later high-value comparison and transaction 2FA are mapped, not implemented. AWS remains undecided. Financial flows and most of the larger schema below remain proposals; no cloud services are deployed. The assignment requirements are recorded in [REQUIREMENTS.md](REQUIREMENTS.md).
 
 Scope boundary: [SCOPE.md](SCOPE.md) records the detailed PDF/rubric audit. The mechanisms and schemas below are candidates for implementation, not extra assignment features. Use the smallest design that demonstrates the required outcomes reliably.
 
@@ -46,7 +46,7 @@ Android is the submission platform. An iOS release is not added to the deadline 
 | Flutter organization | Built-in ChangeNotifier manages sessions and the first customer workflow; repositories isolate Supabase Auth and HTTP access from widgets. Protected pages remain inside the authenticated workspace. No state-management or routing package is needed for this flow. |
 | Database access | NestJS uses `pg` and parameterized SQL. A restricted role has explicit column grants for customer/account creation and contact/name edits, with SQL transactions. It cannot write roles, profile status or balances. SQL migrations own the schema. No ORM is introduced. |
 | Backend hosting and development | Local Supabase runs through its pinned CLI and Docker. NestJS runs on Node.js 24. Cloud hosting, Supabase project provisioning, and paid plans remain undecided. |
-| Identity and second factor | Choose the eKYC/high-value verification method and transaction 2FA mechanism. OTP is a proposal, not a confirmed channel or provider. |
+| Identity and second factor | Build officer-assisted private reference enrollment first; later perform actual server-side one-to-one face comparison for high-value activity. Reference acceptance is not a completed identity check. Matching implementation/provider, threshold and transaction-2FA mechanism remain open. AWS has no priority; [options research](docs/IDENTITY_OPTIONS.md) is background only. No mandatory liveness SDK or native bridge. OTP remains a candidate, not a confirmed channel. |
 | Payments and other external services | Select one payment integration after checking access and course expectations; VNPay and Stripe are examples. Separately resolve interbank, biller, and purchase/booking fulfillment. |
 | Maps and routes | Choose a compatible map SDK and walking-route service. Pins or straight-line distances alone do not demonstrate the required route. |
 | Chatbot | Choose a mechanism for intelligent answers and allowlisted activity links. An LLM/provider is not selected or required by name; secret-bearing calls belong in NestJS. |
@@ -113,7 +113,7 @@ Proposed customer navigation: Home, Accounts, Services, Assistant, Profile. Bran
 
 [docs/SCREEN_MAP.md](docs/SCREEN_MAP.md) expands this proposal into requirement-linked destinations, customer/officer journeys and state handling. Proposed officer navigation is Workspace, Customers, Rates, Profile. [docs/UI_DIRECTION.md](docs/UI_DIRECTION.md) contains the sign-in, customer home and officer workspace study requested on 2026-10-19. Its HTML remains an isolated design artifact. Flutter separately implements the first customer/account workflow described in [docs/CUSTOMER_FLOW.md](docs/CUSTOMER_FLOW.md); the wider financial navigation remains planned.
 
-Proposed financial flow: input -> review -> chosen 2FA -> backend result -> receipt/history. OTP is a candidate mechanism. Show amount, currency, recipient/provider, fees if applicable, and total before authorization. Handle loading, empty, error, permission-denied, cancellation, and uncertain network outcomes explicitly. On an uncertain outcome, look up the existing operation instead of submitting a new debit.
+Proposed financial flow: input -> review -> high-value identity check when required -> chosen 2FA -> backend result -> receipt/history. OTP is a candidate mechanism. Show amount, currency, recipient/provider, fees if applicable, and total before authorization. Handle loading, empty, error, permission-denied, cancellation, and uncertain network outcomes explicitly. On an uncertain outcome, look up the existing operation instead of submitting a new debit.
 
 The user selected the Open pocket logo direction on 2026-10-19 and approved the lighter palette for both logo and UI. Flutter now uses soft teal (`#4C929E`), light apricot (`#F6C9A5`), ivory (`#F8F7F2`) and darker action teal (`#286E78`) for readable controls. Its wallet silhouette represents everyday money in one place; the open fold and apricot detail express visibility and focus. [docs/BRANDING.md](docs/BRANDING.md) records the reference, approved palette, Flutter painter and Android icon integration. A wallet-shaped logo does not narrow the banking assignment to an e-wallet product or add card-issuing features.
 
@@ -121,13 +121,17 @@ The approved lighter direction is applied to Flutter sign-in, loading/error stat
 
 ## Transaction and identity design
 
-[docs/IDENTITY_VERIFICATION.md](docs/IDENTITY_VERIFICATION.md) details the proposed C16 customer enrollment/status and O06 officer assistance/review screens, state transitions, permissions, private-evidence lifecycle, candidate API and acceptance scenarios. Human evidence acceptance and electronic verification results are separate; neither replaces the later operation-bound high-value check or transaction 2FA. Method/provider, retention/attempt policy, officer-subject interpretation and high-value threshold remain open. No new identity endpoints or database grants exist yet.
+[docs/IDENTITY_VERIFICATION.md](docs/IDENTITY_VERIFICATION.md) records the minimum flow approved as a direction on 2026-10-27: customer/officer reference capture and private submission, officer acceptance or correction, then actual server-side one-to-one comparison for later high-value activity. C16/O06 show **Reference accepted**, not **Identity verified**. This milestone does not complete BR-03; a real operation-bound comparison and the agreed eKYC interpretation still need demonstration. No new identity endpoints or database grants exist yet.
+
+Enrollment does not depend on an electronic matcher or liveness provider. Set its small notice/retention and officer-confirmation rules, then build the reference foundation. Select the comparison implementation when adding the high-value check. AWS, advanced liveness, document OCR/NFC and commercial KYC remain undecided or optional for a concrete need; no provider-specific native bridge is the next task. The user has not waived eKYC, high-value checks or transaction 2FA.
+
+Requesting a new camera photo does not prove live presence or defeat image injection/replay. Reference association and ordinary face comparison do not authenticate a government identity document. Record these limits and clarify the lecturer's expected eKYC depth/officer-subject coverage before claiming full acceptance. The [provider comparison](docs/IDENTITY_OPTIONS.md) retains research without a preferred vendor.
 
 The brief requires eKYC and transaction 2FA. The following flow proposes OTP as the second factor. Its face-photo example informs high-value verification but does not prescribe a face algorithm or liveness vendor. A different chosen mechanism must still satisfy the identity and 2FA requirements.
 
 1. The authenticated client submits an operation intent with an idempotency key. The server validates ownership, recipient, amount, account rules, and available funds.
-2. The server binds a short-lived OTP challenge to the user and exact operation details. Editing the amount or recipient invalidates the authorization. Delivery, expiry, retry limits, and replay protection are enforced by the backend.
-3. If the operation exceeds the agreed threshold, the chosen high-value identity verification must also succeed. If we choose face-based verification, camera capture or officer enrollment review alone does not demonstrate a later identity match. Document the actual method and distinguish implemented checks from any simulated behavior.
+2. If the operation meets the server-owned high-value rule, request a new capture and perform actual one-to-one face comparison with the customer's accepted reference. Bind the result to the user, reference/profile revision, exact operation and expiry. Missing, failed or unavailable comparison cannot authorize posting; reference acceptance cannot substitute for it.
+3. Every financial operation, including one below the high-value threshold, passes transaction-bound 2FA. If OTP is selected, bind its short-lived challenge to the user and exact operation details, with server-enforced delivery, expiry, attempt limits and reuse protection. Editing the amount or recipient invalidates prior authorizations.
 4. After verification, NestJS rechecks the financial preconditions and uses one PostgreSQL transaction to record the financial transaction, balance changes, and challenge consumption, plus any ledger entries used by the chosen record design. Apply appropriate locking/conditional updates and uniqueness constraints to handle concurrent and repeated operations.
 5. A repeated request returns the existing operation result. It does not post another transaction.
 
@@ -144,7 +148,7 @@ The following is a conceptual PostgreSQL model, not a finished schema. Use expli
 | Entity | Main fields and relationships |
 | --- | --- |
 | UserProfile | Supabase Auth user ID, application role, name, contact fields, status; linked customer accounts. Implemented permissions allow own phone/address edits and officer-requested name/contact edits; email, role and status remain protected. |
-| IdentityVerification | Conceptual grouping of case, versioned private evidence, officer review and method-check records; see [the detailed identity map](docs/IDENTITY_VERIFICATION.md). Bind enrollment to the reviewed evidence/profile revision. Later high-value checks also bind to the exact operation; a review decision alone is not a verified result. |
+| IdentityReference / IdentityCheck | Keep the accepted photo/profile revision and officer review separate from later actual operation-bound comparison results; see [the minimum identity map](docs/IDENTITY_VERIFICATION.md). A review decision records a reference association, not an electronic pass. |
 | BankingAccount | Owner ID, account number, type, currency, balance, status. Model internal settlement accounts only if the chosen external flow needs them. |
 | SavingTerms | Account ID, rate/policy reference, principal, effective dates, term and profit calculation convention. |
 | InterestRatePolicy | Officer-managed rate, applicability, effective dates, change history. |
@@ -163,8 +167,10 @@ The sketch below shows core relationships only; optional ledger, chat-history, a
 ```mermaid
 erDiagram
     USER_PROFILE ||--o{ BANKING_ACCOUNT : owns
-    USER_PROFILE ||--o{ IDENTITY_VERIFICATION : has
+    USER_PROFILE ||--o{ IDENTITY_REFERENCE : has_versions
     USER_PROFILE ||--o{ OPERATION_INTENT : initiates
+    IDENTITY_REFERENCE ||--o{ IDENTITY_CHECK : compared_against
+    OPERATION_INTENT ||--o{ IDENTITY_CHECK : requires_when_high_value
     BANKING_ACCOUNT ||--o| SAVING_TERMS : may_have
     BANKING_ACCOUNT ||--o| MORTGAGE_TERMS : may_have
     BANKING_ACCOUNT o|--o{ TRANSACTION : source_account
@@ -191,7 +197,7 @@ Savings profit and mortgage repayment calculations need explicit policies: rate 
 
 [ROADMAP.md](ROADMAP.md) records the remaining work, dependencies, and immediate next feature flow. The internal submission target remains 29 November, with 30 November as contingency before the portal deadline at the start of 1 December. Planning uses Asia/Bangkok provisionally because the screenshot does not specify its timezone.
 
-The first local customer/account flow is the current implementation slice. The identity screen/backend map is ready for method selection: resolve enrollment evidence, verification and retention policies, then implement private enrollment and officer assistance/review. Preserve the later high-value path and implement transaction-bound 2FA before financial posting; build the remaining account types, secure transactions, external services, branch navigation and activity-linked chat on that foundation. Hosted customer activation also remains open. Report evidence and Google Play preparation proceed alongside feature development.
+The first local customer/account flow is the current implementation slice. Next define the reference notice/retention and officer-confirmation rules, then implement private capture/upload, status and officer acceptance/correction without a provider dependency. After that, choose and prove actual server-side face comparison for high-value activity and implement transaction-bound 2FA before financial posting. AWS remains undecided. Build the remaining account types, secure transactions, external services, branch navigation and activity-linked chat on that foundation. Hosted customer activation also remains open. Report evidence and Google Play preparation proceed alongside feature development.
 
 ## Repository layout
 
