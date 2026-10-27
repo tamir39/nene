@@ -4,6 +4,8 @@ Status: **planning only, 27 October 2026**. The user requested enrollment, recov
 
 Recommended direction: keep Supabase authenticator TOTP as the working candidate, with one active Nene factor per customer. Plan provider-native recovery codes for lost-authenticator replacement, subject to an isolated compatibility check. Do not introduce another OTP provider or a custom backup-code system. This is a proposed implementation policy, not a PDF-prescribed mechanism or completed BR-04 acceptance.
 
+Follow-up evidence: [RECOVERY_SESSION_COMPATIBILITY.md](RECOVERY_SESSION_COMPATIBILITY.md) records the completed isolated probe. Provider recovery capability worked, but the browser handoff gate failed: late peer broadcasts bypass a local generation guard. The lifecycle remains unimplemented; resolve browser ownership/refresh coordination before promoting the test-only adapter or enabling demo MFA.
+
 ## Scope and evidence
 
 The [PDF](../FinalProject_2026_2027.pdf), page 2 Business 2, requires transaction 2FA; OTP is an example. This lifecycle is minimal support for BR-04 and the shared financial flows, including BR-09. Profile entry/role separation support BR-01; the plan contributes TR-05/TR-06 design evidence. It does not replace BR-03 identity verification, add public signup or give officers a new reset/payment role. All seven business feature groups remain in [ROADMAP.md](../ROADMAP.md).
@@ -107,7 +109,7 @@ Role/ownership and revisions come from server-controlled records. Log only minim
 
 ## Next probe and acceptance gates
 
-First run a bounded isolated **session-handoff and recovery-code compatibility probe**, using synthetic users and the existing cached provider. No normal-demo MFA configuration change, cloud account, payment provider or AWS decision is required. App integration follows the evidence, not the existence of this plan.
+The bounded isolated **session-handoff and recovery-code compatibility probe** has now run; see its [evidence and limits](RECOVERY_SESSION_COMPATIBILITY.md). It used synthetic users and the existing cached provider without changing normal-demo MFA. Provider capability and local SDK checks cover only part of the table below; browser handoff and the real backend lifecycle remain open. App integration follows passed safety gates, not experiment completion.
 
 | Gate | Required evidence before integration |
 | --- | --- |

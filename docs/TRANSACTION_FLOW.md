@@ -6,7 +6,7 @@ Subsequent [local TOTP compatibility testing](TOTP_COMPATIBILITY.md) proved prov
 
 The later [backend authorization prototype](AUTHORIZATION_PROTOTYPE.md) demonstrates PostgreSQL operation binding/replay safeguards, fail-closed recovery and one-time synthetic consumption. It is unregistered and uses disposable records without balance writes. Customer enrollment, session handoff, real policies and the financial flow remain unimplemented.
 
-The subsequent [authenticator lifecycle plan](AUTHENTICATOR_LIFECYCLE.md) maps enrollment, replacement, proposed recovery codes and session handoff. It leaves safe SDK adoption and recovery-code compatibility as the next isolated gates; normal demo MFA remains disabled.
+The subsequent [authenticator lifecycle plan](AUTHENTICATOR_LIFECYCLE.md) maps enrollment, replacement, proposed recovery codes and session handoff. Its [isolated experiment](RECOVERY_SESSION_COMPATIBILITY.md) confirms provider recovery capability but leaves browser handoff blocked by late peer session broadcasts. Resolve session ownership/refresh coordination before app integration; normal demo MFA remains disabled.
 
 The proposed shared journey is **enter details → review → high-value identity check when required → transaction 2FA → authoritative result**. Reuse it across financial features rather than building a different security flow for each payment category.
 
@@ -132,7 +132,7 @@ These are design proposals. Before implementation, resolve the intent-storage in
 ## Acceptance evidence and delivery order
 
 1. Review the S02–S05 screen/state contract and resolve the small policy decisions above. A labeled UI fixture can demonstrate layout and recovery, but not a completed transfer or BR-04.
-2. Provider TOTP compatibility was evaluated in [TOTP_COMPATIBILITY.md](TOTP_COMPATIBILITY.md), followed by the [backend safeguards prototype](AUTHORIZATION_PROTOTYPE.md) and [authenticator lifecycle plan](AUTHENTICATOR_LIFECYCLE.md). Next prove recovery-code compatibility and safe Flutter session adoption before real app integration; factor selection remains provisional. Keep AWS and the face matcher undecided; do not send messages or create paid accounts as a side effect.
+2. Provider TOTP compatibility was evaluated in [TOTP_COMPATIBILITY.md](TOTP_COMPATIBILITY.md), followed by the [backend safeguards prototype](AUTHORIZATION_PROTOTYPE.md), [authenticator lifecycle plan](AUTHENTICATOR_LIFECYCLE.md) and [recovery/session experiment](RECOVERY_SESSION_COMPATIBILITY.md). Next resolve browser session ownership and refresh coordination before app integration; factor selection remains provisional. Keep AWS and the face matcher undecided; do not send messages or create paid accounts as a side effect.
 3. Build the review/intent and confirmation path for a same-bank checking transfer only after its prerequisites are ready. Until the necessary identity/2FA checks exist, keep execution unavailable rather than enabling a bypass. Test-only synthetic balances are fixtures, not customer-accessible funding functionality.
 4. Expand the same reviewed authorization path to the remaining required operations as their policies/integrations are implemented. Record provider simulations and lecturer acceptance limits honestly.
 

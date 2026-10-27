@@ -8,6 +8,8 @@ Supabase remains a possible factor verifier. Selection is deferred until a small
 
 Follow-up: the [backend safeguards prototype](AUTHORIZATION_PROTOTYPE.md) subsequently passed 24 isolated checks, including real Supabase verification through shared PostgreSQL reservations. It is unregistered and moves no money. The observations below remain the provider-only findings; app integration, factor choice and customer recovery/session handoff are still open.
 
+The later [recovery/session experiment](RECOVERY_SESSION_COMPATIBILITY.md) confirms provider recovery-code capability and exercises Dart/Edge session behavior. Browser handoff remains blocked by late peer broadcasts. Its findings supplement this record; they do not enable the customer lifecycle or financial posting.
+
 ## What ran
 
 - The exact cached Auth image used by the running Nene stack: `public.ecr.aws/supabase/gotrue:v2.197.0`, image ID `sha256:1736a63078f5922b198c4cbe50f80ab9a2d3b54fe8b7b6cfb2e9dc5dbbc12c6b`.
