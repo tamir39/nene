@@ -4,11 +4,14 @@ import 'package:flutter/material.dart';
 
 import '../customer_flow_controller.dart';
 import '../data/banking_repository.dart';
+import '../data/identity_repository.dart';
+import '../data/reference_photo_source.dart';
 import '../data/user_profile.dart';
 import '../session_controller.dart';
 import 'nene_brand.dart';
+import 'identity_reference_screen.dart';
 
-enum _Page { home, contact, create, search, detail, editCustomer }
+enum _Page { home, contact, create, search, detail, editCustomer, identity }
 
 /// All protected pages live below the session branch, so signing out/expiring
 /// disposes the entire workspace instead of leaving protected Navigator routes.
@@ -17,10 +20,14 @@ class CustomerWorkspace extends StatefulWidget {
     super.key,
     required this.session,
     required this.repository,
+    this.identity,
+    this.photos,
   });
 
   final SessionController session;
   final BankingRepository repository;
+  final IdentityRepository? identity;
+  final ReferencePhotoSource? photos;
 
   @override
   State<CustomerWorkspace> createState() => _CustomerWorkspaceState();
@@ -65,7 +72,9 @@ class _CustomerWorkspaceState extends State<CustomerWorkspace> {
   }
 
   void _back() {
-    if (_page == _Page.editCustomer) {
+    if (_page == _Page.editCustomer ||
+        (_page == _Page.identity &&
+            widget.session.profile?.role == AppRole.officer)) {
       _go(_Page.detail);
     } else if (_page == _Page.detail) {
       _go(_Page.search);
@@ -136,6 +145,13 @@ class _CustomerWorkspaceState extends State<CustomerWorkspace> {
               onOpen: _openCustomer,
             ),
             _Page.detail => _detail(),
+            _Page.identity => IdentityReferenceScreen(
+              key: ValueKey(_customerId ?? profile.id),
+              session: widget.session,
+              repository: widget.identity!,
+              photos: widget.photos ?? DeviceReferencePhotoSource(),
+              customerId: profile.role == AppRole.officer ? _customerId : null,
+            ),
             _Page.editCustomer => _OfficerEditForm(
               key: ValueKey(_flow.selectedCustomer!.id),
               customer: _flow.selectedCustomer!,
@@ -241,6 +257,14 @@ class _CustomerWorkspaceState extends State<CustomerWorkspace> {
             },
             child: const Text('Edit contact details'),
           ),
+          if (widget.identity != null) ...[
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: () => _go(_Page.identity),
+              icon: const Icon(Icons.portrait_outlined),
+              label: const Text('Identity reference'),
+            ),
+          ],
         ],
       ],
     );
@@ -286,6 +310,14 @@ class _CustomerWorkspaceState extends State<CustomerWorkspace> {
             },
             child: const Text('Make a requested change'),
           ),
+          if (widget.identity != null) ...[
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: () => _go(_Page.identity),
+              icon: const Icon(Icons.portrait_outlined),
+              label: const Text('Assist / review reference'),
+            ),
+          ],
           const SizedBox(height: 8),
           TextButton(
             onPressed: () => _go(_Page.search),

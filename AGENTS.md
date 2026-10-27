@@ -4,7 +4,7 @@
 
 This repository is starting a Ton Duc Thang University Mobile Apps Development final project: an Android mobile banking application. `Nene` is the current repository name; the bank name and public app name remain open.
 
-The stack was confirmed on 2026-10-13 and local scaffolding authorized on 2026-10-15: Flutter/Dart, one NestJS/TypeScript backend API, and Supabase for PostgreSQL, Auth, and private Storage. The first customer flow extends sign-in with local officer provisioning, an initial zero-balance checking account, customer contact edits and requested officer edits. See `docs/CUSTOMER_FLOW.md` and the verification record for its limits. No money movements, eKYC, transaction 2FA, or external integrations exist yet. Do not describe planned features as implemented.
+The stack was confirmed on 2026-10-13 and local scaffolding authorized on 2026-10-15: Flutter/Dart, one NestJS/TypeScript backend API, and Supabase for PostgreSQL, Auth, and private Storage. The first customer flow extends sign-in with local officer provisioning, an initial zero-balance checking account, customer contact edits and requested officer edits. See `docs/CUSTOMER_FLOW.md` and the verification record for its limits. Private reference-photo capture/status and officer acceptance/correction extend that foundation on 2026-10-27; see `docs/REFERENCE_FLOW.md`. Reference acceptance is not completed eKYC. No face comparison, money movements, transaction 2FA, or external integrations exist yet. Do not describe planned features as implemented.
 
 ## Read first
 
@@ -17,6 +17,7 @@ The stack was confirmed on 2026-10-13 and local scaffolding authorized on 2026-1
 - [docs/SCREEN_MAP.md](docs/SCREEN_MAP.md) and [docs/UI_DIRECTION.md](docs/UI_DIRECTION.md): PDF-linked screen map and UI study. The lighter palette is approved and applied to the Flutter foundation; the study's banking screens remain planned behavior.
 - [docs/SETUP.md](docs/SETUP.md) and [docs/API.md](docs/API.md): local commands, verification limits, and the implemented API contract.
 - [docs/CUSTOMER_FLOW.md](docs/CUSTOMER_FLOW.md): first-demo rules, customer provisioning/retry boundary and data relationships.
+- [docs/REFERENCE_FLOW.md](docs/REFERENCE_FLOW.md): implemented private reference flow, notice/retention defaults, cleanup and testing limits.
 - `FinalProject_2026_2027.pdf`: authoritative assignment brief.
 - `Marking.xlsx`, worksheet `Marking`: authoritative assessment rubric.
 
@@ -57,6 +58,12 @@ The user requested commits and pull requests for completed work on 2026-10-17.
 - Keep dependent changes in separate PRs when that improves review. State the dependency and review order; retarget the later PR to `main` after its dependency is merged.
 - Before publishing, inspect the staged diff and excluded local files, and report relevant verification and remaining limitations in the PR. Reuse valid checks for unchanged code.
 - Do not merge a PR unless the user asks. Attach created PRs to the chat and include their links in the completion report.
+
+## Reference enrollment
+
+- Preserve the distinction between `reference_accepted` and a later actual operation-bound identity check. AWS remains undecided; do not add liveness SDKs, document checks or provider accounts as a side effect.
+- The local demo uses notice `reference-demo-v1`, explicit acknowledgement, an officer association confirmation and seven-day access expiry. Physical deletion of expired/pending files requires the documented maintenance command; do not claim continuous deletion. Use agreed test images only.
+- Prefer the Edge web demo for interactive checks. The user starts `run.bat`; do not launch Android Studio or the emulator unless the user asks again. Automated unit/widget, API and database checks remain appropriate.
 
 ## Banking implementation principles
 

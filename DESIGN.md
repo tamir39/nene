@@ -1,6 +1,6 @@
 # Design and technology decisions
 
-Status: identity direction simplified by the user on 2026-10-27; application behavior remains the first customer flow from 2026-10-20. Flutter + NestJS + Supabase is confirmed. The local first customer flow adds officer provisioning, an initial checking account, customer contact edits and requested officer edits to the sign-in foundation. Reference enrollment, later high-value comparison and transaction 2FA are mapped, not implemented. AWS remains undecided. Financial flows and most of the larger schema below remain proposals; no cloud services are deployed. The assignment requirements are recorded in [REQUIREMENTS.md](REQUIREMENTS.md).
+Status: private reference enrollment/status and officer acceptance/correction extend the first customer flow on 2026-10-27. Flutter + NestJS + Supabase is confirmed. The local customer foundation includes officer provisioning, an initial checking account, customer contact edits and requested officer edits. [docs/REFERENCE_FLOW.md](docs/REFERENCE_FLOW.md) records the implemented reference boundary and verification limits. Later high-value comparison and transaction 2FA remain unimplemented; AWS remains undecided. Financial flows and much of the schema below remain proposals; no cloud services are deployed. The assignment requirements are recorded in [REQUIREMENTS.md](REQUIREMENTS.md).
 
 Scope boundary: [SCOPE.md](SCOPE.md) records the detailed PDF/rubric audit. The mechanisms and schemas below are candidates for implementation, not extra assignment features. Use the smallest design that demonstrates the required outcomes reliably.
 
@@ -73,7 +73,7 @@ Account type and creation date remain unknown. For personal accounts created aft
 
 ## Component boundaries
 
-The following is the target component arrangement. Flutter/Auth, customer/profile/account access, local officer provisioning and PostgreSQL are implemented. Financial operations, hosted activation, file transfer and external-provider arrows remain future work. The mobile app has no direct table access.
+The following is the target component arrangement. Flutter/Auth, customer/profile/account access, local officer provisioning, PostgreSQL and backend-authorized private reference-file transfer are implemented. Financial operations, hosted activation and external-provider arrows remain future work. The mobile app has no direct table access.
 
 ```mermaid
 flowchart LR
@@ -121,9 +121,9 @@ The approved lighter direction is applied to Flutter sign-in, loading/error stat
 
 ## Transaction and identity design
 
-[docs/IDENTITY_VERIFICATION.md](docs/IDENTITY_VERIFICATION.md) records the minimum flow approved as a direction on 2026-10-27: customer/officer reference capture and private submission, officer acceptance or correction, then actual server-side one-to-one comparison for later high-value activity. C16/O06 show **Reference accepted**, not **Identity verified**. This milestone does not complete BR-03; a real operation-bound comparison and the agreed eKYC interpretation still need demonstration. No new identity endpoints or database grants exist yet.
+[docs/IDENTITY_VERIFICATION.md](docs/IDENTITY_VERIFICATION.md) records the minimum direction: customer/officer reference capture and private submission, officer acceptance or correction, then actual server-side one-to-one comparison for later high-value activity. C16/O06 now implement the reference foundation and show **Reference accepted**, not **Identity verified**. [docs/REFERENCE_FLOW.md](docs/REFERENCE_FLOW.md) records its endpoints, narrow database grants, local notice/retention defaults and test limits. This milestone does not complete BR-03; a real operation-bound comparison and the agreed eKYC interpretation still need demonstration.
 
-Enrollment does not depend on an electronic matcher or liveness provider. Set its small notice/retention and officer-confirmation rules, then build the reference foundation. Select the comparison implementation when adding the high-value check. AWS, advanced liveness, document OCR/NFC and commercial KYC remain undecided or optional for a concrete need; no provider-specific native bridge is the next task. The user has not waived eKYC, high-value checks or transaction 2FA.
+Enrollment does not depend on an electronic matcher or liveness provider. The reference foundation uses an explicit coursework notice/acknowledgement, officer association confirmation, seven-day access expiry and maintenance-driven physical deletion. Select the comparison implementation when adding the high-value check. AWS, advanced liveness, document OCR/NFC and commercial KYC remain undecided or optional for a concrete need; no provider-specific native bridge is the next task. The user has not waived eKYC, high-value checks or transaction 2FA.
 
 Requesting a new camera photo does not prove live presence or defeat image injection/replay. Reference association and ordinary face comparison do not authenticate a government identity document. Record these limits and clarify the lecturer's expected eKYC depth/officer-subject coverage before claiming full acceptance. The [provider comparison](docs/IDENTITY_OPTIONS.md) retains research without a preferred vendor.
 
@@ -197,7 +197,7 @@ Savings profit and mortgage repayment calculations need explicit policies: rate 
 
 [ROADMAP.md](ROADMAP.md) records the remaining work, dependencies, and immediate next feature flow. The internal submission target remains 29 November, with 30 November as contingency before the portal deadline at the start of 1 December. Planning uses Asia/Bangkok provisionally because the screenshot does not specify its timezone.
 
-The first local customer/account flow is the current implementation slice. Next define the reference notice/retention and officer-confirmation rules, then implement private capture/upload, status and officer acceptance/correction without a provider dependency. After that, choose and prove actual server-side face comparison for high-value activity and implement transaction-bound 2FA before financial posting. AWS remains undecided. Build the remaining account types, secure transactions, external services, branch navigation and activity-linked chat on that foundation. Hosted customer activation also remains open. Report evidence and Google Play preparation proceed alongside feature development.
+The local customer/account and reference-enrollment flows are implemented. Next review the reference slice in the Edge web demo, then choose and prove actual server-side face comparison for high-value activity and implement transaction-bound 2FA before financial posting. AWS remains undecided. Build the remaining account types, secure transactions, external services, branch navigation and activity-linked chat on that foundation. Hosted customer activation also remains open. Report evidence and Google Play preparation proceed alongside feature development.
 
 ## Repository layout
 
