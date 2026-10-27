@@ -2,6 +2,8 @@
 
 Status: **planning only, 27 October 2026**, requested after the reference-photo slice. No transaction endpoint, balance write, OTP delivery, authenticator enrollment or financial UI is implemented by this plan. Flutter + one NestJS API + Supabase remains the stack. AWS and the face-comparison provider remain undecided.
 
+Subsequent [local TOTP compatibility testing](TOTP_COMPATIBILITY.md) proved provider enrollment/verification, but observed successful-code reuse across challenges and concurrent reuse of one challenge. Supabase MFA alone does not satisfy this plan's transaction rules. No application factor selection or implementation follows automatically from that experiment.
+
 The proposed shared journey is **enter details → review → high-value identity check when required → transaction 2FA → authoritative result**. Reuse it across financial features rather than building a different security flow for each payment category.
 
 ## Assignment boundary
@@ -56,19 +58,19 @@ flowchart TD
 
 ## Second-factor recommendation for review
 
-**Evaluate authenticator-app TOTP through existing Supabase Auth first.** It avoids adding an SMS/email delivery provider to this stack and avoids implementing our own TOTP secret storage/algorithm. The trade-off is customer enrollment, an authenticator app and deliberate recovery handling. This is a recommendation and compatibility test target, not a confirmed mechanism or enabled feature. The current local configuration disables TOTP enrollment/verification.
+**Keep Supabase authenticator TOTP as a provisional factor-verifier candidate.** The [completed isolated experiment](TOTP_COMPATIBILITY.md) shows that enrollment and verification work, but challenge/code replay controls cannot be delegated to the provider alone. Next prove a small backend authorization prototype without balance writes before selecting it. TOTP avoids an SMS/email delivery provider and custom secret storage/algorithm, but still needs enrollment, recovery and application authorization controls. The normal local configuration continues to disable TOTP enrollment/verification; only disposable test Auth enabled it.
 
 | Option | Fit and trade-off |
 | --- | --- |
-| Supabase TOTP | Existing provider supports enrollment and challenge/verify, including Flutter. The customer enters an authenticator code; Nene must still bind the verification to the exact operation. Preferred option to evaluate. |
+| Supabase TOTP | Provider enrollment and challenge/verify worked in the isolated local experiment. Cross-challenge code reuse and concurrent challenge reuse were observed; operation binding/replay/recovery need a backend prototype before selection. Flutter integration remains untested. |
 | Application-issued email OTP | A code can be generated for one operation, but adds delivery, verified-address, abuse and code-verifier responsibilities. Existing local Inbucket is a developer mail sink, not proof of access to a separate customer mailbox. Supabase email login OTP is not a transaction-authorization mechanism. |
 | SMS OTP | Adds phone verification, delivery/provider setup, cost and SIM-related risks. Not required by the PDF and not the proposed first path. |
 
 Supabase's documented MFA API takes factor/challenge identifiers and a code; it does not take Nene's amount or recipient. A verified factor or `aal2` session therefore cannot be treated as reusable permission to post transactions. This is an architectural inference from its documented contract, not a claim that Nene integration has been tested. [Supabase TOTP guide](https://supabase.com/docs/guides/auth/auth-mfa/totp), [challenge](https://supabase.com/docs/reference/javascript/auth-mfa-challenge), [verify](https://supabase.com/docs/reference/javascript/auth-mfa-verify), [Flutter challenge/verify](https://supabase.com/docs/reference/dart/auth-mfa-challengeandverify).
 
-Before selecting TOTP, prove locally that NestJS can create/verify a factor challenge for the authenticated user, associate it with one intent version, reject reused successful codes/challenges across operations, and handle concurrent/uncertain results. Test returned-session/token rotation and challenge/verify IP behavior with request-scoped provider access. Never infer success from a client boolean, a previous login verification or an unexamined JWT claim. The direct Supabase factor APIs must not provide a banking bypass. If the installed version cannot meet these rules, retain a blocked transaction flow and revisit the method rather than inventing success.
+Before selecting TOTP, prove that NestJS can associate provider verification with one intent version, reject reused successful codes/challenges across operations, and handle concurrent/uncertain results. The isolated JS SDK, session and IP probes are recorded in [TOTP_COMPATIBILITY.md](TOTP_COMPATIBILITY.md); they do not verify NestJS/Flutter integration or durable recovery. Never infer success from a client boolean, a previous login verification or an unexamined JWT claim. The direct Supabase factor APIs must not provide a banking bypass. If a simple application adapter cannot meet these rules, retain a blocked transaction flow and revisit the method rather than inventing success.
 
-Research caveat: a review of the current upstream [TOTP verification path](https://github.com/supabase/auth/blob/master/internal/api/mfa.go) and [factor model](https://github.com/supabase/auth/blob/master/internal/models/factor.go) did not establish cross-challenge successful-code consumption. This is not a tested finding about Nene's pinned runtime. Explicitly reuse one successful code against a different challenge and operation, including concurrently; different challenge IDs alone are not evidence of replay protection. Ordinary TOTP is time/secret based, so it does not intrinsically encode payment details. [RFC 6238](https://www.rfc-editor.org/info/rfc6238/).
+The source-review concern about cross-challenge consumption was subsequently tested against the exact local Auth image, with code reuse observed. See the [pinned verification path](https://github.com/supabase/auth/blob/v2.197.0/internal/api/mfa.go) and the bounded [experiment results](TOTP_COMPATIBILITY.md); do not generalize them to every hosted version/configuration. Ordinary TOTP is time/secret based, so it does not intrinsically encode payment details. [RFC 6238](https://www.rfc-editor.org/info/rfc6238/).
 
 ### Minimum factor setup, if TOTP is selected
 
@@ -126,7 +128,7 @@ These are design proposals. Before implementation, resolve the intent-storage in
 ## Acceptance evidence and delivery order
 
 1. Review the S02–S05 screen/state contract and resolve the small policy decisions above. A labeled UI fixture can demonstrate layout and recovery, but not a completed transfer or BR-04.
-2. If accepted as the next method to evaluate, prove Supabase TOTP enrollment/challenge/verify and transaction-specific replay/recovery behavior using synthetic local users. Keep AWS and the face matcher undecided; do not send messages or create paid accounts as a side effect.
+2. Provider compatibility was evaluated with synthetic users in [TOTP_COMPATIBILITY.md](TOTP_COMPATIBILITY.md). Next prove a small operation-authorization prototype with no balance writes; provider verification alone failed the replay requirements. Keep AWS and the face matcher undecided; do not send messages or create paid accounts as a side effect.
 3. Build the review/intent and confirmation path for a same-bank checking transfer only after its prerequisites are ready. Until the necessary identity/2FA checks exist, keep execution unavailable rather than enabling a bypass. Test-only synthetic balances are fixtures, not customer-accessible funding functionality.
 4. Expand the same reviewed authorization path to the remaining required operations as their policies/integrations are implemented. Record provider simulations and lecturer acceptance limits honestly.
 
