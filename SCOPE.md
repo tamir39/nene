@@ -71,6 +71,8 @@ The implementation must define which actions create financial transactions. The 
 
 Persistent intent/challenge records, failed-attempt metadata, and posted financial transactions are different concepts. The PDF does not spell out their storage lifecycle. Document the interpretation and ensure unverified actions never become completed financial transactions or change balances.
 
+[TRANSACTION_FLOW.md](docs/TRANSACTION_FLOW.md) now records the requested confirmation/2FA plan: shared S02–S05 screens, candidate backend routes, limits and recovery tests. It retains the storage interpretation as unresolved, applies 2FA to every financial operation, and treats Supabase TOTP as a provisional evaluation candidate. No new financial behavior, provider selection or lecturer exception is introduced by the plan.
+
 ### 3. Account management
 
 Source: PDF p. 2, Business 3. Register: BR-05 to BR-08.

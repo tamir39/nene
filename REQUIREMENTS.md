@@ -27,6 +27,8 @@ On 2026-10-27, the user directed a simpler identity flow: officer-assisted priva
 
 The reference foundation was subsequently implemented on 2026-10-27: [REFERENCE_FLOW.md](docs/REFERENCE_FLOW.md) records private capture/status, officer acceptance/correction and verification limits. This is partial BR-03 support; actual comparison, high-value checks and transaction 2FA remain unimplemented. No requirement or lecturer interpretation is waived.
 
+Later on 2026-10-27, the user selected transaction confirmation and 2FA **planning** as the next task. [TRANSACTION_FLOW.md](docs/TRANSACTION_FLOW.md) maps the shared financial journey, backend boundaries and future checks. Supabase authenticator TOTP is a recommendation to evaluate, not an approved mechanism; proposed limits and pre-authorization storage remain design decisions. All-transaction 2FA, high-value identity checks and the PDF's validity/persistence requirements remain intact. AWS stays undecided.
+
 ## Technology constraints verified against the PDF
 
 | Topic | Source wording and classification | Decision implication |
