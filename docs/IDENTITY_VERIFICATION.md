@@ -4,6 +4,8 @@ Status: design proposal mapped on 2026-10-27 at the user's request. **No identit
 
 This is the detailed handoff for C16 and O06 in [SCREEN_MAP.md](SCREEN_MAP.md), with the boundary to S03/S04. It uses the confirmed Flutter + NestJS + Supabase architecture and approved [lighter Open pocket identity](BRANDING.md). Screen divisions, statuses, API names and validation policies below are engineering proposals, not additional PDF requirements or lecturer-approved exceptions.
 
+[Identity options research](IDENTITY_OPTIONS.md), dated 2026-10-27, recommends AWS Face Liveness + CompareFaces with officer-assisted enrollment, conditional on Android integration and explicit method approval; FPT.AI is the simpler API alternative. The user accepts a small usage budget for comparison, not account creation or expenditure. No provider is confirmed. If AWS is selected, revise the generic upload route for its native capture stream and specify the identity baseline, result handling and capture credentials before implementation.
+
 ## 1. Source boundary
 
 The original [assignment PDF](../FinalProject_2026_2027.pdf) was reread in full, including rendered pages. Requirement IDs follow [REQUIREMENTS.md](../REQUIREMENTS.md), with interpretations in [SCOPE.md](../SCOPE.md).
