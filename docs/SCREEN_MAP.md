@@ -1,6 +1,6 @@
 # Nene screen map
 
-Status: screen inventory proposed on 2026-10-19; implementation updated 2026-10-20. The lighter Open pocket direction is approved. The first Flutter flow implements sign-in, own initial checking-account/profile/contact views, officer customer creation/search/detail and requested edits. The broader financial/identity/map/chat layouts below remain proposals; their implementation must be tracked separately.
+Status: screen inventory proposed on 2026-10-19; identity mapping detailed on 2026-10-27; implementation remains the first flow from 2026-10-20. The lighter Open pocket direction is approved. The first Flutter flow implements sign-in, own initial checking-account/profile/contact views, officer customer creation/search/detail and requested edits. The broader financial/identity/map/chat layouts below remain proposals; their implementation must be tracked separately.
 
 Source: [assignment PDF](../FinalProject_2026_2027.pdf), visually reviewed in full: p. 1 Business 1; p. 2 Business 2–7; p. 3 Technical 1–5. Requirement IDs follow [REQUIREMENTS.md](../REQUIREMENTS.md); interpretations follow [SCOPE.md](../SCOPE.md). Screen boundaries, labels, navigation, and reusable steps below are design proposals, not extra assignment requirements. This map supports TR-05/TR-06; screenshots alone do not complete a BR requirement.
 
@@ -69,7 +69,7 @@ IDs identify destinations or reusable steps, not an obligation to implement a se
 | C13 Branch map / walking route | Location permission, user marker, all nearby offices in declared coverage, nearest-office recommendation, shortest walking route and distance. Manual area browsing may help when location is denied but does not replace the required location demonstration. | BR-13; p. 2 §6 |
 | C14 Assistant | Chat messages and linked activities: bills, phone services, month-filtered history. Validate destinations and ownership; financial links open ordinary review/verification. | BR-14; p. 2 §7 |
 | C15 Customer profile / edit | Own information, phone/address edits and sign out are implemented in the first flow. Identity enrollment/status remains planned. Name/email/account/rate/role fields are not customer-editable. | BR-01–BR-03; p. 1 §1, p. 2 §2 |
-| C16 Identity enrollment / status | Method-specific instructions, consent and evidence collection as needed, submission/status/retry, officer-assisted path. Camera/upload alone is not verification. | BR-03; p. 2 §2 |
+| C16 Identity enrollment / status | [Detailed map](IDENTITY_VERIFICATION.md): status -> instructions/notice -> method-specific evidence -> review -> submission/result/correction. Officer-assisted path retained. Camera/upload alone is not verification; method and retention policy remain open. | BR-03; p. 2 §2 |
 | S02 Review operation | Account, recipient/biller, amount/currency, any applicable fee and total; edit/cancel or continue. Editing invalidates prior authorization. | BR-04, BR-08–BR-12; p. 2 §2–5 |
 | S03 High-value identity check | Show the operation being checked; perform chosen identity method; failure/retry/cancel. Threshold/method unresolved. Does not replace S04. | BR-03; p. 2 §2 |
 | S04 Transaction 2FA | Verify the exact operation before posting. Method-neutral design until selected. If OTP: delivery guidance, expiry, resend/retry limits and invalid/reused/mismatched handling. | BR-04; p. 2 §2 |
@@ -79,7 +79,7 @@ IDs identify destinations or reusable steps, not an obligation to implement a se
 | O03 Customer detail | Identity/profile, banking accounts, enrollment status; requested edit, account provisioning and identification assistance entry points, each permission-checked. | BR-02, BR-03, BR-05; p. 1 §1, p. 2 §2–3 |
 | O04 Create customer / account | Capture permitted customer fields, review, create authentication identity plus profile and initial banking account; show safe activation/access instructions. Do not expose administrative secrets or silently mark eKYC complete. Account creation is distinct from depositing funds. | BR-02, BR-03, BR-05; p. 1 §1, p. 2 §2–3 |
 | O05 Requested customer change | Customer context, permitted field edits, review changes and save/result; record request context/audit metadata without a new ticket product. | BR-02; p. 1 §1 |
-| O06 Assisted identification | Customer context, method-specific biometric/evidence assistance, verified outcome or next step. Manual action alone must not pretend to be an automated identity match. | BR-03; p. 2 §2 |
+| O06 Assisted identification / review | [Detailed map](IDENTITY_VERIFICATION.md): selected-customer status, assisted capture/submission, private evidence review, explicit decision confirmation/result. Accept evidence, request correction or cannot verify; electronic result remains separate. | BR-01, BR-03; p. 1 §1, p. 2 §2 |
 | O07 Saving rates | Current applicable rate/unit, scope and effective date; edit, review effect and confirm under documented bank policy. | BR-06; p. 2 §3 |
 | O08 Officer profile | Current officer identity and sign out; no client role editor. | BR-01, BR-03; p. 1 §1, p. 2 §2 |
 
@@ -90,6 +90,7 @@ IDs identify destinations or reusable steps, not an obligation to implement a se
 3. **Utilities:** C10/C11/C12 → quote/details → S02–S05 → payment status and separate fulfillment result. Provider integration and interbank transfer are separate capabilities; neither is proved by a static success screen.
 4. **Assistance:** C14 request for a particular month's history → C06 with that month and permitted account context. Bill/top-up requests open their normal flows. The chatbot never authorizes a payment.
 5. **Nearby office:** C13 location permission → nearby offices → nearest office under chosen metric → shortest walking route. Handle permission denial and missing routes without substituting driving directions.
+6. **Identity enrollment and officer review (mapped, unimplemented):** C15 → C16 status/instructions/evidence/review/submission → O06 evidence review plus selected electronic check → verified result, correction or not verified. O03 → O06 also supports officer-assisted collection. Evidence acceptance alone cannot verify identity, and enrollment cannot replace S03/S04. See [the backend/state contract](IDENTITY_VERIFICATION.md).
 
 ## State and recovery contract
 
@@ -105,7 +106,7 @@ IDs identify destinations or reusable steps, not an obligation to implement a se
 
 The table describes the target state contract across the full app. [The HTML UI study](UI_DIRECTION.md) draws three representative screens with manual fixtures. Flutter separately implements first-flow loading, empty, error, creation-review and save-result states; it does not implement the study's full financial navigation.
 
-Creation correction is available after validation `400` or confirmed duplicate-email `409` with `CUSTOMER_EMAIL_EXISTS`. Uncertain outcomes retain the same key/body for retry. Ordinary background/resume and same-user token refresh preserve that in-memory state; confirmed session/permission changes or process termination clear it. See [CUSTOMER_FLOW.md](CUSTOMER_FLOW.md) for recovery limits. Remaining financial, map, identity and chat screens still need detailed layouts and implementation checks.
+Creation correction is available after validation `400` or confirmed duplicate-email `409` with `CUSTOMER_EMAIL_EXISTS`. Uncertain outcomes retain the same key/body for retry. Ordinary background/resume and same-user token refresh preserve that in-memory state; confirmed session/permission changes or process termination clear it. See [CUSTOMER_FLOW.md](CUSTOMER_FLOW.md) for recovery limits. [IDENTITY_VERIFICATION.md](IDENTITY_VERIFICATION.md) now maps proposed identity content, state/recovery and backend rules; rendered identity screens and their implementation checks remain open. Financial, map and chat screens still need detailed layouts and implementation checks.
 
 ## Decisions before dependent implementation
 
