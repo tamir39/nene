@@ -6,6 +6,8 @@ Subsequent [local TOTP compatibility testing](TOTP_COMPATIBILITY.md) proved prov
 
 The later [backend authorization prototype](AUTHORIZATION_PROTOTYPE.md) demonstrates PostgreSQL operation binding/replay safeguards, fail-closed recovery and one-time synthetic consumption. It is unregistered and uses disposable records without balance writes. Customer enrollment, session handoff, real policies and the financial flow remain unimplemented.
 
+The subsequent [authenticator lifecycle plan](AUTHENTICATOR_LIFECYCLE.md) maps enrollment, replacement, proposed recovery codes and session handoff. It leaves safe SDK adoption and recovery-code compatibility as the next isolated gates; normal demo MFA remains disabled.
+
 The proposed shared journey is **enter details → review → high-value identity check when required → transaction 2FA → authoritative result**. Reuse it across financial features rather than building a different security flow for each payment category.
 
 ## Assignment boundary
@@ -76,9 +78,9 @@ The source-review concern about cross-challenge consumption was subsequently tes
 
 ### Minimum factor setup, if TOTP is selected
 
-Add one customer **Transaction security** entry under Profile: explain the authenticator requirement, reauthenticate before first setup, show a transient QR/setup secret, verify the first code, then mark the factor enrolled. Enrollment confirmation is not authorization for a payment. Never write QR secrets or codes to logs, analytics, source control, screenshots or ordinary app storage. Use request-scoped provider access on the server; do not put one user's mutable Auth session into a shared global client.
+Add one customer **Transaction security** entry under Profile, following [AUTHENTICATOR_LIFECYCLE.md](AUTHENTICATOR_LIFECYCLE.md): fresh password evidence, transient QR/manual key, first-code verification, provider reconciliation and Nene's active-factor binding. Enrollment confirmation is not authorization for a payment. Never write QR secrets or codes to logs, analytics, source control, report screenshots or ordinary app storage. Use request-scoped provider access on the server; do not put one user's mutable Auth session into a shared global client.
 
-Changing/removing a factor requires the existing factor plus appropriate reauthentication; an ordinary officer contact/name edit must not reset it. Losing the factor blocks financial confirmation. Hosted recovery remains to design before hosted financial activation. Controlled reset of an explicitly synthetic local fixture is a test-maintenance action, not a customer recovery feature. Do not add an SMS/email fallback or bypass automatically.
+Normal replacement requires the existing factor plus fresh password authentication; verify the new factor before retiring the old one. The planned lost-factor alternative is provider-native recovery codes, gated by a compatibility probe and restricted by Nene to replacement. Recovery-produced `aal2` is not transaction permission. Without a proven recovery path, financial confirmation stays blocked; ordinary officer edits, password reset and accepted reference photos cannot bypass it. Factor changes invalidate old authorization/session bindings. Controlled reset of an explicitly synthetic local fixture remains test maintenance, not customer recovery. No SMS/email fallback is selected.
 
 ## Backend rules and proposed state
 
@@ -130,7 +132,7 @@ These are design proposals. Before implementation, resolve the intent-storage in
 ## Acceptance evidence and delivery order
 
 1. Review the S02–S05 screen/state contract and resolve the small policy decisions above. A labeled UI fixture can demonstrate layout and recovery, but not a completed transfer or BR-04.
-2. Provider compatibility was evaluated in [TOTP_COMPATIBILITY.md](TOTP_COMPATIBILITY.md), followed by the [backend safeguards prototype](AUTHORIZATION_PROTOTYPE.md). Review its limits and the enrollment/recovery/session-handoff contract before real app integration. Keep AWS and the face matcher undecided; do not send messages or create paid accounts as a side effect.
+2. Provider TOTP compatibility was evaluated in [TOTP_COMPATIBILITY.md](TOTP_COMPATIBILITY.md), followed by the [backend safeguards prototype](AUTHORIZATION_PROTOTYPE.md) and [authenticator lifecycle plan](AUTHENTICATOR_LIFECYCLE.md). Next prove recovery-code compatibility and safe Flutter session adoption before real app integration; factor selection remains provisional. Keep AWS and the face matcher undecided; do not send messages or create paid accounts as a side effect.
 3. Build the review/intent and confirmation path for a same-bank checking transfer only after its prerequisites are ready. Until the necessary identity/2FA checks exist, keep execution unavailable rather than enabling a bypass. Test-only synthetic balances are fixtures, not customer-accessible funding functionality.
 4. Expand the same reviewed authorization path to the remaining required operations as their policies/integrations are implemented. Record provider simulations and lecturer acceptance limits honestly.
 
