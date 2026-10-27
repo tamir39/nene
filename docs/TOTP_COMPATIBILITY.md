@@ -6,6 +6,8 @@ Date: **27 October 2026**. Supports the BR-04 transaction-2FA design in [TRANSAC
 
 Supabase remains a possible factor verifier. Selection is deferred until a small backend authorization adapter proves operation binding, replay prevention and recovery. This result does not require changing Flutter, NestJS or Supabase, adding another provider, or selecting AWS.
 
+Follow-up: the [backend safeguards prototype](AUTHORIZATION_PROTOTYPE.md) subsequently passed 24 isolated checks, including real Supabase verification through shared PostgreSQL reservations. It is unregistered and moves no money. The observations below remain the provider-only findings; app integration, factor choice and customer recovery/session handoff are still open.
+
 ## What ran
 
 - The exact cached Auth image used by the running Nene stack: `public.ecr.aws/supabase/gotrue:v2.197.0`, image ID `sha256:1736a63078f5922b198c4cbe50f80ab9a2d3b54fe8b7b6cfb2e9dc5dbbc12c6b`.
@@ -42,14 +44,14 @@ The [official verify contract](https://supabase.com/docs/reference/javascript/au
 
 ## Smallest next step
 
-Keep the factor choice provisional. Design and test a narrow NestJS authorization adapter before implementing a transfer:
+Keep the factor choice provisional. The following adapter goals were subsequently exercised by [AUTHORIZATION_PROTOTYPE.md](AUTHORIZATION_PROTOTYPE.md); their production integration is still required before implementing a transfer:
 
 1. Bind a server-created attempt to one immutable reviewed operation/version, customer and factor. Recheck current roles, account eligibility and identity prerequisites before posting.
 2. Serialize attempts and reserve a bounded, protected proof fingerprint before provider verification so simultaneous requests cannot reuse a code across operations. A plain hash of a six-digit code is insufficient. Define retention against the provider's acceptance window; multiple API processes must share the enforcement. Do not store authenticator secrets or raw codes in application records.
 3. Record only a server-observed result for that attempt. A timeout or ambiguous provider failure must never authorize money movement. Define safe session handoff and supersede uncertain attempts before accepting fresh proof; a provider login result alone cannot recover a transaction receipt.
 4. Consume authorization exactly once with the eventual local debit, credit and history in one database transaction. Test changed details, ownership, attempt caps, concurrent requests, crashes and retry recovery. A direct call to Supabase Auth must not set a Nene authorization record.
 
-These are proposed application controls, not implemented protections. The interpretation of durable pre-authorization records, high-value threshold, actual face comparison, funding/account rules and factor recovery remain open. If a simple adapter cannot satisfy the tests, reconsider the factor mechanism before implementation. Do not quietly weaken the planned rules or add extra services.
+These are not protections enabled in the running app. The interpretation of durable pre-authorization records, high-value threshold, actual face comparison, funding/account rules and factor recovery remain open. The follow-up prototype demonstrates feasibility within its stated limits; do not quietly weaken the planned rules or add extra services when integrating it.
 
 ## Reproduce and cleanup
 
