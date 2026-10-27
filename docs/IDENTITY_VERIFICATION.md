@@ -1,6 +1,6 @@
 # Minimum identity verification flow
 
-Status: **direction simplified by the user on 2026-10-27; implementation remains pending**. The app still has the [first customer/account flow](CUSTOMER_FLOW.md) and an unused private identity bucket. This document adds no capture, review, face-comparison or transaction-2FA behavior.
+Status: **direction simplified and reference foundation implemented locally on 2026-10-27**. [REFERENCE_FLOW.md](REFERENCE_FLOW.md) records capture/status, private storage, officer acceptance/correction, retention defaults and verification limits. Actual face comparison and transaction 2FA remain pending. This document preserves the full design boundary beyond the implemented foundation.
 
 The confirmed direction is **officer-assisted reference enrollment, an actual server-side one-to-one face comparison for high-value activity, and separate transaction 2FA**. AWS and all other matching providers remain undecided. A native AWS bridge, advanced liveness, document OCR/NFC and a commercial KYC suite are not prerequisites for the next task. [IDENTITY_OPTIONS.md](IDENTITY_OPTIONS.md) retains provider research as background, without a preferred vendor.
 
@@ -89,11 +89,11 @@ Retain the safeguards needed for this small flow:
 - Storage and PostgreSQL are not one transaction. Reserve the file identity before writing; incomplete uploads stay unready and cannot be submitted. Reconcile retries and clean abandoned files according to a defined retention policy. Never delete referenced evidence as an orphan.
 - A requested officer name change invalidates an accepted reference and outstanding checks based on the old identity revision, atomically with that edit. Move a submitted/accepted case to correction, or advance a draft version. Keep history. Initial phone/address edits alone do not change this name-bound rule; extend the bound fields only if the chosen method needs them.
 
-Do not change application profile/account status or create/fund an account during reference review. The reference state is separate. Future migrations should add only the needed case/evidence/review/check records and narrowly scoped grants; no migration or privilege change is made by these docs.
+Do not change application profile/account status or create/fund an account during reference review. The reference state is separate. The additive reference migration grants only case/evidence/command/review access; it adds no role, status or financial privileges. Later comparison records remain future work.
 
-### Small proposed API contract
+### Reference API contract
 
-These are future routes under `/api/v1`; [API.md](API.md) continues to describe implemented behavior only.
+These routes are implemented under `/api/v1`; [API.md](API.md) records exact inputs, summaries and failure handling. The later high-value comparison API is not implemented.
 
 | Route family | Purpose |
 | --- | --- |
@@ -134,11 +134,11 @@ Preserve [UI_DIRECTION.md](UI_DIRECTION.md), [BRANDING.md](BRANDING.md) and the 
 | Record the absence of liveness and observed spoofing/replay weaknesses honestly; do not treat fixtures or stored photos as full BR-03 evidence. | BR-03/TR-06 |
 | Android capture/permission behavior and small-screen/large-text/keyboard/screen-reader paths are exercised. | TR-02/TR-06 |
 
-These are acceptance targets, not tests performed. Only the reference-enrollment foundation may be called complete after the first slice; BR-03 remains open until meaningful electronic checks and the agreed eKYC interpretation are demonstrated.
+The table spans implemented reference behavior and future comparison/2FA acceptance targets. [REFERENCE_FLOW.md](REFERENCE_FLOW.md) records performed checks and their limits. BR-03 remains open until meaningful electronic checks and the agreed eKYC interpretation are demonstrated.
 
 ## Next tasks and open decisions
 
-**Next: define the small officer-confirmation/notice/retention rules, then implement private reference capture, status and officer acceptance/correction.** Provider selection is not a prerequisite for that foundation. Synthetic fixtures may support early UI/storage work; real-person captures need an explicitly agreed test-data procedure. A synthetic account name does not make a real face synthetic.
+**Next: exercise the reference flow in the Edge web demo, then select and prove the later comparison implementation.** The implemented reference foundation uses notice `reference-demo-v1`, explicit acknowledgement/association confirmation, seven-day access expiry and maintenance-driven deletion; see [REFERENCE_FLOW.md](REFERENCE_FLOW.md). Real-person captures still need an explicitly agreed test-data procedure. A synthetic account name does not make a real face synthetic.
 
 Then select and prove a real comparison implementation, define its quality/threshold/attempt/expiry policy and the high-value amount rule, and connect it to operation-bound checks. Select and implement transaction 2FA before any financial posting. Lecturer expectations for the enrollment procedure, officer-subject coverage and any simulated integration remain unresolved; no waiver is assumed. The remaining account, payment, utility, map, chat and submission work stays in the roadmap.
 

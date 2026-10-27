@@ -1,6 +1,6 @@
 # Identity verification options: background research
 
-Research and decision update: **2026-10-27**. **No provider is selected or preferred.** The user chose to simplify the flow and leave AWS undecided. This supersedes the earlier AWS-first recommendation and removes its native capture experiment from the immediate next task. No identity integration has been implemented or provisioned.
+Research and decision update: **2026-10-27**. **No provider is selected or preferred.** The user chose to simplify the flow and leave AWS undecided. This supersedes the earlier AWS-first recommendation and removes its native capture experiment from the immediate next task. The [private reference foundation](REFERENCE_FLOW.md) is now implemented; no face-comparison or liveness integration has been implemented or provisioned.
 
 ## Current direction
 
@@ -14,7 +14,7 @@ The user accepts a small pay-as-you-go cost as a comparison constraint. That doe
 
 | Option | What it supplies | Cost/effort to evaluate, without a ranking |
 | --- | --- | --- |
-| Manual photo upload and officer review | Reference collection and association with an existing customer. | The next foundation slice. It supplies no automated high-value match, so it is not a substitute for the comparison step. |
+| Manual photo upload and officer review | Reference collection and association with an existing customer. | Implemented foundation slice. It supplies no automated high-value match, so it is not a substitute for the comparison step. |
 | Server-side photo-comparison API | One-to-one comparison of an accepted reference and a submitted capture, called by NestJS. AWS CompareFaces and FPT.AI FaceMatch are examples. | Assess access, per-call cost, backend-only credentials, input limits, meaningful thresholds and match/mismatch results. A comparison-only API does not require selecting the same vendor's native liveness SDK. It also does not establish capture freshness. |
 | Local recognition, e.g. OpenCV YuNet/SFace | Detection/alignment/comparison without a provider fee per call. | Evaluate runtime/model licensing, inference integration and maintenance. Do not train a custom model or add a separate service by default. Client-supplied match scores cannot be authoritative. |
 | AWS Face Liveness with CompareFaces | Session-based liveness plus comparison. | Additional capture/credential/platform work. AWS's reviewed capture components are Android, Swift and React; Flutter integration remains unproven. This is an optional stronger path, not the next scheduled experiment. |
@@ -39,7 +39,7 @@ Sources: [AWS pricing](https://aws.amazon.com/rekognition/pricing/) and [billing
 
 ## How to make the eventual decision small
 
-1. Implement the provider-neutral reference foundation described in [ROADMAP.md](../ROADMAP.md). Choose its notice, retention and officer-confirmation rules before collecting evidence; no liveness dependency is needed to record an accepted reference.
+1. Review the implemented [reference foundation](REFERENCE_FLOW.md) in the web demo. Its notice, seven-day access expiry, maintenance-driven deletion and officer confirmation are local project defaults; no liveness dependency is needed to record an accepted reference.
 2. Define a small comparison contract: accepted reference plus operation capture in; actual match/non-match/unavailable result out, interpreted by NestJS. Evaluate the least burdensome implementation that meets this contract and the lecturer's eKYC expectations. Do not infer a pass from upload success, a face-detection box or an officer click.
 3. Prove positive/negative comparisons, failure handling, ownership, expired/reused/wrong-operation rejection and reference-version invalidation. Choose thresholds/attempt limits explicitly; model defaults are not an identity policy.
 4. Record spoofing limitations. Requesting a new camera image and binding a result to an operation does not prove live presence or defeat image injection/replay. If stronger assurance is required, choose the additional mechanism deliberately and revise the scope/design then.

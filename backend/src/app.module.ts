@@ -10,15 +10,25 @@ import { HealthController } from './health/health.controller.js';
 import { SupabaseAdminService } from './auth/supabase-admin.service.js';
 import { CustomersService } from './customers/customers.service.js';
 import { OfficerCustomersController } from './customers/officer-customers.controller.js';
+import { IdentityController } from './identity/identity.controller.js';
+import { IdentityService } from './identity/identity.service.js';
+import { IdentityStorageService } from './identity/identity-storage.service.js';
 
 @Module({
   imports: [ConfigModule],
-  controllers: [HealthController, MeController, OfficerCustomersController],
+  controllers: [
+    HealthController,
+    MeController,
+    OfficerCustomersController,
+    IdentityController,
+  ],
   providers: [
     DatabaseService,
     SupabaseAuthService,
     SupabaseAdminService,
     CustomersService,
+    IdentityService,
+    IdentityStorageService,
     ProfilesRepository,
     { provide: APP_GUARD, useClass: SessionGuard },
   ],

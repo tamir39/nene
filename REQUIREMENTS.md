@@ -25,6 +25,8 @@ The user additionally wants flexibility for Android and iOS and easier future te
 
 On 2026-10-27, the user directed a simpler identity flow: officer-assisted private reference enrollment, an actual server-side one-to-one face comparison for high-value activity, and separate transaction 2FA. AWS remains undecided. Liveness SDKs, provider-specific native bridges, document OCR/NFC and commercial KYC are not baseline prerequisites. [docs/IDENTITY_VERIFICATION.md](docs/IDENTITY_VERIFICATION.md) separates reference acceptance from a passed electronic check and records spoofing limits. This is a project design direction, not an implemented feature, lecturer-approved exception or waiver of BR-03/BR-04. The exact matching implementation and eKYC acceptance expectations remain open.
 
+The reference foundation was subsequently implemented on 2026-10-27: [REFERENCE_FLOW.md](docs/REFERENCE_FLOW.md) records private capture/status, officer acceptance/correction and verification limits. This is partial BR-03 support; actual comparison, high-value checks and transaction 2FA remain unimplemented. No requirement or lecturer interpretation is waived.
+
 ## Technology constraints verified against the PDF
 
 | Topic | Source wording and classification | Decision implication |

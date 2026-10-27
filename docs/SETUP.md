@@ -148,10 +148,16 @@ For cached dependencies, the three Flutter check/build commands above accept `--
 
 This is a local synthetic flow. Hosted activation, lost-form recovery after app process death/sign-out, email changes, secure persistent sessions, eKYC, financial 2FA, iOS and physical-device testing remain open. Ordinary background/resume keeps the current retry form; only an explicit session transition or process loss discards it.
 
+## Reference flow verification (27 October 2026)
+
+The private capture/status/review slice and its checks are recorded in [REFERENCE_FLOW.md](REFERENCE_FLOW.md). Run `npm run check:identity-reference` after the additive migration with local Supabase running; it uses generated image fixtures and removes them. `npm --prefix backend run identity:cleanup` physically deletes eligible expired/pending evidence in bounded batches. Photo access expiry is enforced independently of cleanup.
+
+The interactive demo is the same Flutter app in Edge. The user runs the local `run.bat` launcher; Android Studio/emulator launch is excluded at their request. Web compilation and generated widget renders do not establish real camera, physical-phone or iOS behavior.
+
 ## Scope and release boundaries
 
 `com.example.nene_app` is the development Android application ID; the generated iOS bundle ID is `com.example.neneApp`. The Open pocket direction and lighter palette are approved and Android icons are integrated. Final wordmark/release asset review, iOS icons, identifiers, release signing, cloud hosting, and Play configuration remain open. Release signing must use a separately managed release key; no debug signing fallback is provided for publishing.
 
-The private identity bucket is configured, but no upload API, identity review, or high-value verification exists. Password login is not transaction 2FA. No financial endpoint is exposed before the required authorization flow is designed. All seven assignment feature groups remain in [REQUIREMENTS.md](../REQUIREMENTS.md) and [SCOPE.md](../SCOPE.md).
+Private reference upload/status and officer acceptance/correction are implemented. No actual face comparison, liveness or high-value verification exists; accepting a reference does not complete eKYC. Password login is not transaction 2FA. No financial endpoint is exposed before the required authorization flow is designed. All seven assignment feature groups remain in [REQUIREMENTS.md](../REQUIREMENTS.md) and [SCOPE.md](../SCOPE.md).
 
 The shared policy directory `D:\Data\Downloads\Policies` was unavailable when rechecked on 2026-10-20. No contents were read or policy compliance claimed.

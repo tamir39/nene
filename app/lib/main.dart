@@ -6,6 +6,8 @@ import 'config/app_config.dart';
 import 'data/auth_repository.dart';
 import 'data/bounded_auth_client.dart';
 import 'data/banking_api.dart';
+import 'data/identity_api.dart';
+import 'data/reference_photo_source.dart';
 import 'data/profile_api.dart';
 import 'nene_app.dart';
 import 'session_controller.dart';
@@ -14,6 +16,8 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final authClient = BoundedAuthClient();
   try {
+    final photos = DeviceReferencePhotoSource();
+    await photos.discardLostCapture();
     final config = AppConfig.fromEnvironment();
     await Supabase.initialize(
       url: config.supabaseUrl.toString(),
@@ -34,6 +38,8 @@ Future<void> main() async {
       NeneApp(
         controller: controller,
         banking: BankingApi(baseUrl: config.apiBaseUrl, client: httpClient),
+        identity: IdentityApi(baseUrl: config.apiBaseUrl, client: httpClient),
+        photos: photos,
         onDispose: () {
           httpClient.close();
           authClient.close();

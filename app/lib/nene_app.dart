@@ -3,16 +3,26 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import 'data/banking_repository.dart';
+import 'data/identity_repository.dart';
+import 'data/reference_photo_source.dart';
 import 'session_controller.dart';
 import 'ui/customer_workspace.dart';
 import 'ui/nene_brand.dart';
 
 class NeneApp extends StatefulWidget {
-  const NeneApp({super.key, this.controller, this.banking, this.onDispose})
-    : assert((controller == null) == (banking == null));
+  const NeneApp({
+    super.key,
+    this.controller,
+    this.banking,
+    this.identity,
+    this.photos,
+    this.onDispose,
+  }) : assert((controller == null) == (banking == null));
 
   final SessionController? controller;
   final BankingRepository? banking;
+  final IdentityRepository? identity;
+  final ReferencePhotoSource? photos;
   final VoidCallback? onDispose;
 
   @override
@@ -75,6 +85,8 @@ class _NeneAppState extends State<NeneApp> with WidgetsBindingObserver {
                   key: ValueKey(controller.generation),
                   session: controller,
                   repository: widget.banking!,
+                  identity: widget.identity,
+                  photos: widget.photos,
                 ),
                 SessionStatus.unavailable => _ProfileUnavailable(
                   controller: controller,

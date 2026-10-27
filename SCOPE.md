@@ -12,6 +12,8 @@ The [first customer flow](docs/CUSTOMER_FLOW.md) adds local officer provisioning
 
 On 2026-10-27, the user approved simplifying identity work to private reference enrollment with officer assistance/review, followed by actual server-side one-to-one comparison for high-value activity and separate transaction 2FA. [The minimum flow](docs/IDENTITY_VERIFICATION.md) is a design direction, not completed eKYC. AWS remains undecided; an AWS native bridge, advanced liveness, OCR/NFC and commercial KYC are not automatic dependencies. Reference acceptance alone is not BR-03 completion, and ordinary face comparison does not establish live presence. No lecturer-approved exception or reduced feature coverage is implied.
 
+The reference foundation was implemented locally on 2026-10-27; [REFERENCE_FLOW.md](docs/REFERENCE_FLOW.md) supersedes the earlier upload-status note. It adds private photo selection/capture, status and officer acceptance/correction only. The planned actual comparison, high-value authorization and all-transaction 2FA remain open. Web demo testing is preferred; the user starts `run.bat` and Android Studio/emulator launch is excluded unless requested again.
+
 ## Evidence and interpretation
 
 - [FinalProject_2026_2027.pdf](FinalProject_2026_2027.pdf), all three pages, was reread through text extraction and visual inspection. It defines the assignment outcomes.
