@@ -10,6 +10,8 @@ On 2026-10-13, the user selected **Flutter/Dart + a single NestJS/TypeScript API
 
 The [first customer flow](docs/CUSTOMER_FLOW.md) adds local officer provisioning, one zero-balance checking account and permitted customer/officer profile edits. It adds no financial commands or fake completed feature screens. Identity upload/verification, saving/mortgage management, transactions, utilities, walking navigation, chatbot and submission evidence remain future work. Its generated iOS shell is preparation for future compatibility, not an extra release deliverable. [docs/SETUP.md](docs/SETUP.md) records current checks and limitations.
 
+On 2026-10-27, the user approved simplifying identity work to private reference enrollment with officer assistance/review, followed by actual server-side one-to-one comparison for high-value activity and separate transaction 2FA. [The minimum flow](docs/IDENTITY_VERIFICATION.md) is a design direction, not completed eKYC. AWS remains undecided; an AWS native bridge, advanced liveness, OCR/NFC and commercial KYC are not automatic dependencies. Reference acceptance alone is not BR-03 completion, and ordinary face comparison does not establish live presence. No lecturer-approved exception or reduced feature coverage is implied.
+
 ## Evidence and interpretation
 
 - [FinalProject_2026_2027.pdf](FinalProject_2026_2027.pdf), all three pages, was reread through text extraction and visual inspection. It defines the assignment outcomes.
