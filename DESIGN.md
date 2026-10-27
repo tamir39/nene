@@ -1,6 +1,6 @@
 # Design and technology decisions
 
-Status: updated 2026-10-20. Flutter + NestJS + Supabase is confirmed. The local first customer flow adds officer provisioning, an initial checking account, customer contact edits and requested officer edits to the sign-in foundation. Financial flows and most of the larger schema below remain proposals; no cloud services are deployed. The assignment requirements are recorded in [REQUIREMENTS.md](REQUIREMENTS.md).
+Status: design updated 2026-10-27; application behavior remains the first customer flow from 2026-10-20. Flutter + NestJS + Supabase is confirmed. The local first customer flow adds officer provisioning, an initial checking account, customer contact edits and requested officer edits to the sign-in foundation. Identity screens/backend rules are now mapped, not implemented. Financial flows and most of the larger schema below remain proposals; no cloud services are deployed. The assignment requirements are recorded in [REQUIREMENTS.md](REQUIREMENTS.md).
 
 Scope boundary: [SCOPE.md](SCOPE.md) records the detailed PDF/rubric audit. The mechanisms and schemas below are candidates for implementation, not extra assignment features. Use the smallest design that demonstrates the required outcomes reliably.
 
@@ -121,6 +121,8 @@ The approved lighter direction is applied to Flutter sign-in, loading/error stat
 
 ## Transaction and identity design
 
+[docs/IDENTITY_VERIFICATION.md](docs/IDENTITY_VERIFICATION.md) details the proposed C16 customer enrollment/status and O06 officer assistance/review screens, state transitions, permissions, private-evidence lifecycle, candidate API and acceptance scenarios. Human evidence acceptance and electronic verification results are separate; neither replaces the later operation-bound high-value check or transaction 2FA. Method/provider, retention/attempt policy, officer-subject interpretation and high-value threshold remain open. No new identity endpoints or database grants exist yet.
+
 The brief requires eKYC and transaction 2FA. The following flow proposes OTP as the second factor. Its face-photo example informs high-value verification but does not prescribe a face algorithm or liveness vendor. A different chosen mechanism must still satisfy the identity and 2FA requirements.
 
 1. The authenticated client submits an operation intent with an idempotency key. The server validates ownership, recipient, amount, account rules, and available funds.
@@ -142,7 +144,7 @@ The following is a conceptual PostgreSQL model, not a finished schema. Use expli
 | Entity | Main fields and relationships |
 | --- | --- |
 | UserProfile | Supabase Auth user ID, application role, name, contact fields, status; linked customer accounts. Implemented permissions allow own phone/address edits and officer-requested name/contact edits; email, role and status remain protected. |
-| IdentityVerification | User ID, private evidence references, enrollment/review status, reviewing officer, timestamps, method/results for high-value verification. |
+| IdentityVerification | Conceptual grouping of case, versioned private evidence, officer review and method-check records; see [the detailed identity map](docs/IDENTITY_VERIFICATION.md). Bind enrollment to the reviewed evidence/profile revision. Later high-value checks also bind to the exact operation; a review decision alone is not a verified result. |
 | BankingAccount | Owner ID, account number, type, currency, balance, status. Model internal settlement accounts only if the chosen external flow needs them. |
 | SavingTerms | Account ID, rate/policy reference, principal, effective dates, term and profit calculation convention. |
 | InterestRatePolicy | Officer-managed rate, applicability, effective dates, change history. |
@@ -189,7 +191,7 @@ Savings profit and mortgage repayment calculations need explicit policies: rate 
 
 [ROADMAP.md](ROADMAP.md) records the remaining work, dependencies, and immediate next feature flow. The internal submission target remains 29 November, with 30 November as contingency before the portal deadline at the start of 1 December. Planning uses Asia/Bangkok provisionally because the screenshot does not specify its timezone.
 
-The first local customer/account flow is the current implementation slice. Next define and implement eKYC and transaction-bound 2FA before financial posting; build the remaining account types, secure transactions, external services, branch navigation and activity-linked chat on that foundation. Hosted customer activation also remains open. Report evidence and Google Play preparation proceed alongside feature development.
+The first local customer/account flow is the current implementation slice. The identity screen/backend map is ready for method selection: resolve enrollment evidence, verification and retention policies, then implement private enrollment and officer assistance/review. Preserve the later high-value path and implement transaction-bound 2FA before financial posting; build the remaining account types, secure transactions, external services, branch navigation and activity-linked chat on that foundation. Hosted customer activation also remains open. Report evidence and Google Play preparation proceed alongside feature development.
 
 ## Repository layout
 
