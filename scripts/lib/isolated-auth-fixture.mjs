@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { createHmac, randomBytes, randomUUID } from "node:crypto";
+import {
+  createHmac,
+  randomBytes,
+  randomUUID,
+  timingSafeEqual,
+} from "node:crypto";
 import { createServer } from "node:net";
 import { setTimeout as delay } from "node:timers/promises";
 
@@ -52,13 +57,17 @@ function signedFixtureToken(secret, role) {
  * tokens and SQL results as private; only runtime metadata is safe to report.
  * The callback's errors are rethrown after cleanup, so callers must redact them.
  */
-export async function withIsolatedAuthFixture(callback) {
+export async function withIsolatedAuthFixture(
+  callback,
+  { recoveryCodes = false } = {},
+) {
   assert.equal(
     process.platform,
     "win32",
     "This fixture targets local Windows Docker Desktop.",
   );
   assert.equal(typeof callback, "function");
+  assert.equal(typeof recoveryCodes, "boolean");
   const runId = randomUUID();
   const prefix = `nene-authz-${runId}`;
   const names = { network: prefix, db: `${prefix}-db`, auth: `${prefix}-auth` };
@@ -208,6 +217,7 @@ export async function withIsolatedAuthFixture(callback) {
       GOTRUE_DB_DATABASE_URL: `postgres://postgres:${password}@${names.db}:5432/postgres?sslmode=disable`,
       GOTRUE_DB_NAMESPACE: "auth",
       GOTRUE_JWT_SECRET: jwtSecret,
+      GOTRUE_JWT_ISSUER: authOrigin,
       GOTRUE_JWT_EXP: "3600",
       GOTRUE_JWT_AUD: "authenticated",
       GOTRUE_JWT_DEFAULT_GROUP_NAME: "authenticated",
@@ -222,6 +232,8 @@ export async function withIsolatedAuthFixture(callback) {
       GOTRUE_MFA_TOTP_VERIFY_ENABLED: "true",
       GOTRUE_MFA_PHONE_ENROLL_ENABLED: "false",
       GOTRUE_MFA_PHONE_VERIFY_ENABLED: "false",
+      GOTRUE_MFA_RECOVERY_CODES_ENROLL_ENABLED: String(recoveryCodes),
+      GOTRUE_MFA_RECOVERY_CODES_VERIFY_ENABLED: String(recoveryCodes),
       // Test traffic only; this does not validate a production provider limit.
       GOTRUE_MFA_RATE_LIMIT_CHALLENGE_AND_VERIFY: "200",
     };
@@ -268,6 +280,34 @@ export async function withIsolatedAuthFixture(callback) {
       databaseUrl,
       adminToken: signedFixtureToken(jwtSecret, "service_role"),
       anonKey: signedFixtureToken(jwtSecret, "anon"),
+      verifyAccessToken(token) {
+        // Only the isolated fixture knows this key. Never accept decoded claims
+        // as proof, and never include the token or failed assertions in errors.
+        try {
+          assert.equal(typeof token, "string");
+          const parts = token.split(".");
+          assert.equal(parts.length, 3);
+          const header = JSON.parse(Buffer.from(parts[0], "base64url"));
+          assert.equal(header.alg, "HS256");
+          const actual = Buffer.from(parts[2], "base64url");
+          const expected = createHmac("sha256", jwtSecret)
+            .update(`${parts[0]}.${parts[1]}`)
+            .digest();
+          assert.equal(actual.length, expected.length);
+          assert.ok(timingSafeEqual(actual, expected));
+          const claims = JSON.parse(Buffer.from(parts[1], "base64url"));
+          assert.equal(claims.iss, authOrigin);
+          assert.equal(claims.aud, "authenticated");
+          assert.ok(Number.isSafeInteger(claims.exp));
+          assert.ok(claims.exp > Math.floor(Date.now() / 1000));
+          const uuid = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
+          assert.match(claims.sub, uuid);
+          assert.match(claims.session_id, uuid);
+          return claims;
+        } catch {
+          throw new Error("Invalid isolated fixture access token.");
+        }
+      },
       sql,
       signal: controller.signal,
       runtime: Object.freeze({
@@ -279,6 +319,7 @@ export async function withIsolatedAuthFixture(callback) {
         databaseImageId: databaseInfo.Id,
         authPort,
         databasePort,
+        recoveryCodes,
       }),
     });
   } finally {
