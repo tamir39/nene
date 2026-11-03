@@ -1,4 +1,6 @@
 import { Module } from '@nestjs/common';
+import { SecurityController } from './security/security.controller.js';
+import { SecurityService } from './security/security.service.js';
 import { APP_GUARD } from '@nestjs/core';
 import { ConfigModule } from './config/config.module.js';
 import { SessionGuard } from './auth/session.guard.js';
@@ -17,12 +19,14 @@ import { IdentityStorageService } from './identity/identity-storage.service.js';
 @Module({
   imports: [ConfigModule],
   controllers: [
+    SecurityController,
     HealthController,
     MeController,
     OfficerCustomersController,
     IdentityController,
   ],
   providers: [
+    SecurityService,
     DatabaseService,
     SupabaseAuthService,
     SupabaseAdminService,

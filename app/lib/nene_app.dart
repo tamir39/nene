@@ -1,3 +1,4 @@
+import 'data/security_api.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -16,6 +17,7 @@ class NeneApp extends StatefulWidget {
     this.banking,
     this.identity,
     this.photos,
+    this.security,
     this.onDispose,
   }) : assert((controller == null) == (banking == null));
 
@@ -23,6 +25,7 @@ class NeneApp extends StatefulWidget {
   final BankingRepository? banking;
   final IdentityRepository? identity;
   final ReferencePhotoSource? photos;
+  final SecurityApi? security;
   final VoidCallback? onDispose;
 
   @override
@@ -87,6 +90,7 @@ class _NeneAppState extends State<NeneApp> with WidgetsBindingObserver {
                   repository: widget.banking!,
                   identity: widget.identity,
                   photos: widget.photos,
+                  security: widget.security,
                 ),
                 SessionStatus.unavailable => _ProfileUnavailable(
                   controller: controller,

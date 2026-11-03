@@ -1,5 +1,8 @@
 # Design and technology decisions
 
+Implementation update, 3 November 2026: [authenticator setup](docs/AUTHENTICATOR_SETUP.md) now implements first enrollment/status and production memory-only session ownership. Earlier lifecycle/prototype status describes its historical boundary; recovery/replacement and financial 2FA remain open.
+
+
 Status: private reference enrollment/status and officer acceptance/correction extend the first customer flow on 2026-10-27. Flutter + NestJS + Supabase is confirmed. The local customer foundation includes officer provisioning, an initial checking account, customer contact edits and requested officer edits. [docs/REFERENCE_FLOW.md](docs/REFERENCE_FLOW.md) records the implemented reference boundary and verification limits. Later high-value comparison and transaction 2FA remain unimplemented; AWS remains undecided. Financial flows and much of the schema below remain proposals; no cloud services are deployed. The assignment requirements are recorded in [REQUIREMENTS.md](REQUIREMENTS.md).
 
 Scope boundary: [SCOPE.md](SCOPE.md) records the detailed PDF/rubric audit. The mechanisms and schemas below are candidates for implementation, not extra assignment features. Use the smallest design that demonstrates the required outcomes reliably.

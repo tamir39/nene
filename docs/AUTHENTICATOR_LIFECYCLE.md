@@ -1,5 +1,8 @@
 # Customer authenticator lifecycle plan
 
+Implementation update, 3 November 2026: [AUTHENTICATOR_SETUP.md](AUTHENTICATOR_SETUP.md) records first-time backend/Flutter enrollment and status plus production session ownership. The older planning/prototype status below is historical; replacement/recovery, full transaction authorization and app acceptance remain open. AWS remains undecided.
+
+
 Status: **planning only, 27 October 2026**. The user requested enrollment, recovery and session-handoff planning before app integration. This document adds no customer endpoint, Flutter screen, migration or provider configuration. Normal demo MFA and financial execution remain disabled. AWS and the actual face-comparison implementation remain undecided.
 
 Recommended direction: keep Supabase authenticator TOTP as the working candidate, with one active Nene factor per customer. Plan provider-native recovery codes for lost-authenticator replacement, subject to an isolated compatibility check. Do not introduce another OTP provider or a custom backup-code system. This is a proposed implementation policy, not a PDF-prescribed mechanism or completed BR-04 acceptance.

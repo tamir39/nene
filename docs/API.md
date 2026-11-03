@@ -1,5 +1,8 @@
 # API contract
 
+Customer authenticator setup/status endpoints added 3 November 2026: see [AUTHENTICATOR_SETUP.md](AUTHENTICATOR_SETUP.md) for `GET /me/security`, `POST /me/security/setup` and `POST /me/security/verify`, permissions, payloads, no-store responses and limits.
+
+
 Status: private reference enrollment/review added on 2026-10-27 to the first local customer/account flow. Supports BR-01/BR-02 and partial BR-03/BR-05, plus TR-03/TR-06. See [CUSTOMER_FLOW.md](CUSTOMER_FLOW.md) and [REFERENCE_FLOW.md](REFERENCE_FLOW.md) for decisions and remaining security work.
 
 Base path: `/api/v1`. The Flutter client obtains its session from Supabase Auth and sends `Authorization: Bearer <access-token>` to NestJS. Banking data is never queried through the mobile Supabase database client.
