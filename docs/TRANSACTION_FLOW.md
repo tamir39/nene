@@ -1,5 +1,7 @@
 # Transaction confirmation and 2FA plan
 
+Confirmation update, 3 November 2026: [TRANSACTION_CONFIRMATION.md](TRANSACTION_CONFIRMATION.md) implements same-bank review and transaction-bound authenticator checking with an explicit not-sent result, as requested. Review details remain in a signed client token; only security metadata is persisted. The proposed durable financial-intent interpretation below remains unresolved. No financial authorization consumer, balance/history write or high-value identity check is enabled.
+
 Implementation update, 3 November 2026: [AUTHENTICATOR_SETUP.md](AUTHENTICATOR_SETUP.md) and [AUTHENTICATOR_MANAGEMENT.md](AUTHENTICATOR_MANAGEMENT.md) record implemented enrollment/status, replacement, backup-code recovery, memory-only session ownership and shared setup/lifecycle replay reservations. The older planning/prototype status below is historical. Next connect operation-bound confirmation to the active factor, restricted state, current security revision and the same proof reservation. Financial authorization/posting and app acceptance remain open; recovery never authorizes a payment. AWS remains undecided.
 
 

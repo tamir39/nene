@@ -1,4 +1,6 @@
 import { Module } from '@nestjs/common';
+import { ConfirmationController } from './confirmation/confirmation.controller.js';
+import { ConfirmationService } from './confirmation/confirmation.service.js';
 import { SecurityManagementController } from './security/security-management.controller.js';
 import { SecurityManagementService } from './security/security-management.service.js';
 import { AccountHistoryController } from './accounts/account-history.controller.js';
@@ -24,6 +26,7 @@ import { IdentityStorageService } from './identity/identity-storage.service.js';
 @Module({
   imports: [ConfigModule],
   controllers: [
+    ConfirmationController,
     SecurityManagementController,
     AccountHistoryController,
     DemoAccountController,
@@ -35,6 +38,7 @@ import { IdentityStorageService } from './identity/identity-storage.service.js';
     IdentityController,
   ],
   providers: [
+    ConfirmationService,
     SecurityManagementService,
     SecurityService,
     DatabaseService,
