@@ -1,3 +1,5 @@
+import 'security_screen.dart';
+import '../data/security_api.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -11,7 +13,16 @@ import '../session_controller.dart';
 import 'nene_brand.dart';
 import 'identity_reference_screen.dart';
 
-enum _Page { home, contact, create, search, detail, editCustomer, identity }
+enum _Page {
+  home,
+  contact,
+  create,
+  search,
+  detail,
+  editCustomer,
+  identity,
+  security,
+}
 
 /// All protected pages live below the session branch, so signing out/expiring
 /// disposes the entire workspace instead of leaving protected Navigator routes.
@@ -22,12 +33,14 @@ class CustomerWorkspace extends StatefulWidget {
     required this.repository,
     this.identity,
     this.photos,
+    this.security,
   });
 
   final SessionController session;
   final BankingRepository repository;
   final IdentityRepository? identity;
   final ReferencePhotoSource? photos;
+  final SecurityApi? security;
 
   @override
   State<CustomerWorkspace> createState() => _CustomerWorkspaceState();
@@ -145,6 +158,7 @@ class _CustomerWorkspaceState extends State<CustomerWorkspace> {
               onOpen: _openCustomer,
             ),
             _Page.detail => _detail(),
+            _Page.security => SecurityScreen(api: widget.security!),
             _Page.identity => IdentityReferenceScreen(
               key: ValueKey(_customerId ?? profile.id),
               session: widget.session,
@@ -247,6 +261,11 @@ class _CustomerWorkspaceState extends State<CustomerWorkspace> {
         const SizedBox(height: 12),
         _Info('Email', profile.email ?? 'Not provided'),
         if (!officer) ...[
+          if (widget.security != null)
+            OutlinedButton(
+              onPressed: () => _go(_Page.security),
+              child: const Text('Transaction security'),
+            ),
           _Info('Phone', profile.phone ?? 'Not provided'),
           _Info('Address', profile.address ?? 'Not provided'),
           const SizedBox(height: 12),

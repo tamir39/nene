@@ -1,5 +1,8 @@
 # Transaction confirmation and 2FA plan
 
+Implementation update, 3 November 2026: [AUTHENTICATOR_SETUP.md](AUTHENTICATOR_SETUP.md) records first-time backend/Flutter enrollment and status plus production session ownership. The older planning/prototype status below is historical; replacement/recovery, full transaction authorization and app acceptance remain open. AWS remains undecided.
+
+
 Status: **planning only, 27 October 2026**, requested after the reference-photo slice. No transaction endpoint, balance write, OTP delivery, authenticator enrollment or financial UI is implemented by this plan. Flutter + one NestJS API + Supabase remains the stack. AWS and the face-comparison provider remain undecided.
 
 Subsequent [local TOTP compatibility testing](TOTP_COMPATIBILITY.md) proved provider enrollment/verification, but observed successful-code reuse across challenges and concurrent reuse of one challenge. Supabase MFA alone does not satisfy this plan's transaction rules. No application factor selection or implementation follows automatically from that experiment.

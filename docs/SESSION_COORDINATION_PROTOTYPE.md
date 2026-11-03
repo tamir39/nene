@@ -1,5 +1,8 @@
 # Browser session ownership and refresh coordination prototype
 
+Implementation update, 3 November 2026: [AUTHENTICATOR_SETUP.md](AUTHENTICATOR_SETUP.md) records first-time backend/Flutter enrollment and status plus production session ownership. The older planning/prototype status below is historical; replacement/recovery, full transaction authorization and app acceptance remain open. AWS remains undecided.
+
+
 Date: **27 October 2026**. This isolated follow-up to [RECOVERY_SESSION_COMPATIBILITY.md](RECOVERY_SESSION_COMPATIBILITY.md) supports BR-04 and the [authenticator lifecycle plan](AUTHENTICATOR_LIFECYCLE.md). It tests the session boundary needed before customer integration. It does not complete transaction 2FA, eKYC, recovery management or financial posting. AWS and the face-comparison implementation remain undecided.
 
 **The isolated browser ownership and refresh-coordination gate passed.** The final candidate passed 55 targeted Dart tests, four real-provider cases, nine two-tab Edge scenarios and an actual reload check. It owns one memory-only session per tab and coordinates mutations before any provider request is dispatched. It does not import provider sessions through a mutable GoTrue client. No normal Nene application code or MFA configuration is enabled by this experiment.
