@@ -1,5 +1,7 @@
 # Transaction-bound confirmation preview
 
+Subsequent implementation: [LOCAL_TRANSFERS.md](LOCAL_TRANSFERS.md) adds a separate local demo sending path with its own signed purpose. This preview and its API remain unchanged in meaning: they cannot send funds or authorize the sending path.
+
 Implemented 3 November 2026 as **BR-04/BR-09 support**, with the user's explicit choice to implement confirmation before money movement. The PDF, page 2 Business 2 and 4, requires transaction 2FA and valid/allowed transactions before persistence. This slice checks an authenticator against exact reviewed same-bank transfer details. It does **not** complete BR-04/BR-09, perform eKYC, post a transfer, change a balance or add transaction history. AWS remains undecided.
 
 ## Customer journey
@@ -65,4 +67,4 @@ For user testing, stop/restart your local runner so the forward migration and ne
 
 `run.bat` and LAN/port tooling remain local and uncommitted. No normal demo/emulator, paid provider or cloud service was started by this implementation. The shared policy directory was unavailable. PDF/rubric originals and all seven business groups remain unchanged.
 
-Next: settle the actual identity comparison/high-value policy and first financial operation's funding/account rules, then implement transaction authorization consumption and atomic posting. Keep [TRANSACTION_FLOW.md](TRANSACTION_FLOW.md)'s lecturer-interpretation questions explicit; this preview is not the completed financial flow.
+Next: test the separate [local transfer flow](LOCAL_TRANSFERS.md), then implement the remaining identity and financial requirements. Keep [TRANSACTION_FLOW.md](TRANSACTION_FLOW.md)'s lecturer-interpretation questions explicit; this preview is not the completed financial flow.

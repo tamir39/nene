@@ -4,8 +4,9 @@ import 'security_api.dart';
 import 'session_owner.dart';
 
 class ConfirmationApi {
-  ConfirmationApi(this.security);
+  ConfirmationApi(this.security, {this.sendMoney = false});
   final SecurityApi security;
+  final bool sendMoney;
   Future<Map<String, dynamic>> _request(
     String token,
     String path, [
@@ -14,7 +15,9 @@ class ConfirmationApi {
     final req =
         http.Request(
             body == null ? 'GET' : 'POST',
-            security.baseUrl.resolve('me/transfer-confirmations/$path'),
+            security.baseUrl.resolve(
+              'me/${sendMoney ? 'transfers' : 'transfer-confirmations'}/$path',
+            ),
           )
           ..followRedirects = false
           ..headers.addAll({
@@ -57,6 +60,11 @@ class ConfirmationApi {
   );
   Future<Map<String, dynamic>> status(String id) =>
       security.owner.execute((s) => _request(s.pair.accessToken, id));
+  Future<Map<String, dynamic>> configuration() => security.owner.execute(
+    (s) => _request(s.pair.accessToken, 'configuration'),
+  );
+  Future<Map<String, dynamic>> recent() =>
+      security.owner.execute((s) => _request(s.pair.accessToken, ''));
   Future<Map<String, dynamic>> cancel(String token) => security.owner.execute(
     (s) => _request(s.pair.accessToken, 'cancel', {'reviewToken': token}),
   );
@@ -69,7 +77,9 @@ class ConfirmationApi {
       await security.owner.exchange(
         HandoffBinding(
           requestId: review['requestId'] as String,
-          purpose: 'transaction-confirmation',
+          purpose: sendMoney
+              ? 'same-bank-transfer'
+              : 'transaction-confirmation',
           securityRevision: review['revision'] as int,
         ),
         (s) async {
@@ -80,9 +90,9 @@ class ConfirmationApi {
           response = data;
           // A duplicate returns status only, never replays a provider session pair.
           if (data['replay'] == true) throw const SessionMutationRejected();
-          if (data['sent'] != false ||
-              data['executionAvailable'] != false ||
-              data['state'] != 'factor_confirmed') {
+          if (data['sent'] != sendMoney ||
+              data['executionAvailable'] != sendMoney ||
+              data['state'] != (sendMoney ? 'posted' : 'factor_confirmed')) {
             throw const SessionCoordinationException();
           }
           return HandoffReply(

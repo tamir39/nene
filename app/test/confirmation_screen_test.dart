@@ -51,8 +51,9 @@ Future<void> tap(WidgetTester tester, String label) async {
 
 Future<SessionOwner> showScreen(
   WidgetTester tester,
-  Future<http.Response> Function(http.Request) handler,
-) async {
+  Future<http.Response> Function(http.Request) handler, {
+  bool sendMoney = false,
+}) async {
   tester.view.physicalSize = const Size(390, 1000);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
@@ -88,7 +89,7 @@ Future<SessionOwner> showScreen(
         child: Scaffold(
           body: ConfirmationScreen(
             account: account,
-            api: ConfirmationApi(security),
+            api: ConfirmationApi(security, sendMoney: sendMoney),
           ),
         ),
       ),
@@ -104,7 +105,125 @@ Future<void> prepare(WidgetTester tester) async {
   await tap(tester, 'Review confirmation');
 }
 
+Future<void> captureTransfer(WidgetTester tester, String name) async {
+  if (!const bool.fromEnvironment('CAPTURE_CONFIRMATION_UI')) return;
+  final boundary = tester.renderObject<RenderRepaintBoundary>(
+    find.byKey(const ValueKey('capture')),
+  );
+  await tester.runAsync(() async {
+    final image = await boundary.toImage();
+    final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+    final file = File('../.tmp/confirmation-ui/$name.png');
+    await file.parent.create(recursive: true);
+    await file.writeAsBytes(bytes!.buffer.asUint8List());
+    image.dispose();
+  });
+}
+
 void main() {
+  testWidgets(
+    'demo posting shows sent result, removes cancel, and recovers receipt on return',
+    (tester) async {
+      var sent = false;
+      await showScreen(tester, (req) async {
+        if (req.url.path.endsWith('/configuration')) {
+          return json({'enabled': true});
+        }
+        if (req.url.path.endsWith('/transfers/')) {
+          return json({
+            'transfers': sent
+                ? [
+                    {
+                      'requestId': 'request',
+                      'state': 'posted',
+                      'receipt': {'amountMinor': '100000'},
+                    },
+                  ]
+                : <Map<String, dynamic>>[],
+          });
+        }
+        if (req.url.path.endsWith('/security')) return json({'state': 'ready'});
+        if (req.url.path.endsWith('/review')) {
+          return json({
+            ...review(),
+            'sufficientFunds': true,
+            'executionAvailable': true,
+          });
+        }
+        expect(req.url.path.endsWith('/transfers/confirm'), true);
+        sent = true;
+        return json({
+          'requestId': 'request',
+          'revision': 2,
+          'purpose': 'same-bank-transfer',
+          'accessToken': 'test',
+          'refreshToken': 'test',
+          'state': 'posted',
+          'sent': true,
+          'executionAvailable': true,
+          'replay': false,
+        });
+      }, sendMoney: true);
+      await prepare(tester);
+      await captureTransfer(tester, 'demo-transfer-review');
+      await tester.enterText(find.byType(TextField), '123456');
+      await tap(tester, 'Confirm and send demo funds');
+      expect(find.textContaining('Demo transfer sent.'), findsOneWidget);
+      expect(find.text('Cancel confirmation'), findsNothing);
+      await captureTransfer(tester, 'demo-transfer-sent');
+      await tap(tester, 'Start another transfer');
+      expect(find.text('Sent 100000 VND · demo funds'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+  testWidgets(
+    'uncertain demo response clears session and never claims transfer was not sent',
+    (tester) async {
+      final owner = await showScreen(tester, (req) async {
+        if (req.url.path.endsWith('/configuration')) {
+          return json({'enabled': true});
+        }
+        if (req.url.path.endsWith('/transfers/')) {
+          return json({'transfers': <Map<String, dynamic>>[]});
+        }
+        if (req.url.path.endsWith('/security')) return json({'state': 'ready'});
+        if (req.url.path.endsWith('/review')) {
+          return json({...review(), 'sufficientFunds': true});
+        }
+        return http.Response('{}', 503);
+      }, sendMoney: true);
+      await prepare(tester);
+      await tester.enterText(find.byType(TextField), '123456');
+      await tap(tester, 'Confirm and send demo funds');
+      expect(owner.session, isNull);
+      expect(
+        find.textContaining('Transfer outcome is unconfirmed.'),
+        findsOneWidget,
+      );
+      expect(find.textContaining('Transfer not sent'), findsNothing);
+      expect(find.text('Confirm and send demo funds'), findsNothing);
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+  testWidgets('disabled local demo cannot request a review', (tester) async {
+    await showScreen(
+      tester,
+      (req) async => req.url.path.endsWith('/configuration')
+          ? json({'enabled': false})
+          : json({'transfers': <Map<String, dynamic>>[]}),
+      sendMoney: true,
+    );
+    expect(
+      tester
+          .widget<FilledButton>(
+            find.widgetWithText(FilledButton, 'Review confirmation'),
+          )
+          .onPressed,
+      isNull,
+    );
+    expect(find.textContaining('not enabled'), findsOneWidget);
+  });
   setUpAll(() async {
     if (!const bool.fromEnvironment('CAPTURE_CONFIRMATION_UI')) return;
     final sdk = Platform.environment['FLUTTER_ROOT'] ?? '../.tools/flutter';

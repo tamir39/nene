@@ -2,7 +2,7 @@
 
 An Android mobile banking final project for Ton Duc Thang University's Mobile Apps Development course.
 
-Status: private reference-photo enrollment and officer review added on 2026-10-27 to the first customer/account flow. The app supports sign-in, local officer customer creation, a zero-balance checking account, contact/requested edits, reference status and acceptance/correction. Reference acceptance is not completed eKYC; full assignment coverage remains in progress.
+Status, 3 November 2026: the customer/officer foundation now includes reference enrollment/review, account information/history, authenticator setup/recovery, confirmation preview and [local synthetic same-bank transfers](docs/LOCAL_TRANSFERS.md). The new sending flow requires explicitly prepared demo accounts, accepted reference and transaction-bound TOTP; amounts at or above 5,000,000 VND stay blocked. Reference acceptance is not completed eKYC. AWS remains undecided; deposits, withdrawals, external integrations and full assignment acceptance remain open. The foundation notes below retain the limits of those earlier slices.
 
 ## Confirmed technology stack
 

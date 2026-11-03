@@ -1,5 +1,7 @@
 # Design and technology decisions
 
+Local transfer update, 3 November 2026: the user approved VND checking-to-checking synthetic transfers below 5,000,000 VND, requiring an unexpired accepted reference and transaction-bound TOTP. [LOCAL_TRANSFERS.md](docs/LOCAL_TRANSFERS.md) records the disabled-by-default local gate, one-time opening seed, atomic posting/receipt/history and recovery. Reference acceptance is not eKYC; high-value operations are blocked and AWS remains undecided. Earlier slice notes below describe their original implementation boundaries.
+
 Confirmation update, 3 November 2026: [transaction-bound confirmation preview](docs/TRANSACTION_CONFIRMATION.md) uses signed, memory-only review details and durable security metadata, with shared proof replay protection, active-factor/revision checks and safe session handoff. It implements the customer review/check/not-sent path without a durable financial intent, balance writes or payment authorization. The user explicitly selected confirmation first; identity/funding policies and financial posting remain open, with AWS undecided.
 
 History update, 3 November 2026: [customer account history](docs/ACCOUNT_HISTORY.md) adds a read-only posted-entry model, customer-owned monthly reads and Flutter pagination. Month boundaries use the explicit UTC+07 demo convention. No transaction/balance writes or financial authorization are introduced; AWS remains undecided.

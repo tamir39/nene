@@ -71,6 +71,7 @@ class _CustomerWorkspaceState extends State<CustomerWorkspace> {
   String? _notice;
   BankAccount? _historyAccount;
   BankAccount? _confirmationAccount;
+  bool _sendDemoMoney = false;
 
   @override
   void initState() {
@@ -105,6 +106,7 @@ class _CustomerWorkspaceState extends State<CustomerWorkspace> {
   }
 
   void _back() {
+    if (_page == _Page.confirmation) unawaited(_flow.loadAccounts());
     if (_page == _Page.demoAccount) {
       _openCustomer(_customerId!);
       return;
@@ -184,7 +186,7 @@ class _CustomerWorkspaceState extends State<CustomerWorkspace> {
             _Page.detail => _detail(),
             _Page.confirmation => ConfirmationScreen(
               key: ValueKey(_confirmationAccount!.id),
-              api: ConfirmationApi(widget.security!),
+              api: ConfirmationApi(widget.security!, sendMoney: _sendDemoMoney),
               account: _confirmationAccount!,
             ),
             _Page.history => AccountHistoryScreen(
@@ -312,11 +314,23 @@ class _CustomerWorkspaceState extends State<CustomerWorkspace> {
                   OutlinedButton(
                     onPressed: () {
                       _confirmationAccount = account;
+                      _sendDemoMoney = false;
                       _go(_Page.confirmation);
                     },
                     child: const Text(
                       'Try transfer confirmation · no money sent',
                     ),
+                  ),
+                if (widget.security != null &&
+                    account.type == 'checking' &&
+                    account.currency == 'VND')
+                  OutlinedButton(
+                    onPressed: () {
+                      _confirmationAccount = account;
+                      _sendDemoMoney = true;
+                      _go(_Page.confirmation);
+                    },
+                    child: const Text('Transfer demo funds'),
                   ),
                 if (widget.history != null)
                   OutlinedButton(
@@ -332,7 +346,8 @@ class _CustomerWorkspaceState extends State<CustomerWorkspace> {
           const SizedBox(height: 20),
           const _Message(
             'Identity verification is not completed in this demo. '
-            'Deposits, withdrawals, transfers and payments are not available.',
+            'Only explicitly enabled local demo transfers are supported. '
+            'Deposits, withdrawals and payments are not available.',
           ),
           const SizedBox(height: 28),
         ],

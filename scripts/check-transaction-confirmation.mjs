@@ -37,10 +37,15 @@ try {
       for (const file of [
         "20261015000100_identity_foundation.sql",
         "20261020000100_customer_accounts.sql",
+        "20261027000100_identity_reference.sql",
+        "20261027000200_identity_reference_name_snapshot.sql",
         "20261103000100_authenticator_setup.sql",
+        "20261103000200_account_information.sql",
+        "20261103000300_demo_account_provisioning.sql",
         "20261103000400_account_history.sql",
         "20261103000500_authenticator_management.sql",
         "20261103000600_transaction_confirmation.sql",
+        "20261103000700_local_transfers.sql",
       ]) {
         await admin.query(
           readFileSync(

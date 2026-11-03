@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { TransfersController } from './confirmation/transfers.controller.js';
 import { ConfirmationController } from './confirmation/confirmation.controller.js';
 import { ConfirmationService } from './confirmation/confirmation.service.js';
 import { SecurityManagementController } from './security/security-management.controller.js';
@@ -26,6 +27,7 @@ import { IdentityStorageService } from './identity/identity-storage.service.js';
 @Module({
   imports: [ConfigModule],
   controllers: [
+    TransfersController,
     ConfirmationController,
     SecurityManagementController,
     AccountHistoryController,

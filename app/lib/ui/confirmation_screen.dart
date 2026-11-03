@@ -26,10 +26,25 @@ class _ConfirmationScreenState extends State<ConfirmationScreen>
   String? _state, _error;
   bool _busy = false, _hidden = false;
   Timer? _expiry;
+  bool _enabled = false;
+  List<Map<String, dynamic>> _recent = [];
+  bool get _send => widget.api.sendMoney;
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    if (_send) _run(_loadRecent);
+  }
+
+  Future<void> _loadRecent() async {
+    final config = await widget.api.configuration();
+    final data = await widget.api.recent();
+    if (mounted) {
+      setState(() {
+        _enabled = config['enabled'] == true;
+        _recent = (data['transfers'] as List).cast<Map<String, dynamic>>();
+      });
+    }
   }
 
   @override
@@ -64,8 +79,9 @@ class _ConfirmationScreenState extends State<ConfirmationScreen>
     } on SessionMutationRejected {
       if (mounted) {
         setState(
-          () => _error =
-              'Details or code were not accepted, or the code was already used. Check status, then start a new review with a fresh code. After too many attempts, wait 15 minutes.',
+          () => _error = _send
+              ? 'Check available funds, prepared demo accounts, an unexpired accepted reference and an amount below 5,000,000 VND. For a rejected code, check status before a new review; wait for a fresh code or 15 minutes after too many attempts.'
+              : 'Details or code were not accepted, or the code was already used. Check status, then start a new review with a fresh code. After too many attempts, wait 15 minutes.',
         );
       }
     } catch (_) {
@@ -73,8 +89,9 @@ class _ConfirmationScreenState extends State<ConfirmationScreen>
         setState(() {
           _state = 'unknown';
           _code.clear();
-          _error =
-              'Confirmation could not be checked. No money was sent. Sign in again if needed; do not repeat an uncertain request.';
+          _error = _send
+              ? 'Transfer outcome is unconfirmed. Check recent transfers or account history after signing in. Do not send it again until the outcome is known.'
+              : 'Confirmation could not be checked. No money was sent. Sign in again if needed; do not repeat an uncertain request.';
         });
       }
     } finally {
@@ -116,6 +133,7 @@ class _ConfirmationScreenState extends State<ConfirmationScreen>
       () {
         if (mounted) {
           setState(() {
+            if (_state == 'posted') return;
             _state = 'expired';
             _code.clear();
           });
@@ -133,10 +151,12 @@ class _ConfirmationScreenState extends State<ConfirmationScreen>
     // A review permits one submitted proof. Definite rejection needs a new review.
     setState(() => _state = 'checking');
     final data = await widget.api.confirm(_review!, code);
+    if (data['state'] == 'posted') _expiry?.cancel();
     if (mounted) setState(() => _state = data['state'] as String);
   });
   Future<void> _status() => _run(() async {
     final data = await widget.api.status(_review!['requestId'] as String);
+    if (data['state'] == 'posted') _expiry?.cancel();
     if (mounted) setState(() => _state = data['state'] as String);
   });
   Future<void> _cancel() => _run(() async {
@@ -164,18 +184,42 @@ class _ConfirmationScreenState extends State<ConfirmationScreen>
   Widget build(BuildContext context) => WorkspaceContent(
     children: [
       Text(
-        'Transfer confirmation',
+        _send ? 'Transfer demo funds' : 'Transfer confirmation',
         style: Theme.of(context).textTheme.headlineMedium,
       ),
       const SizedBox(height: 16),
-      const Text(
-        'Confirmation preview only. No money will be sent. Identity checks and money movement are not available yet.',
+      Text(
+        _send
+            ? 'Synthetic local funds only. Sending changes both demo balances and records a transfer. Amounts of 5,000,000 VND or more are blocked until actual face comparison is available.'
+            : 'Confirmation preview only. No money will be sent. Identity checks and money movement are not available yet.',
       ),
       const SizedBox(height: 16),
       if (_busy)
         const LinearProgressIndicator(semanticsLabel: 'Checking confirmation'),
       if (_error != null) Semantics(liveRegion: true, child: Text(_error!)),
       if (_review == null) ...[
+        if (_send) ...[
+          if (!_enabled && !_busy)
+            const Text(
+              'This local transfer demo is not enabled. Ask the project team to prepare the demo accounts.',
+            ),
+          if (_recent.isNotEmpty) ...[
+            const Text('Recent transfer attempts'),
+            for (final item in _recent)
+              ListTile(
+                title: Text(
+                  item['state'] == 'posted'
+                      ? 'Sent ${(item['receipt'] as Map)['amountMinor']} VND · demo funds'
+                      : '${item['state']} · check before sending again',
+                ),
+                subtitle: Text(item['requestId'] as String),
+              ),
+          ],
+          TextButton(
+            onPressed: _busy ? null : () => _run(_loadRecent),
+            child: const Text('Refresh recent transfers'),
+          ),
+        ],
         Text('From ${widget.account.accountNumber}'),
         TextField(
           controller: _destination,
@@ -197,7 +241,7 @@ class _ConfirmationScreenState extends State<ConfirmationScreen>
         ),
         const SizedBox(height: 16),
         FilledButton(
-          onPressed: _busy || _hidden ? null : _prepare,
+          onPressed: _busy || _hidden || (_send && !_enabled) ? null : _prepare,
           child: const Text('Review confirmation'),
         ),
       ] else ...[
@@ -207,7 +251,11 @@ class _ConfirmationScreenState extends State<ConfirmationScreen>
           '${_review!['amountMinor']} VND',
           style: Theme.of(context).textTheme.headlineSmall,
         ),
-        const Text('Preview fee: 0 VND. This is not a transfer quote.'),
+        Text(
+          _send
+              ? 'Demo transfer fee: 0 VND.'
+              : 'Preview fee: 0 VND. This is not a transfer quote.',
+        ),
         if (_review!['sufficientFunds'] == false)
           const Text(
             'Insufficient funds for this amount. You can test the confirmation check, but this transfer cannot be sent.',
@@ -231,23 +279,35 @@ class _ConfirmationScreenState extends State<ConfirmationScreen>
             ),
           FilledButton(
             onPressed: _busy || _hidden ? null : _confirm,
-            child: const Text('Check authenticator · do not send'),
+            child: Text(
+              _send
+                  ? 'Confirm and send demo funds'
+                  : 'Check authenticator · do not send',
+            ),
           ),
         ] else ...[
           Semantics(
             liveRegion: true,
             child: Text(switch (_state) {
+              'posted' =>
+                'Demo transfer sent. Balances and transaction history were updated.',
               'factor_confirmed' =>
                 'Authenticator checked for these details. Transfer not sent.',
               'cancelled' => 'Confirmation cancelled. Transfer not sent.',
               'rejected' =>
                 'Code not accepted. Start a new review with a fresh code.',
-              'expired' => 'Review or confirmation expired. Transfer not sent.',
+              'expired' =>
+                _send
+                    ? 'Review expired. Check recent transfers or history for any submitted transfer.'
+                    : 'Review or confirmation expired. Transfer not sent.',
               'invalidated' =>
                 'Security or sign-in changed. This confirmation is no longer valid.',
               'checking' =>
                 'Confirmation not yet established. Check status before continuing.',
-              _ => 'Confirmation uncertain. No money was sent.',
+              _ =>
+                _send
+                    ? 'Transfer outcome unconfirmed. Check recent transfers/history before sending again.'
+                    : 'Confirmation uncertain. No money was sent.',
             }),
           ),
           TextButton(
@@ -255,11 +315,25 @@ class _ConfirmationScreenState extends State<ConfirmationScreen>
             child: const Text('Check confirmation status'),
           ),
         ],
-        TextButton(
-          onPressed: _busy ? null : _edit,
-          child: const Text('Edit details / new review'),
-        ),
-        if (_state != 'cancelled')
+        if (_state != 'posted')
+          TextButton(
+            onPressed: _busy ? null : _edit,
+            child: const Text('Edit details / new review'),
+          ),
+        if (_state == 'posted')
+          TextButton(
+            onPressed: _busy
+                ? null
+                : () => _run(() async {
+                    setState(() {
+                      _review = null;
+                      _state = null;
+                    });
+                    await _loadRecent();
+                  }),
+            child: const Text('Start another transfer'),
+          ),
+        if (_state != 'cancelled' && _state != 'posted')
           TextButton(
             onPressed: _busy ? null : _cancel,
             child: const Text('Cancel confirmation'),
