@@ -46,6 +46,7 @@ try {
         "20261103000500_authenticator_management.sql",
         "20261103000600_transaction_confirmation.sql",
         "20261103000700_local_transfers.sql",
+        "20261103000800_local_cash_operations.sql",
       ]) {
         await admin.query(
           readFileSync(

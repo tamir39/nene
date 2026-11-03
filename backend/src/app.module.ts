@@ -1,3 +1,4 @@
+import { CashController } from './confirmation/cash.controller.js';
 import { Module } from '@nestjs/common';
 import { TransfersController } from './confirmation/transfers.controller.js';
 import { ConfirmationController } from './confirmation/confirmation.controller.js';
@@ -27,6 +28,7 @@ import { IdentityStorageService } from './identity/identity-storage.service.js';
 @Module({
   imports: [ConfigModule],
   controllers: [
+    CashController,
     TransfersController,
     ConfirmationController,
     SecurityManagementController,

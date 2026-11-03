@@ -1,5 +1,7 @@
 # API contract
 
+Local cash operations added 3 November 2026: customer `/api/v1/me/cash/:operation` routes (`deposit` or `withdrawal`) provide configuration, review/confirm, recent/status and cancellation. See [LOCAL_CASH.md](LOCAL_CASH.md#api) for exact inputs, local simulation and typed receipt rules. No real cash or external provider integration is implied.
+
 Local synthetic transfers added 3 November 2026: `/api/v1/me/transfers` provides configuration, review, confirm, recent/status and cancellation. [LOCAL_TRANSFERS.md](LOCAL_TRANSFERS.md#api) defines exact inputs and the local-only posting boundary. Confirmation can now atomically update seeded demo balances and both history entries; preview routes still cannot.
 
 Transaction-bound confirmation preview added 3 November 2026: customer `/api/v1/me/transfer-confirmations` review/confirm/status/cancel routes bind a registered authenticator check to exact same-bank details. [TRANSACTION_CONFIRMATION.md](TRANSACTION_CONFIRMATION.md#api-and-states) records payloads, session/expiry/replay rules and the explicit `sent: false` boundary. Those preview routes never execute a transfer.
@@ -74,6 +76,6 @@ Reference commands cannot set arbitrary state, object keys, match outcomes or cu
 
 Reference acceptance expires with the case's seven-day demo lifetime. Requested display-name edits invalidate the reference atomically; phone/address changes do not. The maintenance command in [REFERENCE_FLOW.md](REFERENCE_FLOW.md) physically removes expired/abandoned files; no public cleanup route exists.
 
-Only the gated local transfer route above can post synthetic transfers; deposits, withdrawals, external payments and actual face comparison remain unimplemented. No endpoint may allow a client to set its financial balance, officer role or identity-verification result. AWS remains undecided.
+The gated local transfer and cash routes above can post synthetic transfers, deposits and withdrawals; external payments and actual face comparison remain unimplemented. No endpoint may allow a client to set its financial balance, officer role or identity-verification result. AWS remains undecided.
 
 See [the source requirements](../REQUIREMENTS.md), [the scope boundaries](../SCOPE.md), and [the architecture](../DESIGN.md).

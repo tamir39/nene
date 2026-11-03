@@ -1,5 +1,7 @@
 # Requirements and assessment
 
+Implementation note, 3 November 2026: [LOCAL_CASH.md](docs/LOCAL_CASH.md) records BR-08 local deposit/withdrawal behavior and BR-04 TOTP enforcement. Eligibility for VND checking/saving, zero fee, bounded simulated cash and the below-5,000,000 VND limit are project decisions. They do not establish lecturer acceptance of simulation, complete eKYC or remove any required feature. Earlier dated planning notes retain their historical status.
+
 Status: source audit retained; implementation status updated 2026-10-20. All three PDF pages and the rubric were reviewed. Required outcomes, confirmed choices, example mechanisms, and proposed acceptance evidence are distinguished below. The first local officer/customer flow is implemented; full assignment acceptance remains open.
 
 ## Sources

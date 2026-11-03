@@ -20,6 +20,34 @@ import type { Environment } from '../config/environment.js';
 
 const policy = 'same-bank-confirmation-only-v1';
 const transferPolicy = 'local-vnd-under-5000000-v1';
+export type CashOperation = 'deposit' | 'withdrawal';
+// Preserve the preview/transfer callers while sharing one proof lifecycle.
+type Operation = boolean | CashOperation;
+export function cashOperation(raw: string): CashOperation {
+  if (raw !== 'deposit' && raw !== 'withdrawal')
+    throw new BadRequestException('Unsupported cash operation.');
+  return raw;
+}
+const isCash = (operation: Operation): operation is CashOperation =>
+  typeof operation === 'string';
+const purpose = (operation: Operation) =>
+  isCash(operation)
+    ? 'local_' + operation
+    : operation
+      ? 'local_transfer'
+      : 'preview';
+const reviewPolicy = (operation: Operation) =>
+  isCash(operation)
+    ? 'local-cash-' + operation + '-v1'
+    : operation
+      ? transferPolicy
+      : policy;
+const handoffPurpose = (operation: Operation) =>
+  isCash(operation)
+    ? 'cash-' + operation
+    : operation
+      ? 'same-bank-transfer'
+      : 'transaction-confirmation';
 type Reference = {
   id: string;
   version: number;
@@ -87,10 +115,7 @@ export function transferInput(body: unknown) {
   const source = uuid(data.sourceAccountId, 'Source account');
   if (
     typeof data.destinationAccountNumber !== 'string' ||
-    !/^\d{12}$/.test(data.destinationAccountNumber) ||
-    typeof data.amountMinor !== 'string' ||
-    !/^[1-9]\d{0,15}$/.test(data.amountMinor) ||
-    BigInt(data.amountMinor) > 9000000000000000n
+    !/^\d{12}$/.test(data.destinationAccountNumber)
   )
     throw new BadRequestException(
       'Enter a valid account number and positive whole VND amount.',
@@ -98,7 +123,24 @@ export function transferInput(body: unknown) {
   return {
     source,
     destinationNumber: data.destinationAccountNumber,
-    amountMinor: data.amountMinor,
+    amountMinor: amountInput(data.amountMinor),
+  };
+}
+function amountInput(raw: unknown) {
+  if (
+    typeof raw !== 'string' ||
+    !/^[1-9]\d{0,15}$/.test(raw) ||
+    BigInt(raw) > 9000000000000000n
+  )
+    throw new BadRequestException('Enter a positive whole VND amount.');
+  return raw;
+}
+export function cashInput(body: unknown) {
+  const data = exact(body, ['accountId', 'amountMinor']);
+  return {
+    source: uuid(data.accountId, 'Account'),
+    amountMinor: amountInput(data.amountMinor),
+    destinationNumber: '0',
   };
 }
 @Injectable()
@@ -108,14 +150,18 @@ export class ConfirmationService {
     private readonly security: SecurityService,
     @Optional() @Inject(ENVIRONMENT) private readonly env?: Environment,
   ) {}
-  async configuration(req: AuthenticatedRequest) {
+  async configuration(req: AuthenticatedRequest, operation: Operation = true) {
     this.security.identity(req);
     const enabled =
-      this.env?.localTransfersEnabled === true &&
-      this.env.nodeEnv !== 'production';
+      (isCash(operation)
+        ? this.env?.localCashEnabled
+        : this.env?.localTransfersEnabled) === true &&
+      this.env?.nodeEnv !== 'production';
     const rows = enabled
       ? await this.db.query<{ enabled: boolean }>(
-          'select enabled from bank.local_transfer_settings where id',
+          isCash(operation)
+            ? 'select enabled from bank.local_cash_settings where id'
+            : 'select enabled from bank.local_transfer_settings where id',
           [],
         )
       : [];
@@ -123,11 +169,25 @@ export class ConfirmationService {
       enabled: enabled && rows[0]?.enabled === true,
       highValueThresholdMinor: '5000000',
       currency: 'VND',
+      ...(isCash(operation)
+        ? {
+            cashBalanceMinor:
+              (
+                await this.db.query<{ balance: string }>(
+                  'select balance_minor::text balance from bank.demo_cash_balances where customer_id=$1',
+                  [req.user.id],
+                )
+              )[0]?.balance ?? null,
+          }
+        : {}),
     };
   }
-  private async requireTransfers(req: AuthenticatedRequest) {
-    if (!(await this.configuration(req)).enabled)
-      throw new ConflictException('Local transfer demo is not enabled.');
+  private async requireTransfers(
+    req: AuthenticatedRequest,
+    operation: Operation,
+  ) {
+    if (!(await this.configuration(req, operation)).enabled)
+      throw new ConflictException('Local transaction demo is not enabled.');
   }
   private async reference(
     client: PoolClient,
@@ -164,7 +224,7 @@ export class ConfirmationService {
   private async decode(
     req: AuthenticatedRequest,
     raw: unknown,
-    transfer = false,
+    transfer: Operation = false,
   ) {
     const identity = this.security.identity(req);
     if (typeof raw !== 'string' || raw.length > 4096)
@@ -194,7 +254,7 @@ export class ConfirmationService {
     }
     if (review.customer !== req.user.id || review.session !== identity.session)
       throw new ForbiddenException('This review belongs to another sign-in.');
-    if (review.policy !== (transfer ? transferPolicy : policy))
+    if (review.policy !== reviewPolicy(transfer))
       throw new ConflictException('Review policy changed.');
     return { identity, review, digest: this.mac(key, raw) };
   }
@@ -203,7 +263,20 @@ export class ConfirmationService {
     customer: string,
     source: string,
     destinationNumber: string,
+    operation: Operation = false,
   ) {
+    if (isCash(operation)) {
+      const { rows } = await client.query<Account>(
+        "select a.id,a.owner_id,a.account_number::text number,a.type,a.currency,a.status,p.status profile_status,a.balance_minor::text balance from bank.banking_accounts a join bank.user_profiles p on p.id=a.owner_id where a.id=$1 and a.owner_id=$2 and a.is_demo and a.type in ('checking','saving') and a.currency='VND' and a.status='active' and p.status='active' and p.role='customer' and p.email like '%@example.invalid'",
+        [source, customer],
+      );
+      const from = rows[0];
+      if (!from)
+        throw new BadRequestException(
+          'Choose your prepared active VND checking or savings account.',
+        );
+      return { from, to: from };
+    }
     const result = await client.query<Account>(
       `select a.id,a.owner_id,a.account_number::text number,a.type,a.currency,a.status,p.status profile_status,a.balance_minor::text balance from bank.banking_accounts a join bank.user_profiles p on p.id=a.owner_id where a.id=$1 or a.account_number=$2::bigint order by a.id`,
       [source, destinationNumber],
@@ -264,13 +337,17 @@ export class ConfirmationService {
     )
       throw new ConflictException('Registered authenticator is unavailable.');
   }
-  async review(req: AuthenticatedRequest, body: unknown, transfer = false) {
-    if (transfer) await this.requireTransfers(req);
+  async review(
+    req: AuthenticatedRequest,
+    body: unknown,
+    transfer: Operation = false,
+  ) {
+    if (transfer) await this.requireTransfers(req, transfer);
     if (
       transfer &&
       (
         await this.db.query(
-          "select id from bank.transaction_confirmations where customer_id=$1 and purpose='local_transfer' and state='checking' and lease_until>clock_timestamp() limit 1",
+          "select id from bank.transaction_confirmations where customer_id=$1 and purpose<>'preview' and state='checking' and lease_until>clock_timestamp() limit 1",
           [req.user.id],
         )
       ).length
@@ -279,7 +356,7 @@ export class ConfirmationService {
         'Check the pending transfer before starting another.',
       );
     const identity = this.security.identity(req),
-      input = transferInput(body),
+      input = isCash(transfer) ? cashInput(body) : transferInput(body),
       key = await this.key();
     const result = await this.db.transaction(async (client) => {
       const binding = await this.binding(client, req.user.id);
@@ -288,6 +365,7 @@ export class ConfirmationService {
         req.user.id,
         input.source,
         input.destinationNumber,
+        transfer,
       );
       const time = await client.query<{ expires: number }>(
         'select (extract(epoch from now())*1000+600000)::float8 expires',
@@ -295,15 +373,28 @@ export class ConfirmationService {
       const reference = transfer
         ? await this.reference(client, req.user.id)
         : undefined;
+      const cash = isCash(transfer)
+        ? (
+            await client.query<{ balance: string }>(
+              'select balance_minor::text balance from bank.demo_cash_balances where customer_id=$1',
+              [req.user.id],
+            )
+          ).rows[0]
+        : undefined;
+      if (isCash(transfer) && !cash)
+        throw new BadRequestException(
+          'Prepare the local cash simulation first.',
+        );
+      const available = transfer === 'deposit' ? cash!.balance : from.balance;
       if (
         transfer &&
         (BigInt(input.amountMinor) >= 5000000n ||
-          BigInt(from.balance) < BigInt(input.amountMinor))
+          BigInt(available) < BigInt(input.amountMinor))
       )
         throw new BadRequestException(
           'Insufficient funds, or amount requires the unavailable high-value identity check.',
         );
-      if (transfer) {
+      if (transfer === true) {
         const eligible = await client.query(
           "select a.id from bank.banking_accounts a join bank.user_profiles p on p.id=a.owner_id where a.id=any($1::uuid[]) and a.is_demo and p.email like '%@example.invalid'",
           [[from.id, to.id]],
@@ -319,7 +410,7 @@ export class ConfirmationService {
         session: identity.session,
         factor: binding.factor_id,
         revision: binding.revision,
-        policy: transfer ? transferPolicy : policy,
+        policy: reviewPolicy(transfer),
         ...(reference ? { reference } : {}),
         source: from.id,
         sourceNumber: from.number,
@@ -334,7 +425,7 @@ export class ConfirmationService {
       return {
         reviewToken: encoded + '.' + this.mac(key, encoded),
         review,
-        sufficientFunds: BigInt(from.balance) >= BigInt(input.amountMinor),
+        sufficientFunds: BigInt(available) >= BigInt(input.amountMinor),
       };
     });
     await this.activeProvider(
@@ -353,11 +444,18 @@ export class ConfirmationService {
       feeMinor: '0',
       expiresAt: new Date(result.review.expires),
       sufficientFunds: result.sufficientFunds,
-      executionAvailable: transfer,
+      executionAvailable: Boolean(transfer),
       identityCheck: 'not_implemented',
+      ...(isCash(transfer)
+        ? { operation: transfer, accountNumber: result.review.sourceNumber }
+        : {}),
     };
   }
-  async status(req: AuthenticatedRequest, rawId: unknown, transfer = false) {
+  async status(
+    req: AuthenticatedRequest,
+    rawId: unknown,
+    transfer: Operation = false,
+  ) {
     const identity = this.security.identity(req),
       id = uuid(rawId, 'Confirmation ID');
     const [row] = await this.db.query<Confirmation>(
@@ -365,11 +463,12 @@ export class ConfirmationService {
       [id, req.user.id],
     );
     if (!row) throw new NotFoundException();
-    if (row.purpose !== (transfer ? 'local_transfer' : 'preview'))
-      throw new NotFoundException();
+    if (row.purpose !== purpose(transfer)) throw new NotFoundException();
     if (row.state === 'posted') {
       const [receipt] = await this.db.query(
-        'select id,amount_minor::text as "amountMinor",currency,posted_at as "postedAt" from bank.local_transfers where id=$1 and customer_id=$2',
+        isCash(transfer)
+          ? 'select id,kind as operation,account_id as "accountId",amount_minor::text as "amountMinor",currency,posted_at as "postedAt" from bank.local_cash_operations where id=$1 and customer_id=$2'
+          : 'select id,amount_minor::text as "amountMinor",currency,posted_at as "postedAt" from bank.local_transfers where id=$1 and customer_id=$2',
         [id, req.user.id],
       );
       if (!receipt) throw new ServiceUnavailableException();
@@ -405,20 +504,24 @@ export class ConfirmationService {
     }
     return { requestId: id, state, executionAvailable: false, sent: false };
   }
-  async recent(req: AuthenticatedRequest) {
+  async recent(req: AuthenticatedRequest, transfer: Operation = true) {
     this.security.identity(req);
     const rows = await this.db.query<{ id: string }>(
-      "select id from bank.transaction_confirmations where customer_id=$1 and purpose='local_transfer' order by created_at desc,id desc limit 10",
-      [req.user.id],
+      'select id from bank.transaction_confirmations where customer_id=$1 and purpose=$2 order by created_at desc,id desc limit 10',
+      [req.user.id, purpose(transfer)],
     );
     return {
-      transfers: await Promise.all(
-        rows.map((r) => this.status(req, r.id, true)),
+      [isCash(transfer) ? 'operations' : 'transfers']: await Promise.all(
+        rows.map((r) => this.status(req, r.id, transfer)),
       ),
     };
   }
-  async confirm(req: AuthenticatedRequest, body: unknown, transfer = false) {
-    if (transfer) await this.requireTransfers(req);
+  async confirm(
+    req: AuthenticatedRequest,
+    body: unknown,
+    transfer: Operation = false,
+  ) {
+    if (transfer) await this.requireTransfers(req, transfer);
     const data = exact(body, ['reviewToken', 'code']);
     if (typeof data.code !== 'string' || !/^\d{6}$/.test(data.code))
       throw new BadRequestException('Enter a six-digit authenticator code.');
@@ -446,6 +549,7 @@ export class ConfirmationService {
         req.user.id,
         r.source,
         r.destinationNumber,
+        transfer,
       );
       if (to.id !== r.destination) throw new ConflictException();
       if (transfer) {
@@ -463,7 +567,7 @@ export class ConfirmationService {
           r.factor,
           r.revision,
           r.expires,
-          transfer ? 'local_transfer' : 'preview',
+          purpose(transfer),
         ],
       );
       if (!inserted.rows.length) throw new ConflictException('Review expired.');
@@ -477,7 +581,7 @@ export class ConfirmationService {
         req.user.id,
         r.factor,
         data.code,
-        transfer ? 'same-bank-transfer' : 'transaction-confirmation',
+        handoffPurpose(transfer),
       );
     } catch (error) {
       await this.db.query(
@@ -535,6 +639,7 @@ export class ConfirmationService {
           req.user.id,
           r.source,
           r.destinationNumber,
+          transfer,
         );
         if (to.id !== r.destination) throw new ConflictException();
         const updated = await client.query(
@@ -544,32 +649,50 @@ export class ConfirmationService {
         if (!updated.rows.length) throw new ConflictException();
         if (transfer) {
           const reference = r.reference!;
-          await client.query(
-            'select bank.post_local_transfer($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)',
-            [
-              r.id,
-              req.user.id,
-              identity.session,
-              digest,
-              r.source,
-              r.destination,
-              r.amountMinor,
-              reference.id,
-              reference.version,
-              reference.revision,
-              reference.evidence_id,
-            ],
-          );
+          if (isCash(transfer)) {
+            await client.query(
+              'select bank.post_local_cash($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)',
+              [
+                r.id,
+                req.user.id,
+                identity.session,
+                digest,
+                r.source,
+                transfer,
+                r.amountMinor,
+                reference.id,
+                reference.version,
+                reference.revision,
+                reference.evidence_id,
+              ],
+            );
+          } else
+            await client.query(
+              'select bank.post_local_transfer($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)',
+              [
+                r.id,
+                req.user.id,
+                identity.session,
+                digest,
+                r.source,
+                r.destination,
+                r.amountMinor,
+                reference.id,
+                reference.version,
+                reference.revision,
+                reference.evidence_id,
+              ],
+            );
         }
       });
       return {
         requestId: r.id,
         revision: r.revision,
-        purpose: transfer ? 'same-bank-transfer' : 'transaction-confirmation',
+        purpose: handoffPurpose(transfer),
         accessToken: pair.access_token,
         refreshToken: pair.refresh_token,
         ...(transfer
-          ? await this.status(req, r.id, true)
+          ? await this.status(req, r.id, transfer)
           : {
               state: 'factor_confirmed',
               executionAvailable: false,
@@ -585,7 +708,11 @@ export class ConfirmationService {
       );
     }
   }
-  async cancel(req: AuthenticatedRequest, body: unknown, transfer = false) {
+  async cancel(
+    req: AuthenticatedRequest,
+    body: unknown,
+    transfer: Operation = false,
+  ) {
     const data = exact(body, ['reviewToken']),
       {
         identity,
@@ -608,7 +735,7 @@ export class ConfirmationService {
           r.factor,
           r.revision,
           r.expires,
-          transfer ? 'local_transfer' : 'preview',
+          purpose(transfer),
         ],
       );
       if (!changed.rows.length)

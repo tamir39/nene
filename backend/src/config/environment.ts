@@ -9,6 +9,7 @@ export interface Environment {
   supabasePublishableKey: string;
   supabaseSecretKey?: string;
   localTransfersEnabled?: boolean;
+  localCashEnabled?: boolean;
   database: PoolConfig;
 }
 
@@ -95,7 +96,13 @@ export function readEnvironment(env: NodeJS.ProcessEnv): Environment {
     throw new Error('LOCAL_TRANSFERS_ENABLED must be true or false.');
   const localTransfersEnabled = env.LOCAL_TRANSFERS_ENABLED === 'true';
   if (
-    localTransfersEnabled &&
+    env.LOCAL_CASH_ENABLED &&
+    !['true', 'false'].includes(env.LOCAL_CASH_ENABLED)
+  )
+    throw new Error('LOCAL_CASH_ENABLED must be true or false.');
+  const localCashEnabled = env.LOCAL_CASH_ENABLED === 'true';
+  if (
+    (localTransfersEnabled || localCashEnabled) &&
     (nodeEnv === 'production' ||
       !isLoopback(supabaseUrl.hostname) ||
       !isLoopback(databaseUrl.hostname))
@@ -118,6 +125,7 @@ export function readEnvironment(env: NodeJS.ProcessEnv): Environment {
     host: env.HOST?.trim() || '127.0.0.1',
     port,
     localTransfersEnabled,
+    localCashEnabled,
     supabaseUrl: supabaseUrl.toString().replace(/\/$/, ''),
     supabasePublishableKey: required(env, 'SUPABASE_PUBLISHABLE_KEY'),
     ...(env.SUPABASE_SECRET_KEY?.trim()

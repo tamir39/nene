@@ -3,8 +3,17 @@ import 'package:http/http.dart' as http;
 import 'security_api.dart';
 import 'session_owner.dart';
 
+enum CashOperation { deposit, withdrawal }
+
 class ConfirmationApi {
-  ConfirmationApi(this.security, {this.sendMoney = false});
+  ConfirmationApi(this.security, {bool sendMoney = false, this.cashOperation})
+    : sendMoney = sendMoney || cashOperation != null;
+  final CashOperation? cashOperation;
+  String get route => cashOperation != null
+      ? 'cash/${cashOperation!.name}'
+      : sendMoney
+      ? 'transfers'
+      : 'transfer-confirmations';
   final SecurityApi security;
   final bool sendMoney;
   Future<Map<String, dynamic>> _request(
@@ -15,9 +24,7 @@ class ConfirmationApi {
     final req =
         http.Request(
             body == null ? 'GET' : 'POST',
-            security.baseUrl.resolve(
-              'me/${sendMoney ? 'transfers' : 'transfer-confirmations'}/$path',
-            ),
+            security.baseUrl.resolve('me/$route/$path'),
           )
           ..followRedirects = false
           ..headers.addAll({
@@ -53,8 +60,12 @@ class ConfirmationApi {
     String amount,
   ) => security.owner.execute(
     (s) => _request(s.pair.accessToken, 'review', {
-      'sourceAccountId': source,
-      'destinationAccountNumber': destination,
+      if (cashOperation != null)
+        'accountId': source
+      else ...{
+        'sourceAccountId': source,
+        'destinationAccountNumber': destination,
+      },
       'amountMinor': amount,
     }),
   );
@@ -77,7 +88,9 @@ class ConfirmationApi {
       await security.owner.exchange(
         HandoffBinding(
           requestId: review['requestId'] as String,
-          purpose: sendMoney
+          purpose: cashOperation != null
+              ? 'cash-${cashOperation!.name}'
+              : sendMoney
               ? 'same-bank-transfer'
               : 'transaction-confirmation',
           securityRevision: review['revision'] as int,
