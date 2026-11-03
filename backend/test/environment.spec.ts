@@ -11,6 +11,39 @@ const localEnvironment = {
 };
 
 void describe('environment boundaries', () => {
+  void it('enables synthetic transfers only with explicit non-production loopback configuration', () => {
+    assert.equal(
+      readEnvironment(localEnvironment).localTransfersEnabled,
+      false,
+    );
+    assert.equal(
+      readEnvironment({ ...localEnvironment, LOCAL_TRANSFERS_ENABLED: 'true' })
+        .localTransfersEnabled,
+      true,
+    );
+    for (const override of [
+      { LOCAL_TRANSFERS_ENABLED: 'yes' },
+      { SUPABASE_URL: 'https://example.supabase.co' },
+      {
+        DATABASE_URL:
+          'postgresql://nene_api:example@database.example:5432/postgres',
+        DATABASE_SSL_MODE: 'verify-full',
+      },
+      {
+        NODE_ENV: 'production',
+        SUPABASE_URL: 'https://localhost',
+        DATABASE_SSL_MODE: 'verify-full',
+      },
+    ]) {
+      assert.throws(() =>
+        readEnvironment({
+          ...localEnvironment,
+          LOCAL_TRANSFERS_ENABLED: 'true',
+          ...override,
+        }),
+      );
+    }
+  });
   void it('fails closed when authentication configuration is missing', () => {
     assert.throws(
       () =>

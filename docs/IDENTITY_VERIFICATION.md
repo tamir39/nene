@@ -1,6 +1,8 @@
 # Minimum identity verification flow
 
-Status: **direction simplified and reference foundation implemented locally on 2026-10-27**. [REFERENCE_FLOW.md](REFERENCE_FLOW.md) records capture/status, private storage, officer acceptance/correction, retention defaults and verification limits. Actual face comparison and transaction 2FA remain pending. This document preserves the full design boundary beyond the implemented foundation.
+Local transfer policy update, 3 November 2026: [LOCAL_TRANSFERS.md](LOCAL_TRANSFERS.md) applies accepted-reference checks plus TOTP to synthetic checking transfers below 5,000,000 VND. The user approved these demo rules; the PDF does not specify this amount. Transfers at or above it are blocked until actual operation-bound comparison exists. This does not complete BR-03. Earlier planning descriptions below are historical where superseded.
+
+Status: **direction simplified and reference foundation implemented locally on 2026-10-27**. [REFERENCE_FLOW.md](REFERENCE_FLOW.md) records capture/status, private storage, officer acceptance/correction, retention defaults and verification limits. Actual face comparison remains pending; the separate local transfer slice implements transaction-bound TOTP. This document preserves the full design boundary beyond the implemented foundation.
 
 The confirmed direction is **officer-assisted reference enrollment, an actual server-side one-to-one face comparison for high-value activity, and separate transaction 2FA**. AWS and all other matching providers remain undecided. A native AWS bridge, advanced liveness, document OCR/NFC and a commercial KYC suite are not prerequisites for the next task. [IDENTITY_OPTIONS.md](IDENTITY_OPTIONS.md) retains provider research as background, without a preferred vendor.
 
@@ -13,7 +15,7 @@ The confirmed direction is **officer-assisted reference enrollment, an actual se
 | BR-04/BR-09; PDF p. 2, Business 2/4 | All financial transactions pass 2FA and validity checks before posting. | Keep transaction-bound 2FA for every financial operation; a successful face comparison does not replace it. |
 | TR-03/TR-05/TR-06; PDF p. 3, Technical 2/4 | Persistence and explainable data, flows and UI. | Persist private evidence references, decisions and relevant results; record implementation evidence as it is built. |
 
-The [PDF](../FinalProject_2026_2027.pdf) and [requirement register](../REQUIREMENTS.md) remain authoritative. Face capture is the source's example; this face-based minimum is our chosen design direction, not a PDF-prescribed vendor or algorithm. Exact matching implementation, high-value threshold, second-factor method and lecturer expectations for eKYC depth remain open. All seven business feature groups remain in [ROADMAP.md](../ROADMAP.md).
+The [PDF](../FinalProject_2026_2027.pdf) and [requirement register](../REQUIREMENTS.md) remain authoritative. Face capture is the source's example; this face-based minimum is our chosen design direction, not a PDF-prescribed vendor or algorithm. Exact matching implementation, hosted policy and lecturer expectations for eKYC depth remain open; the local threshold and TOTP rules are now recorded above. All seven business feature groups remain in [ROADMAP.md](../ROADMAP.md).
 
 There are three different milestones:
 

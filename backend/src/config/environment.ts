@@ -8,6 +8,7 @@ export interface Environment {
   supabaseUrl: string;
   supabasePublishableKey: string;
   supabaseSecretKey?: string;
+  localTransfersEnabled?: boolean;
   database: PoolConfig;
 }
 
@@ -87,6 +88,21 @@ export function readEnvironment(env: NodeJS.ProcessEnv): Environment {
     );
   }
   let ca: string | undefined;
+  if (
+    env.LOCAL_TRANSFERS_ENABLED &&
+    !['true', 'false'].includes(env.LOCAL_TRANSFERS_ENABLED)
+  )
+    throw new Error('LOCAL_TRANSFERS_ENABLED must be true or false.');
+  const localTransfersEnabled = env.LOCAL_TRANSFERS_ENABLED === 'true';
+  if (
+    localTransfersEnabled &&
+    (nodeEnv === 'production' ||
+      !isLoopback(supabaseUrl.hostname) ||
+      !isLoopback(databaseUrl.hostname))
+  )
+    throw new Error(
+      'Local transfers require non-production loopback Auth and database.',
+    );
   if (env.DATABASE_SSL_CA_FILE?.trim()) {
     if (sslMode !== 'verify-full')
       throw new Error('A PostgreSQL CA requires verify-full TLS.');
@@ -101,6 +117,7 @@ export function readEnvironment(env: NodeJS.ProcessEnv): Environment {
     nodeEnv: nodeEnv as Environment['nodeEnv'],
     host: env.HOST?.trim() || '127.0.0.1',
     port,
+    localTransfersEnabled,
     supabaseUrl: supabaseUrl.toString().replace(/\/$/, ''),
     supabasePublishableKey: required(env, 'SUPABASE_PUBLISHABLE_KEY'),
     ...(env.SUPABASE_SECRET_KEY?.trim()

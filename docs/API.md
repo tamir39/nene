@@ -1,10 +1,12 @@
 # API contract
 
-Transaction-bound confirmation preview added 3 November 2026: customer `/api/v1/me/transfer-confirmations` review/confirm/status/cancel routes bind a registered authenticator check to exact same-bank details. [TRANSACTION_CONFIRMATION.md](TRANSACTION_CONFIRMATION.md#api-and-states) records payloads, session/expiry/replay rules and the explicit `sent: false` boundary. No financial execution endpoint exists.
+Local synthetic transfers added 3 November 2026: `/api/v1/me/transfers` provides configuration, review, confirm, recent/status and cancellation. [LOCAL_TRANSFERS.md](LOCAL_TRANSFERS.md#api) defines exact inputs and the local-only posting boundary. Confirmation can now atomically update seeded demo balances and both history entries; preview routes still cannot.
+
+Transaction-bound confirmation preview added 3 November 2026: customer `/api/v1/me/transfer-confirmations` review/confirm/status/cancel routes bind a registered authenticator check to exact same-bank details. [TRANSACTION_CONFIRMATION.md](TRANSACTION_CONFIRMATION.md#api-and-states) records payloads, session/expiry/replay rules and the explicit `sent: false` boundary. Those preview routes never execute a transfer.
 
 Authenticator replacement/recovery added 3 November 2026: customer-only `/api/v1/me/security/management` status and `start`, `prove`, `resume`, `enroll`, `verify`, `issue-codes`, `finish`, `cancel` POST commands. See [AUTHENTICATOR_MANAGEMENT.md](AUTHENTICATOR_MANAGEMENT.md#implemented-api) for exact inputs, session handoff, restrictions and interruption rules. These endpoints never authorize a payment or permit officer MFA reset.
 
-History update, 3 November 2026: `GET /api/v1/me/accounts/:accountId/history?month=YYYY-MM&cursor=<optional UUID>` returns customer-owned posted entries in pages of 25. See [ACCOUNT_HISTORY.md](ACCOUNT_HISTORY.md#api-and-storage) for response fields, UTC+07 month boundaries, cursor validation and permission/error rules. No history write or financial posting endpoint exists.
+History update, 3 November 2026: `GET /api/v1/me/accounts/:accountId/history?month=YYYY-MM&cursor=<optional UUID>` returns customer-owned posted entries in pages of 25. See [ACCOUNT_HISTORY.md](ACCOUNT_HISTORY.md#api-and-storage) for response fields, UTC+07 month boundaries, cursor validation and permission/error rules. History reads do not expose direct write access.
 
 Account information update, 3 November 2026: [account views and savings policy](ACCOUNT_INFORMATION.md) adds type-specific read models, monthly savings estimates, stored mortgage schedules and officer-only audited rate changes. [Demo provisioning](DEMO_ACCOUNT_PROVISIONING.md#backend-contract-and-authorization) adds `POST /api/v1/officer/customers/:customerId/demo-accounts`, local-only officer authorization, idempotent requests and `isDemo` on account reads. No financial posting or real loan issuance is enabled.
 
@@ -72,6 +74,6 @@ Reference commands cannot set arbitrary state, object keys, match outcomes or cu
 
 Reference acceptance expires with the case's seven-day demo lifetime. Requested display-name edits invalidate the reference atomically; phone/address changes do not. The maintenance command in [REFERENCE_FLOW.md](REFERENCE_FLOW.md) physically removes expired/abandoned files; no public cleanup route exists.
 
-There are no balance updates, transfers, payments, actual face-comparison or transaction-2FA endpoints yet. No endpoint may allow a client to set its financial balance, officer role or identity-verification result. AWS remains undecided.
+Only the gated local transfer route above can post synthetic transfers; deposits, withdrawals, external payments and actual face comparison remain unimplemented. No endpoint may allow a client to set its financial balance, officer role or identity-verification result. AWS remains undecided.
 
 See [the source requirements](../REQUIREMENTS.md), [the scope boundaries](../SCOPE.md), and [the architecture](../DESIGN.md).

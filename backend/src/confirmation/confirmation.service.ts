@@ -3,6 +3,8 @@ import {
   ConflictException,
   ForbiddenException,
   Injectable,
+  Inject,
+  Optional,
   NotFoundException,
   ServiceUnavailableException,
 } from '@nestjs/common';
@@ -13,8 +15,17 @@ import { DatabaseService } from '../database/database.service.js';
 import { SecurityService } from '../security/security.service.js';
 import { reserveSecurityProof } from '../security/security-proof.js';
 import { uuid } from '../customers/customer.validation.js';
+import { ENVIRONMENT } from '../config/config.module.js';
+import type { Environment } from '../config/environment.js';
 
 const policy = 'same-bank-confirmation-only-v1';
+const transferPolicy = 'local-vnd-under-5000000-v1';
+type Reference = {
+  id: string;
+  version: number;
+  revision: number;
+  evidence_id: string;
+};
 type Review = {
   id: string;
   customer: string;
@@ -30,6 +41,7 @@ type Review = {
   currency: 'VND';
   feeMinor: '0';
   expires: number;
+  reference?: Reference;
 };
 type Account = {
   id: string;
@@ -53,6 +65,7 @@ type Confirmation = {
   expires_at: Date;
   lease_until: Date;
   confirmed_until: Date | null;
+  purpose: string;
 };
 export function exact(body: unknown, keys: string[]) {
   if (
@@ -93,7 +106,48 @@ export class ConfirmationService {
   constructor(
     private readonly db: DatabaseService,
     private readonly security: SecurityService,
+    @Optional() @Inject(ENVIRONMENT) private readonly env?: Environment,
   ) {}
+  async configuration(req: AuthenticatedRequest) {
+    this.security.identity(req);
+    const enabled =
+      this.env?.localTransfersEnabled === true &&
+      this.env.nodeEnv !== 'production';
+    const rows = enabled
+      ? await this.db.query<{ enabled: boolean }>(
+          'select enabled from bank.local_transfer_settings where id',
+          [],
+        )
+      : [];
+    return {
+      enabled: enabled && rows[0]?.enabled === true,
+      highValueThresholdMinor: '5000000',
+      currency: 'VND',
+    };
+  }
+  private async requireTransfers(req: AuthenticatedRequest) {
+    if (!(await this.configuration(req)).enabled)
+      throw new ConflictException('Local transfer demo is not enabled.');
+  }
+  private async reference(
+    client: PoolClient,
+    customer: string,
+    expected?: Reference,
+  ) {
+    const result = await client.query<Reference>(
+      "select i.id,i.version,i.revision,i.evidence_id from bank.identity_cases i join bank.identity_evidence e on e.id=i.evidence_id join bank.user_profiles p on p.id=i.customer_id where i.customer_id=$1 and i.state='reference_accepted' and i.profile_name=p.display_name and i.expires_at>clock_timestamp() and e.case_id=i.id and e.revision=i.revision and e.status='ready' and e.deleted_at is null and e.expires_at>clock_timestamp()",
+      [customer],
+    );
+    const found = result.rows[0];
+    if (
+      !found ||
+      (expected && JSON.stringify(found) !== JSON.stringify(expected))
+    )
+      throw new BadRequestException(
+        'An unchanged, unexpired accepted reference is required.',
+      );
+    return found;
+  }
   private async key() {
     return (
       await this.db.query<{ secret: string }>(
@@ -107,7 +161,11 @@ export class ConfirmationService {
       .update('nene-review-v1\0' + text)
       .digest('base64url');
   }
-  private async decode(req: AuthenticatedRequest, raw: unknown) {
+  private async decode(
+    req: AuthenticatedRequest,
+    raw: unknown,
+    transfer = false,
+  ) {
     const identity = this.security.identity(req);
     if (typeof raw !== 'string' || raw.length > 4096)
       throw new BadRequestException();
@@ -136,7 +194,7 @@ export class ConfirmationService {
     }
     if (review.customer !== req.user.id || review.session !== identity.session)
       throw new ForbiddenException('This review belongs to another sign-in.');
-    if (review.policy !== policy)
+    if (review.policy !== (transfer ? transferPolicy : policy))
       throw new ConflictException('Review policy changed.');
     return { identity, review, digest: this.mac(key, raw) };
   }
@@ -206,7 +264,20 @@ export class ConfirmationService {
     )
       throw new ConflictException('Registered authenticator is unavailable.');
   }
-  async review(req: AuthenticatedRequest, body: unknown) {
+  async review(req: AuthenticatedRequest, body: unknown, transfer = false) {
+    if (transfer) await this.requireTransfers(req);
+    if (
+      transfer &&
+      (
+        await this.db.query(
+          "select id from bank.transaction_confirmations where customer_id=$1 and purpose='local_transfer' and state='checking' and lease_until>clock_timestamp() limit 1",
+          [req.user.id],
+        )
+      ).length
+    )
+      throw new ConflictException(
+        'Check the pending transfer before starting another.',
+      );
     const identity = this.security.identity(req),
       input = transferInput(body),
       key = await this.key();
@@ -221,13 +292,35 @@ export class ConfirmationService {
       const time = await client.query<{ expires: number }>(
         'select (extract(epoch from now())*1000+600000)::float8 expires',
       );
+      const reference = transfer
+        ? await this.reference(client, req.user.id)
+        : undefined;
+      if (
+        transfer &&
+        (BigInt(input.amountMinor) >= 5000000n ||
+          BigInt(from.balance) < BigInt(input.amountMinor))
+      )
+        throw new BadRequestException(
+          'Insufficient funds, or amount requires the unavailable high-value identity check.',
+        );
+      if (transfer) {
+        const eligible = await client.query(
+          "select a.id from bank.banking_accounts a join bank.user_profiles p on p.id=a.owner_id where a.id=any($1::uuid[]) and a.is_demo and p.email like '%@example.invalid'",
+          [[from.id, to.id]],
+        );
+        if (eligible.rows.length !== 2)
+          throw new BadRequestException(
+            'Prepare both synthetic accounts with the local seed command first.',
+          );
+      }
       const review: Review = {
         id: randomUUID(),
         customer: req.user.id,
         session: identity.session,
         factor: binding.factor_id,
         revision: binding.revision,
-        policy,
+        policy: transfer ? transferPolicy : policy,
+        ...(reference ? { reference } : {}),
         source: from.id,
         sourceNumber: from.number,
         destination: to.id,
@@ -260,11 +353,11 @@ export class ConfirmationService {
       feeMinor: '0',
       expiresAt: new Date(result.review.expires),
       sufficientFunds: result.sufficientFunds,
-      executionAvailable: false,
+      executionAvailable: transfer,
       identityCheck: 'not_implemented',
     };
   }
-  async status(req: AuthenticatedRequest, rawId: unknown) {
+  async status(req: AuthenticatedRequest, rawId: unknown, transfer = false) {
     const identity = this.security.identity(req),
       id = uuid(rawId, 'Confirmation ID');
     const [row] = await this.db.query<Confirmation>(
@@ -272,6 +365,22 @@ export class ConfirmationService {
       [id, req.user.id],
     );
     if (!row) throw new NotFoundException();
+    if (row.purpose !== (transfer ? 'local_transfer' : 'preview'))
+      throw new NotFoundException();
+    if (row.state === 'posted') {
+      const [receipt] = await this.db.query(
+        'select id,amount_minor::text as "amountMinor",currency,posted_at as "postedAt" from bank.local_transfers where id=$1 and customer_id=$2',
+        [id, req.user.id],
+      );
+      if (!receipt) throw new ServiceUnavailableException();
+      return {
+        requestId: id,
+        state: 'posted',
+        sent: true,
+        executionAvailable: true,
+        receipt,
+      };
+    }
     const [binding] = await this.db.query<Binding>(
       'select state,factor_id,revision from bank.authenticator_setup where customer_id=$1',
       [req.user.id],
@@ -287,7 +396,7 @@ export class ConfirmationService {
       )
         state = 'expired';
       else if (
-        identity.session !== row.session_id ||
+        (!transfer && identity.session !== row.session_id) ||
         binding?.state !== 'ready' ||
         binding.factor_id !== row.factor_id ||
         binding.revision !== row.security_revision
@@ -296,7 +405,20 @@ export class ConfirmationService {
     }
     return { requestId: id, state, executionAvailable: false, sent: false };
   }
-  async confirm(req: AuthenticatedRequest, body: unknown) {
+  async recent(req: AuthenticatedRequest) {
+    this.security.identity(req);
+    const rows = await this.db.query<{ id: string }>(
+      "select id from bank.transaction_confirmations where customer_id=$1 and purpose='local_transfer' order by created_at desc,id desc limit 10",
+      [req.user.id],
+    );
+    return {
+      transfers: await Promise.all(
+        rows.map((r) => this.status(req, r.id, true)),
+      ),
+    };
+  }
+  async confirm(req: AuthenticatedRequest, body: unknown, transfer = false) {
+    if (transfer) await this.requireTransfers(req);
     const data = exact(body, ['reviewToken', 'code']);
     if (typeof data.code !== 'string' || !/^\d{6}$/.test(data.code))
       throw new BadRequestException('Enter a six-digit authenticator code.');
@@ -304,7 +426,7 @@ export class ConfirmationService {
       identity,
       review: r,
       digest,
-    } = await this.decode(req, data.reviewToken);
+    } = await this.decode(req, data.reviewToken, transfer);
     const reserved = await this.db.transaction(async (client) => {
       await this.binding(client, req.user.id, r);
       const prior = await client.query<Confirmation>(
@@ -326,8 +448,13 @@ export class ConfirmationService {
         r.destinationNumber,
       );
       if (to.id !== r.destination) throw new ConflictException();
+      if (transfer) {
+        if (!r.reference || BigInt(r.amountMinor) >= 5000000n)
+          throw new BadRequestException();
+        await this.reference(client, req.user.id, r.reference);
+      }
       const inserted = await client.query(
-        `insert into bank.transaction_confirmations(id,customer_id,session_id,review_digest,factor_id,security_revision,state,expires_at) select $1,$2,$3,$4,$5,$6,'checking',to_timestamp($7/1000.0) where to_timestamp($7/1000.0)>clock_timestamp() returning id`,
+        `insert into bank.transaction_confirmations(id,customer_id,session_id,review_digest,factor_id,security_revision,state,expires_at,purpose) select $1,$2,$3,$4,$5,$6,'checking',to_timestamp($7/1000.0),$8 where to_timestamp($7/1000.0)>clock_timestamp() returning id`,
         [
           r.id,
           req.user.id,
@@ -336,19 +463,21 @@ export class ConfirmationService {
           r.factor,
           r.revision,
           r.expires,
+          transfer ? 'local_transfer' : 'preview',
         ],
       );
       if (!inserted.rows.length) throw new ConflictException('Review expired.');
       return true;
     });
-    if (!reserved) return { ...(await this.status(req, r.id)), replay: true };
+    if (!reserved)
+      return { ...(await this.status(req, r.id, transfer)), replay: true };
     try {
       await reserveSecurityProof(
         this.db,
         req.user.id,
         r.factor,
         data.code,
-        'transaction-confirmation',
+        transfer ? 'same-bank-transfer' : 'transaction-confirmation',
       );
     } catch (error) {
       await this.db.query(
@@ -413,39 +542,64 @@ export class ConfirmationService {
           [r.id],
         );
         if (!updated.rows.length) throw new ConflictException();
+        if (transfer) {
+          const reference = r.reference!;
+          await client.query(
+            'select bank.post_local_transfer($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)',
+            [
+              r.id,
+              req.user.id,
+              identity.session,
+              digest,
+              r.source,
+              r.destination,
+              r.amountMinor,
+              reference.id,
+              reference.version,
+              reference.revision,
+              reference.evidence_id,
+            ],
+          );
+        }
       });
       return {
         requestId: r.id,
         revision: r.revision,
-        purpose: 'transaction-confirmation',
+        purpose: transfer ? 'same-bank-transfer' : 'transaction-confirmation',
         accessToken: pair.access_token,
         refreshToken: pair.refresh_token,
-        state: 'factor_confirmed',
-        executionAvailable: false,
-        sent: false,
+        ...(transfer
+          ? await this.status(req, r.id, true)
+          : {
+              state: 'factor_confirmed',
+              executionAvailable: false,
+              sent: false,
+            }),
         replay: false,
       };
     } catch {
       throw new ServiceUnavailableException(
-        'Confirmation could not be finalized. No money was sent. Sign in again and check security.',
+        transfer
+          ? 'Transfer outcome is unconfirmed. Check transfer history/status before trying again.'
+          : 'Confirmation could not be finalized. No money was sent. Sign in again and check security.',
       );
     }
   }
-  async cancel(req: AuthenticatedRequest, body: unknown) {
+  async cancel(req: AuthenticatedRequest, body: unknown, transfer = false) {
     const data = exact(body, ['reviewToken']),
       {
         identity,
         review: r,
         digest,
-      } = await this.decode(req, data.reviewToken);
+      } = await this.decode(req, data.reviewToken, transfer);
     await this.db.transaction(async (client) => {
       // Same customer binding lock as confirmation; cancellation also works after restriction.
       await client.query(
         'select customer_id from bank.authenticator_setup where customer_id=$1 for update',
         [req.user.id],
       );
-      await client.query(
-        "insert into bank.transaction_confirmations(id,customer_id,session_id,review_digest,factor_id,security_revision,state,expires_at) values($1,$2,$3,$4,$5,$6,'cancelled',to_timestamp($7/1000.0)) on conflict(id) do update set state='cancelled' where bank.transaction_confirmations.customer_id=$2 and bank.transaction_confirmations.review_digest=$4",
+      const changed = await client.query(
+        "insert into bank.transaction_confirmations(id,customer_id,session_id,review_digest,factor_id,security_revision,state,expires_at,purpose) values($1,$2,$3,$4,$5,$6,'cancelled',to_timestamp($7/1000.0),$8) on conflict(id) do update set state='cancelled' where bank.transaction_confirmations.customer_id=$2 and bank.transaction_confirmations.review_digest=$4 and bank.transaction_confirmations.state<>'posted' returning id",
         [
           r.id,
           req.user.id,
@@ -454,8 +608,13 @@ export class ConfirmationService {
           r.factor,
           r.revision,
           r.expires,
+          transfer ? 'local_transfer' : 'preview',
         ],
       );
+      if (!changed.rows.length)
+        throw new ConflictException(
+          'Transfer already posted. Check its result.',
+        );
     });
     return {
       requestId: r.id,
