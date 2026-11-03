@@ -19,7 +19,7 @@ try {
     try {
       const password = randomBytes(24).toString("hex");
       await admin.query(
-        `create role nene_api login password '${password}';create schema bank;grant usage on schema bank to nene_api;create table bank.user_profiles(id uuid primary key,role text,status text);grant select on bank.user_profiles to nene_api;create table bank.banking_accounts(id uuid primary key,owner_id uuid,type text,currency text,balance_minor bigint,status text,account_number bigint,created_at timestamptz default now());grant select on bank.banking_accounts to nene_api;`,
+        `create role nene_api login password '${password}';create schema bank;grant usage on schema bank to nene_api;create table bank.user_profiles(id uuid primary key,role text,status text);grant select on bank.user_profiles to nene_api;create table bank.banking_accounts(id uuid primary key,owner_id uuid,type text,currency text,balance_minor bigint,status text,account_number bigint,is_demo boolean not null default false,created_at timestamptz default now());grant select on bank.banking_accounts to nene_api;`,
       );
       for (const role of ["anon", "authenticated", "service_role"])
         await admin.query(

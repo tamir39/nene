@@ -1,4 +1,6 @@
 import 'savings_policy_screen.dart';
+import 'demo_account_screen.dart';
+import '../data/demo_accounts_api.dart';
 import '../data/savings_policy_api.dart';
 import 'security_screen.dart';
 import '../data/security_api.dart';
@@ -25,6 +27,7 @@ enum _Page {
   identity,
   security,
   savingsPolicy,
+  demoAccount,
 }
 
 /// All protected pages live below the session branch, so signing out/expiring
@@ -38,6 +41,7 @@ class CustomerWorkspace extends StatefulWidget {
     this.photos,
     this.security,
     this.savingsPolicy,
+    this.demoAccounts,
   });
 
   final SessionController session;
@@ -46,6 +50,7 @@ class CustomerWorkspace extends StatefulWidget {
   final ReferencePhotoSource? photos;
   final SecurityApi? security;
   final SavingsPolicyApi? savingsPolicy;
+  final DemoAccountsApi? demoAccounts;
 
   @override
   State<CustomerWorkspace> createState() => _CustomerWorkspaceState();
@@ -90,6 +95,10 @@ class _CustomerWorkspaceState extends State<CustomerWorkspace> {
   }
 
   void _back() {
+    if (_page == _Page.demoAccount) {
+      _openCustomer(_customerId!);
+      return;
+    }
     if (_page == _Page.editCustomer ||
         (_page == _Page.identity &&
             widget.session.profile?.role == AppRole.officer)) {
@@ -163,6 +172,13 @@ class _CustomerWorkspaceState extends State<CustomerWorkspace> {
               onOpen: _openCustomer,
             ),
             _Page.detail => _detail(),
+            _Page.demoAccount => DemoAccountScreen(
+              session: widget.session,
+              api: widget.demoAccounts!,
+              customerId: _customerId!,
+              customerName: _flow.selectedCustomer!.displayName,
+              onDone: () => _openCustomer(_customerId!),
+            ),
             _Page.savingsPolicy => SavingsPolicyScreen(
               session: widget.session,
               api: widget.savingsPolicy!,
@@ -339,6 +355,12 @@ class _CustomerWorkspaceState extends State<CustomerWorkspace> {
             const Text('No linked accounts.')
           else
             for (final account in customer.accounts) AccountCard(account),
+          if (widget.demoAccounts != null)
+            OutlinedButton.icon(
+              onPressed: () => _go(_Page.demoAccount),
+              icon: const Icon(Icons.add),
+              label: const Text('Add demo account'),
+            ),
           const SizedBox(height: 20),
           FilledButton(
             onPressed: () {
@@ -902,6 +924,12 @@ class AccountCard extends StatelessWidget {
                 : account.balanceLabel,
             style: Theme.of(context).textTheme.headlineMedium,
           ),
+          if (account.isDemo)
+            Text(
+              account.type == 'mortgage'
+                  ? 'Synthetic demo · 0% sample schedule · no loan issued'
+                  : 'Synthetic demo account · no money deposited',
+            ),
           if (account.type == 'saving') ...[
             const SizedBox(height: 12),
             Text(

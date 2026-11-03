@@ -22,6 +22,11 @@ void main() {
       });
       expect(account.annualRateBps, 600);
       expect(account.monthlyProfitMinor, '50000');
+      expect(account.isDemo, false);
+      expect(
+        () => BankAccount.fromJson({...base, 'isDemo': 'true'}),
+        throwsFormatException,
+      );
       expect(
         () => BankAccount.fromJson({...base, 'monthlyProfitMinor': 1.5}),
         throwsFormatException,
@@ -40,6 +45,7 @@ void main() {
           ...base,
           'annualRateBps': 600,
           'monthlyProfitMinor': '50000',
+          'isDemo': true,
         }),
         BankAccount.fromJson({
           ...base,
@@ -48,6 +54,7 @@ void main() {
           'monthlyDueMinor': '500000',
           'principalRemainingMinor': '5000000',
           'nextDueOn': '2026-12-01',
+          'isDemo': true,
         }),
       ]) {
         await tester.pumpWidget(
@@ -64,9 +71,17 @@ void main() {
         expect(tester.takeException(), isNull);
         if (account.type == 'saving') {
           expect(find.text('Annual rate: 6.00%'), findsOneWidget);
+          expect(
+            find.text('Synthetic demo account · no money deposited'),
+            findsOneWidget,
+          );
           expect(find.textContaining('50,000 VND'), findsOneWidget);
         } else {
           expect(find.text('Monthly repayment'), findsOneWidget);
+          expect(
+            find.text('Synthetic demo · 0% sample schedule · no loan issued'),
+            findsOneWidget,
+          );
           expect(find.text('Next due: 2026-12-01'), findsOneWidget);
         }
       }

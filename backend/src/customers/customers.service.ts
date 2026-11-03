@@ -29,7 +29,7 @@ const initialAccount = { type: 'checking', currency: 'VND' } as const;
 const customerColumns =
   'id, email, display_name AS "displayName", phone, address';
 const accountColumns =
-  'id, account_number::text AS "accountNumber", type, currency, balance_minor::text AS "balanceMinor", status,' +
+  'id, account_number::text AS "accountNumber", type, currency, balance_minor::text AS "balanceMinor", status, is_demo AS "isDemo",' +
   informationColumns;
 
 interface CreationRow extends QueryResultRow {

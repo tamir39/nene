@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { DemoAccountController } from './accounts/demo-account.controller.js';
 import { SavingsPolicyController } from './accounts/savings-policy.controller.js';
 import { SecurityController } from './security/security.controller.js';
 import { SecurityService } from './security/security.service.js';
@@ -20,6 +21,7 @@ import { IdentityStorageService } from './identity/identity-storage.service.js';
 @Module({
   imports: [ConfigModule],
   controllers: [
+    DemoAccountController,
     SavingsPolicyController,
     SecurityController,
     HealthController,

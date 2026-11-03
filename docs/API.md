@@ -1,6 +1,6 @@
 # API contract
 
-Account information update, 3 November 2026: [account views and savings policy](ACCOUNT_INFORMATION.md) adds type-specific read models, monthly savings estimates, stored mortgage schedules and officer-only audited rate changes. No financial posting or account/loan issuance is enabled.
+Account information update, 3 November 2026: [account views and savings policy](ACCOUNT_INFORMATION.md) adds type-specific read models, monthly savings estimates, stored mortgage schedules and officer-only audited rate changes. [Demo provisioning](DEMO_ACCOUNT_PROVISIONING.md#backend-contract-and-authorization) adds `POST /api/v1/officer/customers/:customerId/demo-accounts`, local-only officer authorization, idempotent requests and `isDemo` on account reads. No financial posting or real loan issuance is enabled.
 
 
 Customer authenticator setup/status endpoints added 3 November 2026: see [AUTHENTICATOR_SETUP.md](AUTHENTICATOR_SETUP.md) for `GET /me/security`, `POST /me/security/setup` and `POST /me/security/verify`, permissions, payloads, no-store responses and limits.
