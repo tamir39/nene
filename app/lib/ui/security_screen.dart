@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../data/security_api.dart';
 import '../data/session_owner.dart';
 import 'customer_workspace.dart' show WorkspaceContent;
+import 'security_management_screen.dart';
 
 class SecurityScreen extends StatefulWidget {
   const SecurityScreen({super.key, required this.api});
@@ -16,6 +17,7 @@ class _SecurityScreenState extends State<SecurityScreen>
   String? _secret, _requestId, _message;
   int _revision = 1;
   bool _busy = false, _hidden = false;
+  bool _manage = false;
   final _code = TextEditingController();
   @override
   void initState() {
@@ -100,62 +102,79 @@ class _SecurityScreenState extends State<SecurityScreen>
     if (mounted) setState(() => _state = data['state'] as String);
   });
   @override
-  Widget build(BuildContext context) => WorkspaceContent(
-    children: [
-      Text(
-        'Transaction security',
-        style: Theme.of(context).textTheme.headlineMedium,
-      ),
-      const SizedBox(height: 16),
-      const Text(
-        'Set up an authenticator for future transaction confirmation. Setup does not approve a payment.',
-      ),
-      const SizedBox(height: 16),
-      if (_busy)
-        const LinearProgressIndicator(semanticsLabel: 'Checking authenticator'),
-      if (_message != null) Text(_message!),
-      if (_state == 'ready') ...[
-        const Icon(Icons.verified_user_outlined, size: 40),
-        const Text('Authenticator ready'),
-        const Text(
-          'Replacement and lost-access recovery are not available yet. Keep access to your authenticator. Payments remain unavailable.',
-        ),
-      ] else if (_state == 'not_set_up') ...[
-        const Text(
-          'Sign in within the last five minutes before starting. In your authenticator app, choose a time-based code.',
-        ),
-        FilledButton(
-          onPressed: _busy ? null : _start,
-          child: const Text('Set up authenticator'),
-        ),
-      ] else if (_state == 'pending' && _secret != null) ...[
-        const Text(
-          'Add an account named Nene in your authenticator using this setup key. Keep the key private.',
-        ),
-        if (!_hidden)
-          SelectableText(
-            _secret!,
-            semanticsLabel: 'Private authenticator setup key',
-          ),
-        if (!_hidden)
-          TextField(
-            controller: _code,
-            keyboardType: TextInputType.number,
-            maxLength: 6,
-            decoration: const InputDecoration(labelText: 'Authenticator code'),
-          ),
-        FilledButton(
-          onPressed: _busy || _hidden ? null : _verify,
-          child: const Text('Verify setup'),
-        ),
-      ] else if (_state != 'loading')
-        const Text(
-          'Setup needs attention. The setup key cannot be retrieved again. Replacement and recovery are not available in this version. Contact the project team for help with your synthetic demo account.',
-        ),
-      TextButton(
-        onPressed: _busy ? null : _load,
-        child: const Text('Check status'),
-      ),
-    ],
-  );
+  Widget build(BuildContext context) => _manage
+      ? SecurityManagementScreen(
+          api: widget.api,
+          onBack: () {
+            setState(() => _manage = false);
+            _load();
+          },
+        )
+      : WorkspaceContent(
+          children: [
+            Text(
+              'Transaction security',
+              style: Theme.of(context).textTheme.headlineMedium,
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Set up an authenticator for future transaction confirmation. Setup does not approve a payment.',
+            ),
+            const SizedBox(height: 16),
+            if (_busy)
+              const LinearProgressIndicator(
+                semanticsLabel: 'Checking authenticator',
+              ),
+            if (_message != null) Text(_message!),
+            if (_state == 'ready') ...[
+              const Icon(Icons.verified_user_outlined, size: 40),
+              const Text('Authenticator ready'),
+              const Text(
+                'Save recovery codes before you lose your authenticator. Payments remain unavailable.',
+              ),
+            ] else if (_state == 'not_set_up') ...[
+              const Text(
+                'Sign in within the last five minutes before starting. In your authenticator app, choose a time-based code.',
+              ),
+              FilledButton(
+                onPressed: _busy ? null : _start,
+                child: const Text('Set up authenticator'),
+              ),
+            ] else if (_state == 'pending' && _secret != null) ...[
+              const Text(
+                'Add an account named Nene in your authenticator using this setup key. Keep the key private.',
+              ),
+              if (!_hidden)
+                SelectableText(
+                  _secret!,
+                  semanticsLabel: 'Private authenticator setup key',
+                ),
+              if (!_hidden)
+                TextField(
+                  controller: _code,
+                  keyboardType: TextInputType.number,
+                  maxLength: 6,
+                  decoration: const InputDecoration(
+                    labelText: 'Authenticator code',
+                  ),
+                ),
+              FilledButton(
+                onPressed: _busy || _hidden ? null : _verify,
+                child: const Text('Verify setup'),
+              ),
+            ] else if (_state != 'loading')
+              const Text(
+                'Security needs attention. Continue an existing security change below. An initial setup with a lost key still needs synthetic-demo assistance.',
+              ),
+            if (['ready', 'restricted'].contains(_state))
+              FilledButton(
+                onPressed: _busy ? null : () => setState(() => _manage = true),
+                child: const Text('Manage authenticator and recovery'),
+              ),
+            TextButton(
+              onPressed: _busy ? null : _load,
+              child: const Text('Check status'),
+            ),
+          ],
+        );
 }

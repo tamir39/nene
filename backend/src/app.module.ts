@@ -1,4 +1,6 @@
 import { Module } from '@nestjs/common';
+import { SecurityManagementController } from './security/security-management.controller.js';
+import { SecurityManagementService } from './security/security-management.service.js';
 import { AccountHistoryController } from './accounts/account-history.controller.js';
 import { DemoAccountController } from './accounts/demo-account.controller.js';
 import { SavingsPolicyController } from './accounts/savings-policy.controller.js';
@@ -22,6 +24,7 @@ import { IdentityStorageService } from './identity/identity-storage.service.js';
 @Module({
   imports: [ConfigModule],
   controllers: [
+    SecurityManagementController,
     AccountHistoryController,
     DemoAccountController,
     SavingsPolicyController,
@@ -32,6 +35,7 @@ import { IdentityStorageService } from './identity/identity-storage.service.js';
     IdentityController,
   ],
   providers: [
+    SecurityManagementService,
     SecurityService,
     DatabaseService,
     SupabaseAuthService,

@@ -39,8 +39,33 @@ try {
           "utf8",
         ),
       );
+      await pool.query(
+        readFileSync(
+          new URL(
+            "../infrastructure/supabase/migrations/20261103000500_authenticator_management.sql",
+            import.meta.url,
+          ),
+          "utf8",
+        ),
+      );
       const service = new SecurityService(
-        { query: async (sql, args) => (await pool.query(sql, args)).rows },
+        {
+          query: async (sql, args) => (await pool.query(sql, args)).rows,
+          transaction: async (work) => {
+            const client = await pool.connect();
+            try {
+              await client.query("BEGIN");
+              const result = await work(client);
+              await client.query("COMMIT");
+              return result;
+            } catch (error) {
+              await client.query("ROLLBACK");
+              throw error;
+            } finally {
+              client.release();
+            }
+          },
+        },
         { supabaseUrl: f.authOrigin, supabasePublishableKey: f.anonKey },
       );
       const call = async (path, body, token) => {

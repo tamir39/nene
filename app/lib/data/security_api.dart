@@ -40,7 +40,8 @@ class SecurityApi {
           return http.Response.bytes(bytes, stream.statusCode);
         })
         .timeout(const Duration(seconds: 15));
-    if (path == '/verify' && response.statusCode == 400) {
+    if ((path == '/verify' || path.startsWith('/management/')) &&
+        [400, 429].contains(response.statusCode)) {
       throw const SessionMutationRejected();
     }
     if (response.statusCode < 200 ||
@@ -52,9 +53,73 @@ class SecurityApi {
   }
 
   Future<Map<String, dynamic>> status() =>
-      request(owner.session!.pair.accessToken, '');
-  Future<Map<String, dynamic>> start() =>
-      request(owner.session!.pair.accessToken, '/setup', {});
+      owner.execute((session) => request(session.pair.accessToken, ''));
+  Future<Map<String, dynamic>> start() => owner.execute(
+    (session) => request(session.pair.accessToken, '/setup', {}),
+  );
+  Future<Map<String, dynamic>> managementStatus() => owner.execute(
+    (session) => request(session.pair.accessToken, '/management'),
+  );
+  Future<Map<String, dynamic>> managementCommand(
+    String command,
+    Map<String, dynamic> body,
+  ) => owner.execute(
+    (session) =>
+        request(session.pair.accessToken, '/management/$command', body),
+  );
+  Future<Map<String, dynamic>> managementProof(
+    String command,
+    String requestId,
+    int revision,
+    String code,
+  ) async {
+    final purpose = switch (command) {
+      'prove' => 'manage-proof',
+      'resume' => 'manage-resume',
+      'verify' => 'manage-new',
+      _ => 'manage-issue',
+    };
+    Map<String, dynamic>? result;
+    await owner.exchange(
+      HandoffBinding(
+        requestId: requestId,
+        purpose: purpose,
+        securityRevision: revision,
+      ),
+      (session) async {
+        final data = await request(
+          session.pair.accessToken,
+          '/management/$command',
+          {'requestId': requestId, 'code': code},
+        );
+        result = data;
+        return HandoffReply(
+          pair: AuthPair(
+            accessToken: data['accessToken'] as String,
+            refreshToken: data['refreshToken'] as String,
+          ),
+          binding: HandoffBinding(
+            requestId: data['requestId'] as String,
+            purpose: data['purpose'] as String,
+            securityRevision: data['revision'] as int,
+          ),
+        );
+      },
+    );
+    return result!;
+  }
+
+  Future<void> finishManagement(String requestId) async {
+    await managementCommand('finish', {'requestId': requestId, 'saved': true});
+    // Global revocation already happened on the backend; local sign-out clears
+    // memory immediately even if its best-effort extra revocation is rejected.
+    try {
+      await owner.signOut();
+    } catch (_) {
+      /* local ownership is cleared */
+    }
+  }
+
   Future<void> verify(String requestId, int revision, String code) =>
       owner.exchange(
         HandoffBinding(

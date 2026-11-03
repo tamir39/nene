@@ -219,6 +219,20 @@ class SessionOwner {
     });
   }
 
+  /// Serialize non-rotating security requests with refresh, and discard late
+  /// secrets/results after logout or a different sign-in.
+  Future<T> execute<T>(Future<T> Function(OwnedSession) perform) async {
+    final origin = _session;
+    if (_disposed || origin == null) throw const SessionCoordinationException();
+    final generation = _generation;
+    late T result;
+    await _enqueue(generation, () async {
+      result = await perform(_owned(generation, origin));
+      _owned(generation, origin);
+    });
+    return result;
+  }
+
   void _sameOrigin(OwnedSession candidate, OwnedSession origin) {
     if (candidate.userId != origin.userId ||
         candidate.sessionId != origin.sessionId) {

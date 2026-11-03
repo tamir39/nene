@@ -32,6 +32,8 @@ Supports BR-01–BR-14 and TR-05.
 
 BR-01, BR-02, BR-03, BR-04; TR-03.
 
+- [x] Implement customer authenticator replacement and native backup-code recovery, including one-time code display, restricted lifecycle states, fresh-proof resume and final sign-out. [AUTHENTICATOR_MANAGEMENT.md](docs/AUTHENTICATOR_MANAGEMENT.md) records backend/Flutter and real-provider evidence, supported interruptions and blocked cases. Human Edge/native acceptance remains open; this is BR-04 support, not completed transaction authorization.
+
 - [x] Build distinct customer and officer navigation for the first flow in the same app. Later financial/map/chat destinations remain to implement.
 - [x] Let an officer create a local synthetic customer identity and initial banking account, and make requested name/contact changes. Let customers view their own account/profile and edit phone/address. Keep public signup and client-selected roles disabled. See the local-only activation and retry limits in [CUSTOMER_FLOW.md](docs/CUSTOMER_FLOW.md).
 - [ ] Design hosted customer activation/password recovery and sign-in email changes before enabling hosted provisioning. Secure session persistence is separate work.
@@ -98,11 +100,15 @@ Maps can progress once navigation and provider access are settled. Chatbot links
 
 ## What we should do next
 
-**Review customer transaction history in Edge:** run `run.bat`, sign in as a customer, and open View history under an account. Month filtering and ownership checks are implemented; no sample transactions have been inserted. Then finish safe authenticator recovery/replacement and operation-bound confirmation before enabling deposits, withdrawals or transfers. See [ACCOUNT_HISTORY.md](docs/ACCOUNT_HISTORY.md) for the PDF link and verification boundary.
+**Test authenticator replacement and recovery in Edge:** run `run.bat stop`, then `run.bat` to recreate the owned local Auth container with native recovery enabled while preserving database data. Follow [AUTHENTICATOR_MANAGEMENT.md](docs/AUTHENTICATOR_MANAGEMENT.md#verification-and-local-demo): privately save backup codes first, then test current-factor replacement and lost-authenticator recovery with a synthetic customer. The app signs out everywhere on completion. No Android emulator is needed.
+
+**Next implementation: operation-bound transaction confirmation.** Connect the existing authorization prototype to the registered active factor, restricted state, current security revision and shared proof reservation. Resolve the transaction-intent storage interpretation and first-operation policies in [TRANSACTION_FLOW.md](docs/TRANSACTION_FLOW.md). Keep financial posting disabled until ownership, authorization and required identity checks are enforced; AWS remains undecided.
+
+Customer history and all three account views are also ready for user acceptance. Month filtering and ownership checks are implemented; no sample transactions have been inserted. See [ACCOUNT_HISTORY.md](docs/ACCOUNT_HISTORY.md) for the PDF link and verification boundary.
 
 **Test all three account views in the user-started Edge demo.** Officers can now use Find a customer → Add demo account to create zero-balance savings and a labelled synthetic mortgage schedule. Follow [DEMO_ACCOUNT_PROVISIONING.md](docs/DEMO_ACCOUNT_PROVISIONING.md). This supports BR-02/05/06/07 without a deposit or loan disbursement; do not mark financial operations complete.
 
-**Test first-time authenticator setup in the user-started Edge demo next.** [AUTHENTICATOR_SETUP.md](docs/AUTHENTICATOR_SETUP.md) records the implemented customer setup/status endpoints, manual-key screen and production session owner, with passing component and isolated provider checks. Human authenticator and full browser/API acceptance remain open. Then finish safe replacement/recovery and shared purpose/revision enforcement before connecting transaction confirmation. Financial posting stays disabled; AWS remains undecided.
+For customers without an authenticator, begin with [first-time setup](docs/AUTHENTICATOR_SETUP.md), then create backup codes in the new management flow. Human authenticator and full browser/API acceptance remain open. Shared purpose/revision enforcement at financial consumption is the next security integration; financial posting stays disabled.
 
 The [backend prototype](docs/AUTHORIZATION_PROTOTYPE.md) demonstrates operation binding, cross-instance replay prevention and safe recovery with synthetic records. It is not connected to app routes or real accounts. Keep the [transaction plan](docs/TRANSACTION_FLOW.md)'s intent-storage interpretation, first-transfer rules and high-value policy explicit; temporary prototype records do not resolve the lecturer interpretation. Financial posting remains disabled until the real policies, identity checks and authorization integration are ready.
 
