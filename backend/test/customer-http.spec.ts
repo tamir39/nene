@@ -125,6 +125,27 @@ void describe('customer HTTP permission/input boundaries (database/Auth fakes)',
   });
   const auth = { Authorization: 'Bearer verified-test-session' };
 
+  void it('history is protected and rejects invalid filters before reading', async () => {
+    const path = `/api/v1/me/accounts/${targetId}/history`;
+    await request(server)
+      .get(path + '?month=2026-11')
+      .expect(401);
+    await request(server)
+      .get(path + '?month=2026-13')
+      .set(auth)
+      .expect(400);
+    await request(server)
+      .get(path + '?month=2026-11&month=2026-12')
+      .set(auth)
+      .expect(400);
+    profile.role = 'officer';
+    await request(server)
+      .get(path + '?month=2026-11')
+      .set(auth)
+      .expect(403);
+    assert.equal(mutations.length, 0);
+  });
+
   void it('protects the demo provisioning route and validates its request key', async () => {
     const path = `/api/v1/officer/customers/${targetId}/demo-accounts`;
     const body = {

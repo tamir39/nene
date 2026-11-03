@@ -1,5 +1,7 @@
 import 'savings_policy_screen.dart';
 import 'demo_account_screen.dart';
+import 'account_history_screen.dart';
+import '../data/account_history_api.dart';
 import '../data/demo_accounts_api.dart';
 import '../data/savings_policy_api.dart';
 import 'security_screen.dart';
@@ -28,6 +30,7 @@ enum _Page {
   security,
   savingsPolicy,
   demoAccount,
+  history,
 }
 
 /// All protected pages live below the session branch, so signing out/expiring
@@ -42,6 +45,7 @@ class CustomerWorkspace extends StatefulWidget {
     this.security,
     this.savingsPolicy,
     this.demoAccounts,
+    this.history,
   });
 
   final SessionController session;
@@ -51,6 +55,7 @@ class CustomerWorkspace extends StatefulWidget {
   final SecurityApi? security;
   final SavingsPolicyApi? savingsPolicy;
   final DemoAccountsApi? demoAccounts;
+  final AccountHistoryApi? history;
 
   @override
   State<CustomerWorkspace> createState() => _CustomerWorkspaceState();
@@ -61,6 +66,7 @@ class _CustomerWorkspaceState extends State<CustomerWorkspace> {
   _Page _page = _Page.home;
   String? _customerId;
   String? _notice;
+  BankAccount? _historyAccount;
 
   @override
   void initState() {
@@ -172,6 +178,12 @@ class _CustomerWorkspaceState extends State<CustomerWorkspace> {
               onOpen: _openCustomer,
             ),
             _Page.detail => _detail(),
+            _Page.history => AccountHistoryScreen(
+              key: ValueKey(_historyAccount!.id),
+              session: widget.session,
+              api: widget.history!,
+              account: _historyAccount!,
+            ),
             _Page.demoAccount => DemoAccountScreen(
               session: widget.session,
               api: widget.demoAccounts!,
@@ -282,7 +294,18 @@ class _CustomerWorkspaceState extends State<CustomerWorkspace> {
                 'No accounts are linked yet. Your bank officer can help.',
               )
             else
-              for (final account in _flow.accounts!) AccountCard(account),
+              for (final account in _flow.accounts!) ...[
+                AccountCard(account),
+                if (widget.history != null)
+                  OutlinedButton(
+                    onPressed: () {
+                      _historyAccount = account;
+                      _go(_Page.history);
+                    },
+                    child: Text('View history · ${account.accountNumber}'),
+                  ),
+                const SizedBox(height: 12),
+              ],
           ],
           const SizedBox(height: 20),
           const _Message(

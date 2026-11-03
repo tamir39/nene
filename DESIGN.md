@@ -1,5 +1,7 @@
 # Design and technology decisions
 
+History update, 3 November 2026: [customer account history](docs/ACCOUNT_HISTORY.md) adds a read-only posted-entry model, customer-owned monthly reads and Flutter pagination. Month boundaries use the explicit UTC+07 demo convention. No transaction/balance writes or financial authorization are introduced; AWS remains undecided.
+
 Account information update, 3 November 2026: [account views and savings policy](docs/ACCOUNT_INFORMATION.md) adds type-specific read models, monthly savings estimates, stored mortgage schedules and officer-only audited rate changes. [Demo provisioning](docs/DEMO_ACCOUNT_PROVISIONING.md) lets local officers add one synthetic savings and mortgage account per customer, with zero balances and a labelled sample mortgage schedule. No financial posting or real loan issuance is enabled; AWS remains undecided.
 
 

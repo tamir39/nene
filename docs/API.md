@@ -1,5 +1,7 @@
 # API contract
 
+History update, 3 November 2026: `GET /api/v1/me/accounts/:accountId/history?month=YYYY-MM&cursor=<optional UUID>` returns customer-owned posted entries in pages of 25. See [ACCOUNT_HISTORY.md](ACCOUNT_HISTORY.md#api-and-storage) for response fields, UTC+07 month boundaries, cursor validation and permission/error rules. No history write or financial posting endpoint exists.
+
 Account information update, 3 November 2026: [account views and savings policy](ACCOUNT_INFORMATION.md) adds type-specific read models, monthly savings estimates, stored mortgage schedules and officer-only audited rate changes. [Demo provisioning](DEMO_ACCOUNT_PROVISIONING.md#backend-contract-and-authorization) adds `POST /api/v1/officer/customers/:customerId/demo-accounts`, local-only officer authorization, idempotent requests and `isDemo` on account reads. No financial posting or real loan issuance is enabled.
 
 
