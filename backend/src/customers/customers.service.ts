@@ -8,6 +8,10 @@ import { randomBytes, randomUUID, scrypt, timingSafeEqual } from 'node:crypto';
 import { promisify } from 'node:util';
 import type { PoolClient, QueryResultRow } from 'pg';
 import type { CurrentUser } from '../auth/auth.types.js';
+import {
+  informationColumns,
+  withInformation,
+} from '../accounts/account-information.js';
 import { SupabaseAdminService } from '../auth/supabase-admin.service.js';
 import { DatabaseService } from '../database/database.service.js';
 import type {
@@ -25,7 +29,8 @@ const initialAccount = { type: 'checking', currency: 'VND' } as const;
 const customerColumns =
   'id, email, display_name AS "displayName", phone, address';
 const accountColumns =
-  'id, account_number::text AS "accountNumber", type, currency, balance_minor::text AS "balanceMinor", status';
+  'id, account_number::text AS "accountNumber", type, currency, balance_minor::text AS "balanceMinor", status,' +
+  informationColumns;
 
 interface CreationRow extends QueryResultRow {
   customer_id: string;
@@ -58,7 +63,7 @@ export class CustomersService {
       `SELECT ${accountColumns} FROM bank.banking_accounts WHERE owner_id = $1 ORDER BY created_at, id`,
       [user.id],
     );
-    return { accounts };
+    return { accounts: accounts.map(withInformation) };
   }
 
   async updateContact(
@@ -124,7 +129,7 @@ export class CustomersService {
       `SELECT ${accountColumns} FROM bank.banking_accounts WHERE owner_id = $1 ORDER BY created_at, id`,
       [id],
     );
-    return { ...customer, accounts: accounts.rows };
+    return { ...customer, accounts: accounts.rows.map(withInformation) };
   }
 
   async edit(

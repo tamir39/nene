@@ -8,6 +8,11 @@ class BankAccount {
     required this.currency,
     required this.balanceMinor,
     required this.status,
+    this.annualRateBps,
+    this.monthlyProfitMinor,
+    this.principalRemainingMinor,
+    this.monthlyDueMinor,
+    this.nextDueOn,
   });
 
   factory BankAccount.fromJson(Map<String, dynamic> json) {
@@ -24,6 +29,11 @@ class BankAccount {
       currency: currency,
       balanceMinor: balance,
       status: requiredText(json, 'status'),
+      annualRateBps: _rate(json['annualRateBps']),
+      monthlyProfitMinor: _amount(json['monthlyProfitMinor']),
+      principalRemainingMinor: _amount(json['principalRemainingMinor']),
+      monthlyDueMinor: _amount(json['monthlyDueMinor']),
+      nextDueOn: optionalText(json, 'nextDueOn'),
     );
   }
 
@@ -33,6 +43,26 @@ class BankAccount {
   final String currency;
   final String balanceMinor;
   final String status;
+  final int? annualRateBps;
+  final String? monthlyProfitMinor,
+      principalRemainingMinor,
+      monthlyDueMinor,
+      nextDueOn;
+  static int? _rate(Object? value) {
+    if (value == null) return null;
+    if (value is! int || value < 0 || value > 2000) {
+      throw const FormatException('Invalid rate.');
+    }
+    return value;
+  }
+
+  static String? _amount(Object? value) {
+    if (value == null) return null;
+    if (value is! String || !RegExp(r'^\d+$').hasMatch(value)) {
+      throw const FormatException('Invalid amount.');
+    }
+    return value;
+  }
 
   String get typeLabel => switch (type) {
     'checking' => 'Checking account',
@@ -43,8 +73,9 @@ class BankAccount {
 
   // VND has no fractional minor units. Keep integer precision even above the
   // floating-point safe range; unknown future currencies are labelled honestly.
-  String get balanceLabel {
-    final amount = BigInt.parse(balanceMinor);
+  String get balanceLabel => amountLabel(balanceMinor);
+  String amountLabel(String value) {
+    final amount = BigInt.parse(value);
     final digits = amount.abs().toString();
     final grouped = digits.replaceAllMapped(
       RegExp(r'(\d)(?=(\d{3})+$)'),
