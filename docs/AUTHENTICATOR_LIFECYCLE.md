@@ -1,6 +1,6 @@
 # Customer authenticator lifecycle plan
 
-Implementation update, 3 November 2026: [AUTHENTICATOR_SETUP.md](AUTHENTICATOR_SETUP.md) records first-time backend/Flutter enrollment and status plus production session ownership. The older planning/prototype status below is historical; replacement/recovery, full transaction authorization and app acceptance remain open. AWS remains undecided.
+Implementation update, 3 November 2026: [AUTHENTICATOR_SETUP.md](AUTHENTICATOR_SETUP.md) records enrollment/status and memory-only session ownership. [AUTHENTICATOR_MANAGEMENT.md](AUTHENTICATOR_MANAGEMENT.md) now records implemented replacement, native backup-code recovery and shared setup/lifecycle replay limits. Its supported interruption paths and explicit blocked cases supersede the proposals below. This remains a historical plan; full transaction authorization and human/native acceptance remain open. AWS remains undecided.
 
 
 Status: **planning only, 27 October 2026**. The user requested enrollment, recovery and session-handoff planning before app integration. This document adds no customer endpoint, Flutter screen, migration or provider configuration. Normal demo MFA and financial execution remain disabled. AWS and the actual face-comparison implementation remain undecided.

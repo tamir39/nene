@@ -11,6 +11,7 @@ import { ENVIRONMENT } from '../config/config.module.js';
 import type { Environment } from '../config/environment.js';
 import { DatabaseService } from '../database/database.service.js';
 import type { AuthenticatedRequest } from '../auth/auth.types.js';
+import { reserveSecurityProof } from './security-proof.js';
 
 const uuid = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
 type Row = {
@@ -64,10 +65,11 @@ export class SecurityService {
     path: string,
     token: string,
     body?: object,
+    method?: 'GET' | 'POST' | 'DELETE',
   ): Promise<Record<string, unknown>> {
     try {
       const response = await fetch(`${this.env.supabaseUrl}/auth/v1${path}`, {
-        method: body ? 'POST' : 'GET',
+        method: method ?? (body ? 'POST' : 'GET'),
         redirect: 'error',
         signal: AbortSignal.timeout(8000),
         headers: {
@@ -77,6 +79,9 @@ export class SecurityService {
         },
         ...(body ? { body: JSON.stringify(body) } : {}),
       });
+      if (response.ok && response.status === 204) return {};
+      if (response.status === 404 && path === '/factors/recovery-codes')
+        return { remaining: 0, total: 0 };
       const reader = response.body!.getReader();
       const chunks: Uint8Array[] = [];
       let size = 0;
@@ -121,6 +126,7 @@ export class SecurityService {
       [req.user.id],
     );
     if (!row) return { state: 'not_set_up' };
+    if (row.state === 'restricted') return { state: 'restricted' };
     const user = await this.provider('/user', identity.token);
     const factors = Array.isArray(user.factors)
       ? (user.factors as Record<string, unknown>[])
@@ -210,6 +216,21 @@ export class SecurityService {
     if (!row?.factor_id) throw new ConflictException('Check setup status.');
     // One attempt per pending setup: any uncertainty remains blocked/reconcilable.
     // Never put an uncertain request back into pending or re-submit its code.
+    try {
+      await reserveSecurityProof(
+        this.db,
+        req.user.id,
+        row.factor_id,
+        input.code,
+        'enroll',
+      );
+    } catch (error) {
+      await this.db.query(
+        "update bank.authenticator_setup set state=case when attempts<5 then 'pending' else 'blocked' end where customer_id=$1 and request_id=$2 and state='verifying'",
+        [req.user.id, row.request_id],
+      );
+      throw error;
+    }
     const challenge = await this.provider(
       `/factors/${row.factor_id}/challenge`,
       identity.token,

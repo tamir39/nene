@@ -1,6 +1,6 @@
 # Transaction confirmation and 2FA plan
 
-Implementation update, 3 November 2026: [AUTHENTICATOR_SETUP.md](AUTHENTICATOR_SETUP.md) records first-time backend/Flutter enrollment and status plus production session ownership. The older planning/prototype status below is historical; replacement/recovery, full transaction authorization and app acceptance remain open. AWS remains undecided.
+Implementation update, 3 November 2026: [AUTHENTICATOR_SETUP.md](AUTHENTICATOR_SETUP.md) and [AUTHENTICATOR_MANAGEMENT.md](AUTHENTICATOR_MANAGEMENT.md) record implemented enrollment/status, replacement, backup-code recovery, memory-only session ownership and shared setup/lifecycle replay reservations. The older planning/prototype status below is historical. Next connect operation-bound confirmation to the active factor, restricted state, current security revision and the same proof reservation. Financial authorization/posting and app acceptance remain open; recovery never authorizes a payment. AWS remains undecided.
 
 
 Status: **planning only, 27 October 2026**, requested after the reference-photo slice. No transaction endpoint, balance write, OTP delivery, authenticator enrollment or financial UI is implemented by this plan. Flutter + one NestJS API + Supabase remains the stack. AWS and the face-comparison provider remain undecided.
