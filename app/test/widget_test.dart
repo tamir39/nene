@@ -129,8 +129,8 @@ void main() {
     expect(
       find.text(
         'Identity verification is not completed in this demo. '
-        'Only explicitly enabled local demo transfers are supported. '
-        'Deposits, withdrawals and payments are not available.',
+        'Only explicitly enabled local demo transfers, deposits and withdrawals are supported. '
+        'Real cash services and external payments are not available.',
       ),
       findsOneWidget,
     );

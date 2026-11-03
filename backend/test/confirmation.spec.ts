@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import { it } from 'node:test';
 import {
   transferInput,
+  cashInput,
+  cashOperation,
   ConfirmationService,
 } from '../src/confirmation/confirmation.service.js';
 import { SecurityService } from '../src/security/security.service.js';
@@ -14,6 +16,34 @@ const body = {
   destinationAccountNumber: '100000000002',
   amountMinor: '100000',
 };
+void it('cash input accepts only owned-account request fields and exact operation names', () => {
+  assert.equal(
+    cashInput({ accountId: body.sourceAccountId, amountMinor: '100' })
+      .amountMinor,
+    '100',
+  );
+  for (const amountMinor of ['0', '-1', '0.5', '01', '1e6', 100])
+    assert.throws(() =>
+      cashInput({ accountId: body.sourceAccountId, amountMinor }),
+    );
+  for (const extra of [
+    { cashBalanceMinor: '1000000' },
+    { kind: 'withdrawal' },
+    { identityVerified: true },
+    { customerId: body.sourceAccountId },
+  ])
+    assert.throws(() =>
+      cashInput({
+        accountId: body.sourceAccountId,
+        amountMinor: '100',
+        ...extra,
+      }),
+    );
+  assert.equal(cashOperation('deposit'), 'deposit');
+  assert.equal(cashOperation('withdrawal'), 'withdrawal');
+  for (const raw of ['withdraw', 'transfer', 'DEPOSIT', '../deposit'])
+    assert.throws(() => cashOperation(raw));
+});
 void it('transfer review accepts only exact account and integer VND fields', () => {
   assert.equal(transferInput(body).amountMinor, '100000');
   for (const amountMinor of [

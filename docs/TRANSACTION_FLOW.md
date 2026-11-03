@@ -1,5 +1,7 @@
 # Transaction confirmation and 2FA plan
 
+Cash update, 3 November 2026: [LOCAL_CASH.md](LOCAL_CASH.md) implements local checking/saving deposits and withdrawals with distinct kind-bound proof purposes, shared TOTP replay protection and atomic bank/cash/history posting. The simulated cash source is bounded and seeded once outside bank accounts; real funding, dispensing and lecturer acceptance of simulation remain open.
+
 Local implementation update, 3 November 2026: [LOCAL_TRANSFERS.md](LOCAL_TRANSFERS.md) now consumes a separate transaction-bound proof and atomically posts synthetic same-bank transfers under user-approved rules. The preview remains nonfinancial. Pre-authorization persistence still contains security metadata only; immutable transfer details are written after verification. Actual comparison, deposits/withdrawals, external payments and hosted acceptance remain open.
 
 Confirmation update, 3 November 2026: [TRANSACTION_CONFIRMATION.md](TRANSACTION_CONFIRMATION.md) implements same-bank review and transaction-bound authenticator checking with an explicit not-sent result, as requested. Review details remain in a signed client token; only security metadata is persisted. The proposed durable financial-intent interpretation below remains unresolved. No financial authorization consumer, balance/history write or high-value identity check is enabled.

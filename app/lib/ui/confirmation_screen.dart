@@ -29,6 +29,14 @@ class _ConfirmationScreenState extends State<ConfirmationScreen>
   bool _enabled = false;
   List<Map<String, dynamic>> _recent = [];
   bool get _send => widget.api.sendMoney;
+  bool get _cash => widget.api.cashOperation != null;
+  bool get _deposit => widget.api.cashOperation == CashOperation.deposit;
+  String? _cashBalance;
+  String get _noun =>
+      _cash ? (_deposit ? 'Deposit' : 'Withdrawal') : 'Transfer';
+  String get _confirmLabel => _cash
+      ? (_deposit ? 'Confirm demo deposit' : 'Confirm demo withdrawal')
+      : 'Confirm and send demo funds';
   @override
   void initState() {
     super.initState();
@@ -42,7 +50,9 @@ class _ConfirmationScreenState extends State<ConfirmationScreen>
     if (mounted) {
       setState(() {
         _enabled = config['enabled'] == true;
-        _recent = (data['transfers'] as List).cast<Map<String, dynamic>>();
+        _cashBalance = config['cashBalanceMinor'] as String?;
+        _recent = (data[_cash ? 'operations' : 'transfers'] as List)
+            .cast<Map<String, dynamic>>();
       });
     }
   }
@@ -90,7 +100,9 @@ class _ConfirmationScreenState extends State<ConfirmationScreen>
           _state = 'unknown';
           _code.clear();
           _error = _send
-              ? 'Transfer outcome is unconfirmed. Check recent transfers or account history after signing in. Do not send it again until the outcome is known.'
+              ? _cash
+                    ? 'Outcome is unconfirmed. Check recent operations or account history after signing in. Do not repeat the operation until the outcome is known.'
+                    : 'Transfer outcome is unconfirmed. Check recent transfers or account history after signing in. Do not send it again until the outcome is known.'
               : 'Confirmation could not be checked. No money was sent. Sign in again if needed; do not repeat an uncertain request.';
         });
       }
@@ -105,15 +117,16 @@ class _ConfirmationScreenState extends State<ConfirmationScreen>
     if (security['state'] != 'ready') {
       setState(
         () => _error =
-            'Finish authenticator setup or recovery in My profile → Transaction security before reviewing a transfer.',
+            'Finish authenticator setup or recovery in My profile → Transaction security before reviewing a transaction.',
       );
       return;
     }
-    if (!RegExp(r'^\d{12}$').hasMatch(_destination.text.trim()) ||
+    if ((!_cash && !RegExp(r'^\d{12}$').hasMatch(_destination.text.trim())) ||
         !RegExp(r'^[1-9]\d{0,15}$').hasMatch(_amount.text.trim())) {
       setState(
-        () => _error =
-            'Enter a 12-digit Nene account number and a positive whole VND amount.',
+        () => _error = _cash
+            ? 'Enter a positive whole VND amount.'
+            : 'Enter a 12-digit Nene account number and a positive whole VND amount.',
       );
       return;
     }
@@ -184,12 +197,18 @@ class _ConfirmationScreenState extends State<ConfirmationScreen>
   Widget build(BuildContext context) => WorkspaceContent(
     children: [
       Text(
-        _send ? 'Transfer demo funds' : 'Transfer confirmation',
+        _cash
+            ? (_deposit ? 'Deposit demo funds' : 'Withdraw demo funds')
+            : _send
+            ? 'Transfer demo funds'
+            : 'Transfer confirmation',
         style: Theme.of(context).textTheme.headlineMedium,
       ),
       const SizedBox(height: 16),
       Text(
-        _send
+        _cash
+            ? 'Local cash simulation only. Deposits move your limited simulated cash into this account; withdrawals move it back. No real cash or external payment is involved. Amounts of 5,000,000 VND or more are blocked.'
+            : _send
             ? 'Synthetic local funds only. Sending changes both demo balances and records a transfer. Amounts of 5,000,000 VND or more are blocked until actual face comparison is available.'
             : 'Confirmation preview only. No money will be sent. Identity checks and money movement are not available yet.',
       ),
@@ -200,16 +219,22 @@ class _ConfirmationScreenState extends State<ConfirmationScreen>
       if (_review == null) ...[
         if (_send) ...[
           if (!_enabled && !_busy)
-            const Text(
-              'This local transfer demo is not enabled. Ask the project team to prepare the demo accounts.',
+            Text(
+              _cash
+                  ? 'This local cash demo is not enabled. Ask the project team to prepare the demo account.'
+                  : 'This local transfer demo is not enabled. Ask the project team to prepare the demo accounts.',
             ),
           if (_recent.isNotEmpty) ...[
-            const Text('Recent transfer attempts'),
+            Text(
+              _cash
+                  ? 'Recent ${_noun.toLowerCase()} attempts'
+                  : 'Recent transfer attempts',
+            ),
             for (final item in _recent)
               ListTile(
                 title: Text(
                   item['state'] == 'posted'
-                      ? 'Sent ${(item['receipt'] as Map)['amountMinor']} VND · demo funds'
+                      ? '${_cash ? (_deposit ? 'Deposited' : 'Withdrawn') : 'Sent'} ${(item['receipt'] as Map)['amountMinor']} VND · demo funds'
                       : '${item['state']} · check before sending again',
                 ),
                 subtitle: Text(item['requestId'] as String),
@@ -217,19 +242,26 @@ class _ConfirmationScreenState extends State<ConfirmationScreen>
           ],
           TextButton(
             onPressed: _busy ? null : () => _run(_loadRecent),
-            child: const Text('Refresh recent transfers'),
+            child: Text(
+              _cash ? 'Refresh recent operations' : 'Refresh recent transfers',
+            ),
           ),
         ],
-        Text('From ${widget.account.accountNumber}'),
-        TextField(
-          controller: _destination,
-          enabled: !_busy,
-          keyboardType: TextInputType.number,
-          maxLength: 12,
-          decoration: const InputDecoration(
-            labelText: 'Recipient Nene account number',
+        if (_cash)
+          Text(
+            'Simulated cash outside accounts: ${_cashBalance ?? 'not prepared'}${_cashBalance == null ? '' : ' VND'}',
           ),
-        ),
+        Text('${_cash ? 'Account' : 'From'} ${widget.account.accountNumber}'),
+        if (!_cash)
+          TextField(
+            controller: _destination,
+            enabled: !_busy,
+            keyboardType: TextInputType.number,
+            maxLength: 12,
+            decoration: const InputDecoration(
+              labelText: 'Recipient Nene account number',
+            ),
+          ),
         TextField(
           controller: _amount,
           enabled: !_busy,
@@ -245,15 +277,28 @@ class _ConfirmationScreenState extends State<ConfirmationScreen>
           child: const Text('Review confirmation'),
         ),
       ] else ...[
-        Text('From ${_review!['sourceAccountNumber']}'),
-        Text('To ${_review!['destinationAccountNumber']}'),
+        if (_cash) ...[
+          Text(
+            _deposit
+                ? 'From simulated cash'
+                : 'From account ${_review!['accountNumber']}',
+          ),
+          Text(
+            _deposit
+                ? 'To account ${_review!['accountNumber']}'
+                : 'To simulated cash',
+          ),
+        ] else ...[
+          Text('From ${_review!['sourceAccountNumber']}'),
+          Text('To ${_review!['destinationAccountNumber']}'),
+        ],
         Text(
           '${_review!['amountMinor']} VND',
           style: Theme.of(context).textTheme.headlineSmall,
         ),
         Text(
           _send
-              ? 'Demo transfer fee: 0 VND.'
+              ? 'Demo ${_noun.toLowerCase()} fee: 0 VND.'
               : 'Preview fee: 0 VND. This is not a transfer quote.',
         ),
         if (_review!['sufficientFunds'] == false)
@@ -263,7 +308,7 @@ class _ConfirmationScreenState extends State<ConfirmationScreen>
         const SizedBox(height: 16),
         if (_state == 'review') ...[
           const Text(
-            'Check the accounts and amount. Enter a fresh code from your registered authenticator. A recovery code cannot confirm a transfer.',
+            'Check the accounts and amount. Enter a fresh code from your registered authenticator. A recovery code cannot confirm this operation.',
           ),
           if (!_hidden)
             TextField(
@@ -280,9 +325,7 @@ class _ConfirmationScreenState extends State<ConfirmationScreen>
           FilledButton(
             onPressed: _busy || _hidden ? null : _confirm,
             child: Text(
-              _send
-                  ? 'Confirm and send demo funds'
-                  : 'Check authenticator · do not send',
+              _send ? _confirmLabel : 'Check authenticator · do not send',
             ),
           ),
         ] else ...[
@@ -290,15 +333,20 @@ class _ConfirmationScreenState extends State<ConfirmationScreen>
             liveRegion: true,
             child: Text(switch (_state) {
               'posted' =>
-                'Demo transfer sent. Balances and transaction history were updated.',
+                _cash
+                    ? 'Demo ${_noun.toLowerCase()} completed. Account balance and history were updated. No real cash moved.'
+                    : 'Demo transfer sent. Balances and transaction history were updated.',
               'factor_confirmed' =>
                 'Authenticator checked for these details. Transfer not sent.',
-              'cancelled' => 'Confirmation cancelled. Transfer not sent.',
+              'cancelled' =>
+                _cash
+                    ? 'Confirmation cancelled. No deposit or withdrawal was posted.'
+                    : 'Confirmation cancelled. Transfer not sent.',
               'rejected' =>
                 'Code not accepted. Start a new review with a fresh code.',
               'expired' =>
                 _send
-                    ? 'Review expired. Check recent transfers or history for any submitted transfer.'
+                    ? 'Review expired. Check recent operations or history for any submitted transaction.'
                     : 'Review or confirmation expired. Transfer not sent.',
               'invalidated' =>
                 'Security or sign-in changed. This confirmation is no longer valid.',
@@ -306,7 +354,9 @@ class _ConfirmationScreenState extends State<ConfirmationScreen>
                 'Confirmation not yet established. Check status before continuing.',
               _ =>
                 _send
-                    ? 'Transfer outcome unconfirmed. Check recent transfers/history before sending again.'
+                    ? _cash
+                          ? 'Outcome unconfirmed. Check recent operations/history before trying again.'
+                          : 'Transfer outcome unconfirmed. Check recent transfers/history before sending again.'
                     : 'Confirmation uncertain. No money was sent.',
             }),
           ),
@@ -331,7 +381,11 @@ class _ConfirmationScreenState extends State<ConfirmationScreen>
                     });
                     await _loadRecent();
                   }),
-            child: const Text('Start another transfer'),
+            child: Text(
+              _cash
+                  ? 'Start another ${_noun.toLowerCase()}'
+                  : 'Start another transfer',
+            ),
           ),
         if (_state != 'cancelled' && _state != 'posted')
           TextButton(

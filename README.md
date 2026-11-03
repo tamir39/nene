@@ -2,7 +2,7 @@
 
 An Android mobile banking final project for Ton Duc Thang University's Mobile Apps Development course.
 
-Status, 3 November 2026: the customer/officer foundation now includes reference enrollment/review, account information/history, authenticator setup/recovery, confirmation preview and [local synthetic same-bank transfers](docs/LOCAL_TRANSFERS.md). The new sending flow requires explicitly prepared demo accounts, accepted reference and transaction-bound TOTP; amounts at or above 5,000,000 VND stay blocked. Reference acceptance is not completed eKYC. AWS remains undecided; deposits, withdrawals, external integrations and full assignment acceptance remain open. The foundation notes below retain the limits of those earlier slices.
+Status, 3 November 2026: the customer/officer foundation now includes reference enrollment/review, account information/history, authenticator setup/recovery, confirmation preview and [local synthetic same-bank transfers](docs/LOCAL_TRANSFERS.md). The new sending flow requires explicitly prepared demo accounts, accepted reference and transaction-bound TOTP; amounts at or above 5,000,000 VND stay blocked. Reference acceptance is not completed eKYC. [Local deposits and withdrawals](docs/LOCAL_CASH.md) now support checking/saving accounts using a bounded cash simulation and the same security checks. AWS remains undecided; real cash services, external integrations and full assignment acceptance remain open. The foundation notes below retain the limits of those earlier slices.
 
 ## Confirmed technology stack
 

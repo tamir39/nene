@@ -11,6 +11,35 @@ const localEnvironment = {
 };
 
 void describe('environment boundaries', () => {
+  void it('keeps cash simulation off by default and refuses remote or production activation', () => {
+    assert.equal(readEnvironment(localEnvironment).localCashEnabled, false);
+    assert.equal(
+      readEnvironment({ ...localEnvironment, LOCAL_CASH_ENABLED: 'true' })
+        .localCashEnabled,
+      true,
+    );
+    for (const override of [
+      { LOCAL_CASH_ENABLED: 'yes' },
+      { SUPABASE_URL: 'https://example.supabase.co' },
+      {
+        DATABASE_URL:
+          'postgresql://nene_api:example@database.example:5432/postgres',
+        DATABASE_SSL_MODE: 'verify-full',
+      },
+      {
+        NODE_ENV: 'production',
+        SUPABASE_URL: 'https://localhost',
+        DATABASE_SSL_MODE: 'verify-full',
+      },
+    ])
+      assert.throws(() =>
+        readEnvironment({
+          ...localEnvironment,
+          LOCAL_CASH_ENABLED: 'true',
+          ...override,
+        }),
+      );
+  });
   void it('enables synthetic transfers only with explicit non-production loopback configuration', () => {
     assert.equal(
       readEnvironment(localEnvironment).localTransfersEnabled,

@@ -1,5 +1,7 @@
 # Local same-bank demo transfers
 
+Subsequent extension: [LOCAL_CASH.md](LOCAL_CASH.md) adds separately gated simulated deposits and withdrawals. These can fund/debit prepared checking and saving accounts; the original transfer seed and its default-off gate remain unchanged. No real cash or external payment integration is added.
+
 Implemented 3 November 2026 for BR-04/08/09, following the user's explicit approval of these demo rules. PDF page 2, Business 2–4 requires transaction 2FA, valid/allowed transactions, balances and history. The PDF does not prescribe VND, a funding mechanism or this threshold. All seven business groups remain in scope; this bounded slice does not complete eKYC or the assignment's full transaction coverage. AWS remains undecided.
 
 ## Rules and customer flow
@@ -8,7 +10,7 @@ Implemented 3 November 2026 for BR-04/08/09, following the user's explicit appro
 - Positive integer whole VND, below **5,000,000 VND**, sufficient source funds, and a zero demo fee. Amounts at or above the threshold are blocked; no simulated identity success bypasses that gate.
 - The sender needs a current officer-accepted reference with matching name/revision and unexpired ready evidence. Reference acceptance is not completed eKYC or an actual operation-bound face comparison. The recipient does not need a reference for receiving this local demo transfer.
 - Every send requires a fresh code from the currently registered TOTP authenticator, bound to the exact signed review, customer, Auth session, policy, factor and security revision. Recovery codes and an already elevated session do not replace this step.
-- Funds originate only from the explicit one-time local seed below. There is no customer add-money endpoint, deposit implementation, cash-out, external bank, loan issuance or payment-provider integration.
+- This slice originally funded transfers only through the explicit one-time seed below. The later cash slice adds bounded simulated deposit/withdrawal operations. No real cash-out, external bank, loan issuance or payment-provider integration exists.
 
 Choose **Transfer demo funds**, enter the recipient number and amount, review both accounts and the amount, then **Confirm and send demo funds**. Success explicitly says that demo balances and history changed. Back to accounts reloads balances; both customers can read their own debit/credit history. The separate **Try transfer confirmation · no money sent** path retains its preview-only behavior, even after seeding.
 
@@ -74,4 +76,4 @@ Evidence: 99 backend tests plus lint/build/formatting; 12 isolated local-transfe
 
 Flutter widget/API checks cover the sent result, disabled gate, uncertain outcome/session clearing, receipt recovery, prior preview behavior and handoff binding. Review and sent states were rendered at 390 pixels and visually inspected. Flutter analysis, 195 tests and the debug web build passed; the updated workspace notice also passed its 12 targeted regression tests. Live Edge, phone/native and hosted acceptance remain open; the normal demo was not launched. The shared policy directory was unavailable, so no policy-bundle compliance is claimed.
 
-Next: validate this flow in Edge, settle deposit/withdrawal funding and cash-out rules, and implement those operations. Actual high-value comparison, other-bank transfers, payments/utilities, maps, chatbot, release and report coverage remain on [ROADMAP.md](../ROADMAP.md). No paid provider, cloud resource or publication was created.
+Next: validate this flow and the separately enabled cash simulation in Edge; real funding/cash-out acceptance remains open. Actual high-value comparison, other-bank transfers, payments/utilities, maps, chatbot, release and report coverage remain on [ROADMAP.md](../ROADMAP.md). No paid provider, cloud resource or publication was created.

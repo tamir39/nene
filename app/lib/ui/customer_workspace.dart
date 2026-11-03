@@ -72,6 +72,7 @@ class _CustomerWorkspaceState extends State<CustomerWorkspace> {
   BankAccount? _historyAccount;
   BankAccount? _confirmationAccount;
   bool _sendDemoMoney = false;
+  CashOperation? _cashOperation;
 
   @override
   void initState() {
@@ -186,7 +187,11 @@ class _CustomerWorkspaceState extends State<CustomerWorkspace> {
             _Page.detail => _detail(),
             _Page.confirmation => ConfirmationScreen(
               key: ValueKey(_confirmationAccount!.id),
-              api: ConfirmationApi(widget.security!, sendMoney: _sendDemoMoney),
+              api: ConfirmationApi(
+                widget.security!,
+                sendMoney: _sendDemoMoney,
+                cashOperation: _cashOperation,
+              ),
               account: _confirmationAccount!,
             ),
             _Page.history => AccountHistoryScreen(
@@ -315,6 +320,7 @@ class _CustomerWorkspaceState extends State<CustomerWorkspace> {
                     onPressed: () {
                       _confirmationAccount = account;
                       _sendDemoMoney = false;
+                      _cashOperation = null;
                       _go(_Page.confirmation);
                     },
                     child: const Text(
@@ -328,10 +334,29 @@ class _CustomerWorkspaceState extends State<CustomerWorkspace> {
                     onPressed: () {
                       _confirmationAccount = account;
                       _sendDemoMoney = true;
+                      _cashOperation = null;
                       _go(_Page.confirmation);
                     },
                     child: const Text('Transfer demo funds'),
                   ),
+                if (widget.security != null &&
+                    ['checking', 'saving'].contains(account.type) &&
+                    account.currency == 'VND' &&
+                    account.status == 'active')
+                  for (final operation in CashOperation.values)
+                    OutlinedButton(
+                      onPressed: () {
+                        _confirmationAccount = account;
+                        _sendDemoMoney = true;
+                        _cashOperation = operation;
+                        _go(_Page.confirmation);
+                      },
+                      child: Text(
+                        operation == CashOperation.deposit
+                            ? 'Deposit demo funds'
+                            : 'Withdraw demo funds',
+                      ),
+                    ),
                 if (widget.history != null)
                   OutlinedButton(
                     onPressed: () {
@@ -346,8 +371,8 @@ class _CustomerWorkspaceState extends State<CustomerWorkspace> {
           const SizedBox(height: 20),
           const _Message(
             'Identity verification is not completed in this demo. '
-            'Only explicitly enabled local demo transfers are supported. '
-            'Deposits, withdrawals and payments are not available.',
+            'Only explicitly enabled local demo transfers, deposits and withdrawals are supported. '
+            'Real cash services and external payments are not available.',
           ),
           const SizedBox(height: 28),
         ],

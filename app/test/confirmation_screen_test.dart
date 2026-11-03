@@ -53,6 +53,7 @@ Future<SessionOwner> showScreen(
   WidgetTester tester,
   Future<http.Response> Function(http.Request) handler, {
   bool sendMoney = false,
+  CashOperation? cashOperation,
 }) async {
   tester.view.physicalSize = const Size(390, 1000);
   tester.view.devicePixelRatio = 1;
@@ -89,7 +90,11 @@ Future<SessionOwner> showScreen(
         child: Scaffold(
           body: ConfirmationScreen(
             account: account,
-            api: ConfirmationApi(security, sendMoney: sendMoney),
+            api: ConfirmationApi(
+              security,
+              sendMoney: sendMoney,
+              cashOperation: cashOperation,
+            ),
           ),
         ),
       ),
@@ -121,6 +126,127 @@ Future<void> captureTransfer(WidgetTester tester, String name) async {
 }
 
 void main() {
+  for (final operation in CashOperation.values) {
+    testWidgets(
+      '${operation.name} reviews correct direction and posts a labelled simulation',
+      (tester) async {
+        final deposit = operation == CashOperation.deposit;
+        var posted = false;
+        final owner = await showScreen(tester, (req) async {
+          if (req.url.path.endsWith('/configuration')) {
+            return json({'enabled': true, 'cashBalanceMinor': '3000000'});
+          }
+          if (req.url.path.endsWith('/${operation.name}/')) {
+            return json({
+              'operations': posted
+                  ? [
+                      {
+                        'requestId': 'request',
+                        'state': 'posted',
+                        'receipt': {'amountMinor': '100000'},
+                      },
+                    ]
+                  : <Map<String, dynamic>>[],
+            });
+          }
+          if (req.url.path.endsWith('/security')) {
+            return json({'state': 'ready'});
+          }
+          if (req.url.path.endsWith('/review')) {
+            expect(req.url.path, contains('/cash/${operation.name}/'));
+            expect(jsonDecode(req.body), {
+              'accountId': 'source',
+              'amountMinor': '100000',
+            });
+            return json({
+              ...review(),
+              'accountNumber': account.accountNumber,
+              'operation': operation.name,
+              'sufficientFunds': true,
+              'executionAvailable': true,
+            });
+          }
+          expect(req.url.path, endsWith('/cash/${operation.name}/confirm'));
+          posted = true;
+          return json({
+            'requestId': 'request',
+            'revision': 2,
+            'purpose': 'cash-${operation.name}',
+            'accessToken': 'test',
+            'refreshToken': 'test',
+            'state': 'posted',
+            'sent': true,
+            'executionAvailable': true,
+            'replay': false,
+          });
+        }, cashOperation: operation);
+        expect(
+          find.text('Simulated cash outside accounts: 3000000 VND'),
+          findsOneWidget,
+        );
+        expect(find.byType(TextField), findsOneWidget);
+        await tester.enterText(find.byType(TextField), '100000');
+        await tap(tester, 'Review confirmation');
+        expect(
+          find.text(deposit ? 'From simulated cash' : 'To simulated cash'),
+          findsOneWidget,
+        );
+        await captureTransfer(tester, 'cash-${operation.name}-review');
+        await tester.enterText(find.byType(TextField), '123456');
+        await tap(
+          tester,
+          deposit ? 'Confirm demo deposit' : 'Confirm demo withdrawal',
+        );
+        expect(owner.session, isNotNull);
+        expect(find.textContaining('No real cash moved.'), findsOneWidget);
+        expect(find.text('Cancel confirmation'), findsNothing);
+        await captureTransfer(tester, 'cash-${operation.name}-posted');
+        await tap(tester, 'Start another ${operation.name}');
+        expect(
+          find.text(
+            '${deposit ? 'Deposited' : 'Withdrawn'} 100000 VND · demo funds',
+          ),
+          findsOneWidget,
+        );
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox());
+      },
+    );
+  }
+  testWidgets(
+    'cash timeout clears session and gives no completed or not-posted claim',
+    (tester) async {
+      final owner = await showScreen(tester, (req) async {
+        if (req.url.path.endsWith('/configuration')) {
+          return json({'enabled': true, 'cashBalanceMinor': '3000000'});
+        }
+        if (req.url.path.endsWith('/deposit/')) {
+          return json({'operations': <Map<String, dynamic>>[]});
+        }
+        if (req.url.path.endsWith('/security')) {
+          return json({'state': 'ready'});
+        }
+        if (req.url.path.endsWith('/review')) {
+          return json({
+            ...review(),
+            'accountNumber': account.accountNumber,
+            'sufficientFunds': true,
+          });
+        }
+        return http.Response('{}', 503);
+      }, cashOperation: CashOperation.deposit);
+      await tester.enterText(find.byType(TextField), '100000');
+      await tap(tester, 'Review confirmation');
+      await tester.enterText(find.byType(TextField), '123456');
+      await tap(tester, 'Confirm demo deposit');
+      expect(owner.session, isNull);
+      expect(find.textContaining('Outcome is unconfirmed.'), findsOneWidget);
+      expect(find.textContaining('completed.'), findsNothing);
+      expect(find.textContaining('not posted'), findsNothing);
+      expect(find.text('Confirm demo deposit'), findsNothing);
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
   testWidgets(
     'demo posting shows sent result, removes cancel, and recovers receipt on return',
     (tester) async {
