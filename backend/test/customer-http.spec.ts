@@ -125,6 +125,31 @@ void describe('customer HTTP permission/input boundaries (database/Auth fakes)',
   });
   const auth = { Authorization: 'Bearer verified-test-session' };
 
+  void it('protects the demo provisioning route and validates its request key', async () => {
+    const path = `/api/v1/officer/customers/${targetId}/demo-accounts`;
+    const body = {
+      type: 'saving',
+      reason: 'Synthetic demo',
+      syntheticConfirmed: true,
+    };
+    await request(server).post(path).send(body).expect(401);
+    await request(server)
+      .post(path)
+      .set(auth)
+      .set('Idempotency-Key', id)
+      .send(body)
+      .expect(403);
+    profile.role = 'officer';
+    await request(server).post(path).set(auth).send(body).expect(400);
+    await request(server)
+      .post(path)
+      .set(auth)
+      .set('Idempotency-Key', id)
+      .send({ ...body, balanceMinor: '100' })
+      .expect(400);
+    assert.equal(mutations.length, 0);
+  });
+
   void it('blocks customer access to every officer operation', async () => {
     await request(server)
       .post('/api/v1/officer/customers')

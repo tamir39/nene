@@ -1,6 +1,6 @@
 # Design and technology decisions
 
-Account information update, 3 November 2026: [account views and savings policy](docs/ACCOUNT_INFORMATION.md) adds type-specific read models, monthly savings estimates, stored mortgage schedules and officer-only audited rate changes. No financial posting or account/loan issuance is enabled.
+Account information update, 3 November 2026: [account views and savings policy](docs/ACCOUNT_INFORMATION.md) adds type-specific read models, monthly savings estimates, stored mortgage schedules and officer-only audited rate changes. [Demo provisioning](docs/DEMO_ACCOUNT_PROVISIONING.md) lets local officers add one synthetic savings and mortgage account per customer, with zero balances and a labelled sample mortgage schedule. No financial posting or real loan issuance is enabled; AWS remains undecided.
 
 
 Implementation update, 3 November 2026: [authenticator setup](docs/AUTHENTICATOR_SETUP.md) now implements first enrollment/status and production memory-only session ownership. Earlier lifecycle/prototype status describes its historical boundary; recovery/replacement and financial 2FA remain open.

@@ -5,6 +5,7 @@ export interface Account {
   currency: string;
   balanceMinor: string;
   status: string;
+  isDemo?: boolean;
   annualRateBps?: number | null;
   rateRevision?: number | null;
   monthlyProfitMinor?: string;

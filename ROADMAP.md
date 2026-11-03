@@ -44,9 +44,9 @@ BR-01, BR-02, BR-03, BR-04; TR-03.
 
 BR-05, BR-06, BR-07, BR-08, BR-09; uses BR-03 and BR-04.
 
-- [ ] Add checking, saving, and mortgage accounts with appropriate information views and checking/saving balances. Account-type information views are implemented in [ACCOUNT_INFORMATION.md](docs/ACCOUNT_INFORMATION.md); additional account provisioning and normal-demo acceptance remain open.
+- [ ] Add checking, saving, and mortgage accounts with appropriate information views and checking/saving balances. Account-type information views and [local synthetic savings/mortgage provisioning](docs/DEMO_ACCOUNT_PROVISIONING.md) are implemented. Human demo/native acceptance and non-demo account administration remain open.
 - [ ] Show savings rates and monthly monetary profit; allow authorized officers to change rates under the documented policy. Backend and Flutter support now exist with isolated database/widget evidence; full app acceptance remains open.
-- [ ] Show mortgage amounts due for the selected monthly or two-week repayment convention. Monthly schedule reads are implemented; trusted schedule provisioning and normal-demo acceptance remain open.
+- [ ] Show mortgage amounts due for the selected monthly or two-week repayment convention. Monthly schedule reads and local 0% sample schedule provisioning are implemented; real mortgage policy and human demo/native acceptance remain open.
 - [ ] Implement deposits, withdrawals, same-bank transfers, account history, and transaction results through NestJS.
 - [ ] Verify ownership, account rules, funds, required identity checks, and 2FA before posting. Keep balances/history consistent and prevent duplicate posting under retries or concurrent requests.
 
@@ -97,12 +97,14 @@ Maps can progress once navigation and provider access are settled. Chatbot links
 
 ## What we should do next
 
+**Test all three account views in the user-started Edge demo.** Officers can now use Find a customer → Add demo account to create zero-balance savings and a labelled synthetic mortgage schedule. Follow [DEMO_ACCOUNT_PROVISIONING.md](docs/DEMO_ACCOUNT_PROVISIONING.md). This supports BR-02/05/06/07 without a deposit or loan disbursement; do not mark financial operations complete.
+
 **Test first-time authenticator setup in the user-started Edge demo next.** [AUTHENTICATOR_SETUP.md](docs/AUTHENTICATOR_SETUP.md) records the implemented customer setup/status endpoints, manual-key screen and production session owner, with passing component and isolated provider checks. Human authenticator and full browser/API acceptance remain open. Then finish safe replacement/recovery and shared purpose/revision enforcement before connecting transaction confirmation. Financial posting stays disabled; AWS remains undecided.
 
 The [backend prototype](docs/AUTHORIZATION_PROTOTYPE.md) demonstrates operation binding, cross-instance replay prevention and safe recovery with synthetic records. It is not connected to app routes or real accounts. Keep the [transaction plan](docs/TRANSACTION_FLOW.md)'s intent-storage interpretation, first-transfer rules and high-value policy explicit; temporary prototype records do not resolve the lecturer interpretation. Financial posting remains disabled until the real policies, identity checks and authorization integration are ready.
 
 The user can review the implemented [reference flow](docs/REFERENCE_FLOW.md) in the Edge web demo alongside this work by starting local `run.bat`. Android Studio/emulator launch is excluded unless requested again. AWS and the face-comparison implementation remain undecided.
 
-The later high-value path still requires an actual server-side one-to-one comparison against the accepted reference; its implementation/provider, threshold and attempt policy remain open. Select and implement separate transaction-bound 2FA before enabling any financial transaction. Keep any simulation and replay/spoof limitations explicit. The first local officer-to-customer flow provides the profile/account foundation; hosted activation, saving/mortgage account views and their calculation policies remain open. Do not enable deposits/transfers merely because checking balances can now be displayed.
+The later high-value path still requires an actual server-side one-to-one comparison against the accepted reference; its implementation/provider, threshold and attempt policy remain open. Select and implement separate transaction-bound 2FA before enabling any financial transaction. Keep any simulation and replay/spoof limitations explicit. Hosted activation and real mortgage policy remain open; saving/mortgage information views and demo calculations are implemented with the documented limits. Do not enable deposits/transfers merely because balances can now be displayed.
 
 Mark an item complete only when its behavior works, relevant checks pass, and evidence is recorded. Keep additional products, an iOS release, and unrelated banking features outside this assignment's scope. The original [PDF](FinalProject_2026_2027.pdf) and [marking workbook](Marking.xlsx) remain authoritative.

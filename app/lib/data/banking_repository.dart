@@ -8,6 +8,7 @@ class BankAccount {
     required this.currency,
     required this.balanceMinor,
     required this.status,
+    this.isDemo = false,
     this.annualRateBps,
     this.monthlyProfitMinor,
     this.principalRemainingMinor,
@@ -22,6 +23,9 @@ class BankAccount {
         !RegExp(r'^[A-Z]{3}$').hasMatch(currency)) {
       throw const FormatException('Invalid account amount.');
     }
+    if (json.containsKey('isDemo') && json['isDemo'] is! bool) {
+      throw const FormatException('Invalid demo marker.');
+    }
     return BankAccount(
       id: requiredText(json, 'id'),
       accountNumber: requiredText(json, 'accountNumber'),
@@ -29,6 +33,7 @@ class BankAccount {
       currency: currency,
       balanceMinor: balance,
       status: requiredText(json, 'status'),
+      isDemo: json['isDemo'] == true,
       annualRateBps: _rate(json['annualRateBps']),
       monthlyProfitMinor: _amount(json['monthlyProfitMinor']),
       principalRemainingMinor: _amount(json['principalRemainingMinor']),
@@ -43,6 +48,7 @@ class BankAccount {
   final String currency;
   final String balanceMinor;
   final String status;
+  final bool isDemo;
   final int? annualRateBps;
   final String? monthlyProfitMinor,
       principalRemainingMinor,
