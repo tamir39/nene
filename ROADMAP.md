@@ -47,7 +47,8 @@ BR-05, BR-06, BR-07, BR-08, BR-09; uses BR-03 and BR-04.
 - [ ] Add checking, saving, and mortgage accounts with appropriate information views and checking/saving balances. Account-type information views and [local synthetic savings/mortgage provisioning](docs/DEMO_ACCOUNT_PROVISIONING.md) are implemented. Human demo/native acceptance and non-demo account administration remain open.
 - [ ] Show savings rates and monthly monetary profit; allow authorized officers to change rates under the documented policy. Backend and Flutter support now exist with isolated database/widget evidence; full app acceptance remains open.
 - [ ] Show mortgage amounts due for the selected monthly or two-week repayment convention. Monthly schedule reads and local 0% sample schedule provisioning are implemented; real mortgage policy and human demo/native acceptance remain open.
-- [ ] Implement deposits, withdrawals, same-bank transfers, account history, and transaction results through NestJS.
+- [x] Implement customer-owned, read-only account history with month filtering and pagination through NestJS and Flutter. [ACCOUNT_HISTORY.md](docs/ACCOUNT_HISTORY.md) records checks and limits; the normal demo is correctly empty because no financial posting exists yet. Human Edge/native acceptance remains open.
+- [ ] Implement deposits, withdrawals, same-bank transfers and transaction results through NestJS, with balances and posted history committed atomically after the required authorization. Read-only history alone does not complete BR-08.
 - [ ] Verify ownership, account rules, funds, required identity checks, and 2FA before posting. Keep balances/history consistent and prevent duplicate posting under retries or concurrent requests.
 
 ### 4. Connect payments and utilities
@@ -96,6 +97,8 @@ TR-01–TR-08 and acceptance evidence for every BR requirement.
 Maps can progress once navigation and provider access are settled. Chatbot links depend on stable activity destinations and history filters. Every financial flow depends on the security and transaction checks above. These dependencies determine the build order; they do not require waiting for every earlier screen to be polished.
 
 ## What we should do next
+
+**Review customer transaction history in Edge:** run `run.bat`, sign in as a customer, and open View history under an account. Month filtering and ownership checks are implemented; no sample transactions have been inserted. Then finish safe authenticator recovery/replacement and operation-bound confirmation before enabling deposits, withdrawals or transfers. See [ACCOUNT_HISTORY.md](docs/ACCOUNT_HISTORY.md) for the PDF link and verification boundary.
 
 **Test all three account views in the user-started Edge demo.** Officers can now use Find a customer → Add demo account to create zero-balance savings and a labelled synthetic mortgage schedule. Follow [DEMO_ACCOUNT_PROVISIONING.md](docs/DEMO_ACCOUNT_PROVISIONING.md). This supports BR-02/05/06/07 without a deposit or loan disbursement; do not mark financial operations complete.
 
