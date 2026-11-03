@@ -1,3 +1,4 @@
+import 'data/savings_policy_api.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'data/session_owner.dart';
@@ -36,6 +37,10 @@ Future<void> main() async {
     runApp(
       NeneApp(
         controller: controller,
+        savingsPolicy: SavingsPolicyApi(
+          baseUrl: config.apiBaseUrl,
+          client: httpClient,
+        ),
         security: SecurityApi(
           baseUrl: config.apiBaseUrl,
           client: httpClient,

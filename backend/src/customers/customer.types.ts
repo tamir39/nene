@@ -5,6 +5,12 @@ export interface Account {
   currency: string;
   balanceMinor: string;
   status: string;
+  annualRateBps?: number | null;
+  rateRevision?: number | null;
+  monthlyProfitMinor?: string;
+  principalRemainingMinor?: string | null;
+  monthlyDueMinor?: string | null;
+  nextDueOn?: string | null;
 }
 
 export interface Customer {

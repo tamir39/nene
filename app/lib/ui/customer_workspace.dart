@@ -1,3 +1,5 @@
+import 'savings_policy_screen.dart';
+import '../data/savings_policy_api.dart';
 import 'security_screen.dart';
 import '../data/security_api.dart';
 import 'dart:async';
@@ -22,6 +24,7 @@ enum _Page {
   editCustomer,
   identity,
   security,
+  savingsPolicy,
 }
 
 /// All protected pages live below the session branch, so signing out/expiring
@@ -34,6 +37,7 @@ class CustomerWorkspace extends StatefulWidget {
     this.identity,
     this.photos,
     this.security,
+    this.savingsPolicy,
   });
 
   final SessionController session;
@@ -41,6 +45,7 @@ class CustomerWorkspace extends StatefulWidget {
   final IdentityRepository? identity;
   final ReferencePhotoSource? photos;
   final SecurityApi? security;
+  final SavingsPolicyApi? savingsPolicy;
 
   @override
   State<CustomerWorkspace> createState() => _CustomerWorkspaceState();
@@ -158,6 +163,10 @@ class _CustomerWorkspaceState extends State<CustomerWorkspace> {
               onOpen: _openCustomer,
             ),
             _Page.detail => _detail(),
+            _Page.savingsPolicy => SavingsPolicyScreen(
+              session: widget.session,
+              api: widget.savingsPolicy!,
+            ),
             _Page.security => SecurityScreen(api: widget.security!),
             _Page.identity => IdentityReferenceScreen(
               key: ValueKey(_customerId ?? profile.id),
@@ -211,6 +220,11 @@ class _CustomerWorkspaceState extends State<CustomerWorkspace> {
         ],
         const SizedBox(height: 24),
         if (officer) ...[
+          if (widget.savingsPolicy != null)
+            OutlinedButton(
+              onPressed: () => _go(_Page.savingsPolicy),
+              child: const Text('Manage savings rate'),
+            ),
           const Text(
             'Help a customer get started',
             style: TextStyle(fontSize: 22, fontWeight: FontWeight.w600),
@@ -235,6 +249,10 @@ class _CustomerWorkspaceState extends State<CustomerWorkspace> {
           ),
           const SizedBox(height: 28),
         ] else ...[
+          TextButton(
+            onPressed: _flow.loadingAccounts ? null : _flow.loadAccounts,
+            child: const Text('Refresh accounts'),
+          ),
           if (_flow.loadingAccounts) const _Loading('Loading your accounts'),
           if (_flow.accountsError != null) ...[
             _Message(_flow.accountsError!, error: true),
@@ -248,7 +266,7 @@ class _CustomerWorkspaceState extends State<CustomerWorkspace> {
                 'No accounts are linked yet. Your bank officer can help.',
               )
             else
-              for (final account in _flow.accounts!) _AccountCard(account),
+              for (final account in _flow.accounts!) AccountCard(account),
           ],
           const SizedBox(height: 20),
           const _Message(
@@ -320,7 +338,7 @@ class _CustomerWorkspaceState extends State<CustomerWorkspace> {
           if (customer.accounts.isEmpty)
             const Text('No linked accounts.')
           else
-            for (final account in customer.accounts) _AccountCard(account),
+            for (final account in customer.accounts) AccountCard(account),
           const SizedBox(height: 20),
           FilledButton(
             onPressed: () {
@@ -862,8 +880,8 @@ class _NameField extends StatelessWidget {
   );
 }
 
-class _AccountCard extends StatelessWidget {
-  const _AccountCard(this.account);
+class AccountCard extends StatelessWidget {
+  const AccountCard(this.account, {super.key});
   final BankAccount account;
 
   @override
@@ -879,9 +897,42 @@ class _AccountCard extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           Text(
-            account.balanceLabel,
+            account.type == 'mortgage'
+                ? 'Monthly repayment'
+                : account.balanceLabel,
             style: Theme.of(context).textTheme.headlineMedium,
           ),
+          if (account.type == 'saving') ...[
+            const SizedBox(height: 12),
+            Text(
+              account.annualRateBps == null
+                  ? 'Savings rate unavailable'
+                  : 'Annual rate: ${(account.annualRateBps! / 100).toStringAsFixed(2)}%',
+            ),
+            Text(
+              account.monthlyProfitMinor == null
+                  ? 'Monthly estimate unavailable'
+                  : 'Estimated monthly profit: ${account.amountLabel(account.monthlyProfitMinor!)}',
+            ),
+            const Text(
+              'Estimate at the current balance and rate. No interest has been credited.',
+            ),
+          ],
+          if (account.type == 'mortgage') ...[
+            Text(
+              account.monthlyDueMinor == null
+                  ? 'Repayment schedule unavailable'
+                  : account.amountLabel(account.monthlyDueMinor!),
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            if (account.nextDueOn != null)
+              Text('Next due: ${account.nextDueOn}'),
+            if (account.principalRemainingMinor != null)
+              Text(
+                'Principal remaining: ${account.amountLabel(account.principalRemainingMinor!)}',
+              ),
+            const Text('Monthly schedule. Repayment is not available yet.'),
+          ],
           const SizedBox(height: 16),
           const Text(
             'Account number',

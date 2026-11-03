@@ -44,9 +44,9 @@ BR-01, BR-02, BR-03, BR-04; TR-03.
 
 BR-05, BR-06, BR-07, BR-08, BR-09; uses BR-03 and BR-04.
 
-- [ ] Add checking, saving, and mortgage accounts with appropriate information views and checking/saving balances.
-- [ ] Show savings rates and monthly monetary profit; allow authorized officers to change rates under the documented policy.
-- [ ] Show mortgage amounts due for the selected monthly or two-week repayment convention.
+- [ ] Add checking, saving, and mortgage accounts with appropriate information views and checking/saving balances. Account-type information views are implemented in [ACCOUNT_INFORMATION.md](docs/ACCOUNT_INFORMATION.md); additional account provisioning and normal-demo acceptance remain open.
+- [ ] Show savings rates and monthly monetary profit; allow authorized officers to change rates under the documented policy. Backend and Flutter support now exist with isolated database/widget evidence; full app acceptance remains open.
+- [ ] Show mortgage amounts due for the selected monthly or two-week repayment convention. Monthly schedule reads are implemented; trusted schedule provisioning and normal-demo acceptance remain open.
 - [ ] Implement deposits, withdrawals, same-bank transfers, account history, and transaction results through NestJS.
 - [ ] Verify ownership, account rules, funds, required identity checks, and 2FA before posting. Keep balances/history consistent and prevent duplicate posting under retries or concurrent requests.
 
