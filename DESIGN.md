@@ -1,5 +1,7 @@
 # Design and technology decisions
 
+Confirmation update, 3 November 2026: [transaction-bound confirmation preview](docs/TRANSACTION_CONFIRMATION.md) uses signed, memory-only review details and durable security metadata, with shared proof replay protection, active-factor/revision checks and safe session handoff. It implements the customer review/check/not-sent path without a durable financial intent, balance writes or payment authorization. The user explicitly selected confirmation first; identity/funding policies and financial posting remain open, with AWS undecided.
+
 History update, 3 November 2026: [customer account history](docs/ACCOUNT_HISTORY.md) adds a read-only posted-entry model, customer-owned monthly reads and Flutter pagination. Month boundaries use the explicit UTC+07 demo convention. No transaction/balance writes or financial authorization are introduced; AWS remains undecided.
 
 Account information update, 3 November 2026: [account views and savings policy](docs/ACCOUNT_INFORMATION.md) adds type-specific read models, monthly savings estimates, stored mortgage schedules and officer-only audited rate changes. [Demo provisioning](docs/DEMO_ACCOUNT_PROVISIONING.md) lets local officers add one synthetic savings and mortgage account per customer, with zero balances and a labelled sample mortgage schedule. No financial posting or real loan issuance is enabled; AWS remains undecided.

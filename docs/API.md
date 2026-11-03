@@ -1,5 +1,7 @@
 # API contract
 
+Transaction-bound confirmation preview added 3 November 2026: customer `/api/v1/me/transfer-confirmations` review/confirm/status/cancel routes bind a registered authenticator check to exact same-bank details. [TRANSACTION_CONFIRMATION.md](TRANSACTION_CONFIRMATION.md#api-and-states) records payloads, session/expiry/replay rules and the explicit `sent: false` boundary. No financial execution endpoint exists.
+
 Authenticator replacement/recovery added 3 November 2026: customer-only `/api/v1/me/security/management` status and `start`, `prove`, `resume`, `enroll`, `verify`, `issue-codes`, `finish`, `cancel` POST commands. See [AUTHENTICATOR_MANAGEMENT.md](AUTHENTICATOR_MANAGEMENT.md#implemented-api) for exact inputs, session handoff, restrictions and interruption rules. These endpoints never authorize a payment or permit officer MFA reset.
 
 History update, 3 November 2026: `GET /api/v1/me/accounts/:accountId/history?month=YYYY-MM&cursor=<optional UUID>` returns customer-owned posted entries in pages of 25. See [ACCOUNT_HISTORY.md](ACCOUNT_HISTORY.md#api-and-storage) for response fields, UTC+07 month boundaries, cursor validation and permission/error rules. No history write or financial posting endpoint exists.

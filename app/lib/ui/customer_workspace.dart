@@ -1,4 +1,6 @@
 import 'savings_policy_screen.dart';
+import 'confirmation_screen.dart';
+import '../data/confirmation_api.dart';
 import 'demo_account_screen.dart';
 import 'account_history_screen.dart';
 import '../data/account_history_api.dart';
@@ -31,6 +33,7 @@ enum _Page {
   savingsPolicy,
   demoAccount,
   history,
+  confirmation,
 }
 
 /// All protected pages live below the session branch, so signing out/expiring
@@ -67,6 +70,7 @@ class _CustomerWorkspaceState extends State<CustomerWorkspace> {
   String? _customerId;
   String? _notice;
   BankAccount? _historyAccount;
+  BankAccount? _confirmationAccount;
 
   @override
   void initState() {
@@ -178,6 +182,11 @@ class _CustomerWorkspaceState extends State<CustomerWorkspace> {
               onOpen: _openCustomer,
             ),
             _Page.detail => _detail(),
+            _Page.confirmation => ConfirmationScreen(
+              key: ValueKey(_confirmationAccount!.id),
+              api: ConfirmationApi(widget.security!),
+              account: _confirmationAccount!,
+            ),
             _Page.history => AccountHistoryScreen(
               key: ValueKey(_historyAccount!.id),
               session: widget.session,
@@ -296,6 +305,19 @@ class _CustomerWorkspaceState extends State<CustomerWorkspace> {
             else
               for (final account in _flow.accounts!) ...[
                 AccountCard(account),
+                if (widget.security != null &&
+                    account.type == 'checking' &&
+                    account.currency == 'VND' &&
+                    account.status == 'active')
+                  OutlinedButton(
+                    onPressed: () {
+                      _confirmationAccount = account;
+                      _go(_Page.confirmation);
+                    },
+                    child: const Text(
+                      'Try transfer confirmation · no money sent',
+                    ),
+                  ),
                 if (widget.history != null)
                   OutlinedButton(
                     onPressed: () {

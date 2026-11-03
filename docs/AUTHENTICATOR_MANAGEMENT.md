@@ -26,7 +26,7 @@ The Flutter screen uses the existing lighter Open pocket theme and memory-only S
 - Setup and management share a database-serialized proof reservation. A keyed HMAC stores an attempted-code fingerprint, scoped to customer and factor; no raw proof is stored. Reusing an attempted code across these purposes is rejected. Up to ten distinct attempts per customer in a rolling fifteen-minute window, including successful attempts. Proof/new-factor verification is also capped at five attempts per management request. These are provisional engineering limits, not PDF rules; provider throttles can impose further limits.
 - Client-facing database roles cannot read or write lifecycle records or the private HMAC key. API privileges do not include financial writes. Provider backup-code hashing/consumption remains Supabase's responsibility.
 
-Future transaction authorization **must** join the same proof reservation and check the active binding, nonrestricted state and current revision at final consumption. The older unregistered authorization prototype does not yet do this with the production tables. Setup, recovery codes, recovery AAL2 and security management never authorize money movement.
+[Transaction confirmation preview](TRANSACTION_CONFIRMATION.md) now joins the same proof reservation and rechecks the active binding/revision before recording a detail-bound authenticator check. Future financial authorization **must** also enforce these at final consumption, alongside identity/funds checks and atomic posting. The older unregistered authorization prototype is still separate. Setup, recovery codes, recovery AAL2, security management and the not-sent preview never authorize money movement.
 
 ## Interruptions and current limits
 
