@@ -12,6 +12,8 @@ Provider access, supported payment direction and sandbox acceptance must be sett
 
 Later research on 2026-11-05: [the payment-provider comparison](PAYMENT_OPTIONS.md) recommends VNPay hosted sandbox checkout conditional on test access and callback reachability. This does not select a provider, create a new business feature or reopen face comparison.
 
+Subsequent user decision on 2026-11-05: **VNPay PAY sandbox is selected**. [Setup readiness](VNPAY_SANDBOX_SETUP.md) records pending user registration/credentials and the proposed restricted callback arrangement. No integration, account or tunnel exists yet; face comparison remains undecided. This supersedes the earlier no-selection status above.
+
 ## Status by PDF feature group
 
 "Implemented locally" below describes code and recorded checks; it does not mean full Android, hosted or lecturer acceptance.

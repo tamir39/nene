@@ -1,5 +1,7 @@
 # Minimum payment-provider comparison
 
+**Later user decision, 2026-11-05:** VNPay PAY sandbox hosted checkout is selected. The [sandbox setup record](VNPAY_SANDBOX_SETUP.md) now tracks registration, credentials and callback readiness. Comparison below records the research rationale; it does not mean integration or account setup is complete. Face comparison remains undecided.
+
 Research date: **2026-11-05**. Supports BR-10 (PDF p. 2 Business 4), BR-04 transaction authorization and TR-05/06 technology rationale. **Recommend VNPay hosted sandbox checkout as the first candidate, conditional on obtaining test credentials and proving callback reachability. No provider is selected or implemented by this research.** Face comparison and AWS remain undecided; no identity work is added.
 
 ## Scope and comparison
@@ -40,6 +42,6 @@ This is proposed engineering support for BR-10/BR-04, not implemented behavior o
 
 Before counting the integration as demonstrated, check a real provider-sandbox success, cancellation/failure, forged signature, wrong amount/order, duplicate callback, reordered return/callback, lost browser session, unavailable provider and missing/reused/wrong-operation TOTP. Confirm exactly one terminal result/history effect and no unintended Nene balance change. Fixture-only callbacks do not prove provider integration. Native Android and final hosted callback acceptance remain separate checks.
 
-**Next decision:** select one provider and establish its sandbox access. VNPay is the recommended candidate; credentials and callback reachability must be demonstrated before committing to it. Then implement one bounded flow. No identity-provider selection is a prerequisite for this below-threshold work.
+**Next work after the user's VNPay selection:** establish test credentials and restricted callback reachability using the [setup record](VNPAY_SANDBOX_SETUP.md), then implement one bounded flow. No identity-provider selection is a prerequisite for this below-threshold work.
 
 Evidence limits: official public documentation and Nene's current scope/session design were reviewed. Some VNPay/MoMo pages were available through indexed official content but direct fetches timed out or returned 403; registration, account eligibility and API behavior were not tested. No payment, account creation, credential access, dependency installation, tunnel, runtime launch or application change occurred. The shared `D:\Data\Downloads\Policies` folder remains unavailable; no policy compliance is claimed. Original assignment files and local-only launcher work are unchanged.
