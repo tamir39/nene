@@ -4,7 +4,7 @@ Local transfer policy update, 3 November 2026: [LOCAL_TRANSFERS.md](LOCAL_TRANSF
 
 Status: **direction simplified and reference foundation implemented locally on 2026-10-27**. [REFERENCE_FLOW.md](REFERENCE_FLOW.md) records capture/status, private storage, officer acceptance/correction, retention defaults and verification limits. Actual face comparison remains pending; the separate local transfer slice implements transaction-bound TOTP. This document preserves the full design boundary beyond the implemented foundation.
 
-The confirmed direction is **officer-assisted reference enrollment, an actual server-side one-to-one face comparison for high-value activity, and separate transaction 2FA**. AWS and all other matching providers remain undecided. A native AWS bridge, advanced liveness, document OCR/NFC and a commercial KYC suite are not prerequisites for the next task. [IDENTITY_OPTIONS.md](IDENTITY_OPTIONS.md) retains provider research as background, without a preferred vendor.
+The confirmed direction is **officer-assisted reference enrollment, an actual server-side one-to-one face comparison for high-value activity, and separate transaction 2FA**. AWS and all other matching providers remain undecided. A native AWS bridge, advanced liveness, document OCR/NFC and a commercial KYC suite are not prerequisites for the next task. The 2026-11-05 [comparison research](IDENTITY_OPTIONS.md) recommends evaluating AWS CompareFaces first, with FPT FaceMatch and local OpenCV alternatives; this is a recommendation, not provider selection or implemented behavior.
 
 ## Scope and completion boundary
 
@@ -23,7 +23,7 @@ There are three different milestones:
 - **Identity check passed for this operation:** NestJS has obtained an actual matching result for the accepted reference and a newly requested capture, bound to one exact operation. It grants no reusable payment permission.
 - **Transaction 2FA passed:** the separate second factor is valid for that same operation, allowing final backend checks and posting.
 
-Do not use a global **Identity verified** badge for enrollment. Simulated comparison results remain labeled **Demo check only** and cannot satisfy the required operation check or complete BR-03. No financial actions are available in the current app.
+Do not use a global **Identity verified** badge for enrollment. Simulated comparison results remain labeled **Demo check only** and cannot satisfy the required operation check or complete BR-03. The later [local transfers](LOCAL_TRANSFERS.md) and [simulated cash operations](LOCAL_CASH.md) implement only their separately gated demo rules; high-value posting remains blocked.
 
 ## Minimum customer and officer journey
 
