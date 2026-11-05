@@ -1,10 +1,12 @@
 # Minimum identity verification flow
 
+**Decision update, 2026-11-05:** the user deferred face comparison itself and provider selection. Preserve the implemented reference flow and separate TOTP; the later comparison design below is a deferred proposal, not a mandatory next task. eKYC/high-value verification remains unresolved, and local amounts at or above 5,000,000 VND stay blocked. Continue other PDF features as recorded in the [scope/status audit](SCOPE_STATUS_AUDIT.md).
+
 Local transfer policy update, 3 November 2026: [LOCAL_TRANSFERS.md](LOCAL_TRANSFERS.md) applies accepted-reference checks plus TOTP to synthetic checking transfers below 5,000,000 VND. The user approved these demo rules; the PDF does not specify this amount. Transfers at or above it are blocked until actual operation-bound comparison exists. This does not complete BR-03. Earlier planning descriptions below are historical where superseded.
 
 Status: **direction simplified and reference foundation implemented locally on 2026-10-27**. [REFERENCE_FLOW.md](REFERENCE_FLOW.md) records capture/status, private storage, officer acceptance/correction, retention defaults and verification limits. Actual face comparison remains pending; the separate local transfer slice implements transaction-bound TOTP. This document preserves the full design boundary beyond the implemented foundation.
 
-The confirmed direction is **officer-assisted reference enrollment, an actual server-side one-to-one face comparison for high-value activity, and separate transaction 2FA**. AWS and all other matching providers remain undecided. A native AWS bridge, advanced liveness, document OCR/NFC and a commercial KYC suite are not prerequisites for the next task. The 2026-11-05 [comparison research](IDENTITY_OPTIONS.md) recommends evaluating AWS CompareFaces first, with FPT FaceMatch and local OpenCV alternatives; this is a recommendation, not provider selection or implemented behavior.
+The earlier face-based direction combined **officer-assisted reference enrollment, server-side one-to-one comparison for high-value activity, and separate transaction 2FA**. The comparison step is now deferred; AWS and all other matching providers remain undecided. A native AWS bridge, advanced liveness, document OCR/NFC and a commercial KYC suite are not prerequisites for the next task. The [comparison research](IDENTITY_OPTIONS.md) is retained for a later decision, not provider selection or implemented behavior.
 
 ## Scope and completion boundary
 

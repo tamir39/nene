@@ -1,6 +1,6 @@
 # Nene screen map
 
-Status: screen inventory proposed on 2026-10-19; reference enrollment/status and officer review implemented on 2026-10-27. The lighter Open pocket direction is approved. Flutter implements sign-in, own initial checking-account/profile/contact views, officer customer creation/search/detail/requested edits and the [reference foundation](REFERENCE_FLOW.md). Actual face comparison, transaction 2FA and broader financial/map/chat layouts remain planned.
+Status updated **2026-11-05**: this screen inventory began as a 2026-10-19 proposal. The [scope/status audit](SCOPE_STATUS_AUDIT.md) records current implementation: customer/officer profiles, reference review, all account-type views, savings-rate editing, history, authenticator setup/management and local transfer/deposit/withdrawal flows. Face comparison itself is deferred; payment integration, utilities, maps and chat remain unimplemented. Older row-level planning statements below are historical where superseded by the linked implementation records. Screen IDs do not mandate separate pages or extra features.
 
 Source: [assignment PDF](../FinalProject_2026_2027.pdf), visually reviewed in full: p. 1 Business 1; p. 2 Business 2–7; p. 3 Technical 1–5. Requirement IDs follow [REQUIREMENTS.md](../REQUIREMENTS.md); interpretations follow [SCOPE.md](../SCOPE.md). Screen boundaries, labels, navigation, and reusable steps below are design proposals, not extra assignment requirements. This map supports TR-05/TR-06; screenshots alone do not complete a BR requirement.
 
