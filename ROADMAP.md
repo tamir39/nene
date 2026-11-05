@@ -4,7 +4,7 @@ This is the ordered checklist for completing Nene with Flutter, NestJS, and Supa
 
 The internal submission target remains **29 November 2026**, ahead of the portal deadline at the start of **1 December**.
 
-Scope decision, **2026-11-05**: face comparison itself and provider selection are deferred. Keep eKYC unresolved and high-value operations blocked; continue the PDF's payment-service integration (BR-10) next. The [current scope/status audit](docs/SCOPE_STATUS_AUDIT.md) distinguishes implemented features, supporting mechanisms and excluded extras. No new business feature is added.
+Scope decision, **2026-11-05**: face comparison itself and provider selection are deferred. Keep eKYC unresolved and high-value operations blocked. VNPay sandbox was selected, but the user moved to branch navigation (BR-13) while credentials/callback setup remain pending. The [current scope/status audit](docs/SCOPE_STATUS_AUDIT.md) distinguishes implemented features, supporting mechanisms and excluded extras. No new business feature is added.
 
 ## Starting point
 
@@ -75,9 +75,10 @@ Keep external fulfillment separate from payment success. Record sandbox/simulati
 
 BR-13.
 
-- [ ] Show the user's location and all nearby offices on a map within the documented branch dataset and coverage area.
-- [ ] Recommend the shortest walking path to the nearest office using the documented selection rule.
-- [ ] Handle denied location permission and unavailable routes. Pins or driving directions alone do not complete this feature.
+- [x] Implement the [demo branch map](docs/BRANCH_NAVIGATION.md): fictional Nene offices near TDTU, one-shot location, all catalog offices within 5 km, explicit demo starting point and text list. Database runtime/human acceptance remain pending.
+- [x] Implement the pedestrian shortest-distance route to the geographically nearest office through NestJS. A synthetic TDTU route succeeded against Valhalla; production provider arrangements remain open.
+- [x] Handle permission denial, no nearby offices, map errors and unavailable routes without fabricating a route.
+- [ ] Complete database integration, human Edge and Android location/route checks. The demo fallback and automated fixtures do not replace real-location acceptance for BR-13.
 
 ### 6. Add the activity-linked chatbot
 
@@ -115,7 +116,9 @@ Maps can progress once navigation and provider access are settled. Chatbot links
 
 **Test deposits and withdrawals in Edge:** follow [LOCAL_CASH.md](docs/LOCAL_CASH.md#test-in-the-user-run-edge-demo) to prepare the one-time simulated cash source, restart the user-run launcher and test both checking/saving actions, balances and history. Real cash services and lecturer acceptance of simulation remain open.
 
-**Next implementation: one payment-service integration (BR-10, PDF p. 2 Business 4).** Settle one provider's sandbox access and payment direction, then implement backend-owned review, transaction 2FA, checkout, verified server result, cancellation/failure, duplicate protection and result/history. Keep any applicable Nene amount/identity restrictions and distinguish external checkout from Nene-account debit or bill fulfillment. See the [bounded scope](docs/SCOPE_STATUS_AUDIT.md#current-decision-and-next-task). Face comparison/provider selection is deferred and high-value posting stays blocked. Other-bank transfers remain a separate requirement; utilities, maps/chat and release/report tasks stay on this roadmap.
+**Immediate next task: test branch navigation (BR-13) in the user-started Edge demo.** Follow [BRANCH_NAVIGATION.md](docs/BRANCH_NAVIGATION.md#verification-and-local-test), including the database check after Docker is available. The user approved fictional Nene offices near TDTU; they are not another bank's branches. Human/Android real-location evidence is still required. Activity-linked chat (BR-14) is another independent PDF feature that can follow; it must preserve ordinary authorization and confirmation flows.
+
+**Payment-service integration remains pending (BR-10).** After VNPay test credentials and callback access are available, implement backend-owned review, transaction 2FA, checkout, verified server result, cancellation/failure, duplicate protection and result/history. Keep existing identity/amount restrictions; external checkout is not Nene-account debit or bill fulfillment. Face comparison remains undecided and high-value posting stays blocked. Other-bank transfers, utilities and release/report tasks remain required.
 
 The user selected **VNPay PAY sandbox hosted checkout on 2026-11-05** after the [provider comparison](docs/PAYMENT_OPTIONS.md). The [setup record](docs/VNPAY_SANDBOX_SETUP.md) lists the user's test registration, terminal ID/signing secret and a restricted HTTPS IPN/return endpoint. Account/domain access, credentials and actual callback reachability remain pending; the user has no ngrok account or public URL yet. Current LAN-only `run.bat` does not supply an internet callback. Face comparison remains undecided.
 

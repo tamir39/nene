@@ -1,5 +1,7 @@
 # API contract
 
+Branch navigation added 5 November 2026: customer-only `GET /api/v1/me/branches` reads the fictional Nene office catalog; `POST /api/v1/me/branches/route` accepts only a starting latitude/longitude and returns the walking route to the server-selected nearest office. See [BRANCH_NAVIGATION.md](BRANCH_NAVIGATION.md#api-and-storage) for coverage, response/error rules, privacy and local provider limits.
+
 Local cash operations added 3 November 2026: customer `/api/v1/me/cash/:operation` routes (`deposit` or `withdrawal`) provide configuration, review/confirm, recent/status and cancellation. See [LOCAL_CASH.md](LOCAL_CASH.md#api) for exact inputs, local simulation and typed receipt rules. No real cash or external provider integration is implied.
 
 Local synthetic transfers added 3 November 2026: `/api/v1/me/transfers` provides configuration, review, confirm, recent/status and cancellation. [LOCAL_TRANSFERS.md](LOCAL_TRANSFERS.md#api) defines exact inputs and the local-only posting boundary. Confirmation can now atomically update seeded demo balances and both history entries; preview routes still cannot.

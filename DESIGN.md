@@ -216,7 +216,7 @@ Savings profit and mortgage repayment calculations need explicit policies: rate 
 - Payments: one real sandbox integration with callback verification. Confirm access before committing to a provider.
 - Interbank transfers: separate adapter and explicit real/simulated status. A successful payment checkout does not prove interbank transfer support.
 - Bills, top-ups, and purchases/bookings: deterministic fixtures can support early development; external fulfillment remains a distinct requirement/lecturer decision.
-- Maps: store branch data in the database and request walking routes over a supported network. Define whether “nearest” means walking distance or geographic distance; propose shortest walking distance among reachable candidate branches. Handle missing routes and denied location access.
+- Maps: [implemented demo navigation](docs/BRANCH_NAVIGATION.md) stores three fictional Nene offices near TDTU in the database. The 5 November decision defines nearby as within 5 km and nearest by geographic distance, superseding the earlier walking-distance proposal. NestJS selects the destination and requests Valhalla's pedestrian shortest-distance route; Flutter handles one-shot location, explicit demo origin, route display and failure states. Production routing and human/device acceptance remain open.
 - Chatbot: authorize reads for the current user, minimize context, and return only validated app actions such as opening bills, phone top-up, or a month-filtered history screen. A payment action always opens the ordinary review and chosen 2FA flow.
 
 ## Delivery roadmap

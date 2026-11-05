@@ -1,3 +1,5 @@
+import 'branch_map_screen.dart';
+import '../data/branches_api.dart';
 import 'savings_policy_screen.dart';
 import 'confirmation_screen.dart';
 import '../data/confirmation_api.dart';
@@ -23,6 +25,7 @@ import 'identity_reference_screen.dart';
 
 enum _Page {
   home,
+  branches,
   contact,
   create,
   search,
@@ -49,6 +52,7 @@ class CustomerWorkspace extends StatefulWidget {
     this.savingsPolicy,
     this.demoAccounts,
     this.history,
+    this.branches,
   });
 
   final SessionController session;
@@ -59,6 +63,7 @@ class CustomerWorkspace extends StatefulWidget {
   final SavingsPolicyApi? savingsPolicy;
   final DemoAccountsApi? demoAccounts;
   final AccountHistoryApi? history;
+  final BranchesApi? branches;
 
   @override
   State<CustomerWorkspace> createState() => _CustomerWorkspaceState();
@@ -161,6 +166,10 @@ class _CustomerWorkspaceState extends State<CustomerWorkspace> {
           ),
           body: switch (_page) {
             _Page.home => _home(profile),
+            _Page.branches => BranchMapScreen(
+              session: widget.session,
+              api: widget.branches!,
+            ),
             _Page.contact => ContactForm(
               key: const ValueKey('own-contact'),
               profile: profile,
@@ -293,6 +302,14 @@ class _CustomerWorkspaceState extends State<CustomerWorkspace> {
           ),
           const SizedBox(height: 28),
         ] else ...[
+          if (widget.branches != null) ...[
+            OutlinedButton.icon(
+              onPressed: () => _go(_Page.branches),
+              icon: const Icon(Icons.map_outlined),
+              label: const Text('Find a Nene office'),
+            ),
+            const SizedBox(height: 12),
+          ],
           TextButton(
             onPressed: _flow.loadingAccounts ? null : _flow.loadAccounts,
             child: const Text('Refresh accounts'),
