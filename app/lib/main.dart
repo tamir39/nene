@@ -1,3 +1,4 @@
+import 'data/assistant_api.dart';
 import 'data/branches_api.dart';
 import 'data/savings_policy_api.dart';
 import 'data/demo_accounts_api.dart';
@@ -40,6 +41,7 @@ Future<void> main() async {
     runApp(
       NeneApp(
         controller: controller,
+        assistant: AssistantApi(baseUrl: config.apiBaseUrl, client: httpClient),
         branches: BranchesApi(baseUrl: config.apiBaseUrl, client: httpClient),
         history: AccountHistoryApi(
           baseUrl: config.apiBaseUrl,

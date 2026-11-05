@@ -1,3 +1,4 @@
+import { AssistantController } from './assistant/assistant.controller.js';
 import { BranchesController } from './branches/branches.controller.js';
 import { WalkingRouteService } from './branches/walking-route.service.js';
 import { CashController } from './confirmation/cash.controller.js';
@@ -30,6 +31,7 @@ import { IdentityStorageService } from './identity/identity-storage.service.js';
 @Module({
   imports: [ConfigModule],
   controllers: [
+    AssistantController,
     BranchesController,
     CashController,
     TransfersController,

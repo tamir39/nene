@@ -1,3 +1,6 @@
+import 'assistant_screen.dart';
+import '../assistant_controller.dart';
+import '../data/assistant_api.dart';
 import 'branch_map_screen.dart';
 import '../data/branches_api.dart';
 import 'savings_policy_screen.dart';
@@ -26,6 +29,8 @@ import 'identity_reference_screen.dart';
 enum _Page {
   home,
   branches,
+  assistant,
+  assistantAccounts,
   contact,
   create,
   search,
@@ -53,6 +58,7 @@ class CustomerWorkspace extends StatefulWidget {
     this.demoAccounts,
     this.history,
     this.branches,
+    this.assistant,
   });
 
   final SessionController session;
@@ -64,6 +70,7 @@ class CustomerWorkspace extends StatefulWidget {
   final DemoAccountsApi? demoAccounts;
   final AccountHistoryApi? history;
   final BranchesApi? branches;
+  final AssistantApi? assistant;
 
   @override
   State<CustomerWorkspace> createState() => _CustomerWorkspaceState();
@@ -78,6 +85,10 @@ class _CustomerWorkspaceState extends State<CustomerWorkspace> {
   BankAccount? _confirmationAccount;
   bool _sendDemoMoney = false;
   CashOperation? _cashOperation;
+  AssistantController? _assistant;
+  AssistantAction? _assistantAction;
+  bool _assistantDestination = false;
+  String? _historyMonth;
 
   @override
   void initState() {
@@ -87,12 +98,19 @@ class _CustomerWorkspaceState extends State<CustomerWorkspace> {
       repository: widget.repository,
     );
     if (widget.session.profile!.role == AppRole.customer) {
+      if (widget.assistant != null) {
+        _assistant = AssistantController(
+          session: widget.session,
+          api: widget.assistant!,
+        );
+      }
       unawaited(_flow.loadAccounts());
     }
   }
 
   @override
   void dispose() {
+    _assistant?.dispose();
     _flow.dispose();
     super.dispose();
   }
@@ -113,6 +131,13 @@ class _CustomerWorkspaceState extends State<CustomerWorkspace> {
 
   void _back() {
     if (_page == _Page.confirmation) unawaited(_flow.loadAccounts());
+    if (_page == _Page.assistantAccounts ||
+        (_assistantDestination &&
+            (_page == _Page.history || _page == _Page.confirmation))) {
+      _assistantDestination = false;
+      _go(_Page.assistant);
+      return;
+    }
     if (_page == _Page.demoAccount) {
       _openCustomer(_customerId!);
       return;
@@ -166,6 +191,11 @@ class _CustomerWorkspaceState extends State<CustomerWorkspace> {
           ),
           body: switch (_page) {
             _Page.home => _home(profile),
+            _Page.assistant => AssistantScreen(
+              controller: _assistant!,
+              onAction: _openAssistantAction,
+            ),
+            _Page.assistantAccounts => _assistantAccounts(),
             _Page.branches => BranchMapScreen(
               session: widget.session,
               api: widget.branches!,
@@ -208,6 +238,7 @@ class _CustomerWorkspaceState extends State<CustomerWorkspace> {
               session: widget.session,
               api: widget.history!,
               account: _historyAccount!,
+              initialMonth: _historyMonth,
             ),
             _Page.demoAccount => DemoAccountScreen(
               session: widget.session,
@@ -302,6 +333,14 @@ class _CustomerWorkspaceState extends State<CustomerWorkspace> {
           ),
           const SizedBox(height: 28),
         ] else ...[
+          if (_assistant != null) ...[
+            OutlinedButton.icon(
+              onPressed: () => _go(_Page.assistant),
+              icon: const Icon(Icons.chat_bubble_outline),
+              label: const Text('Ask Nene'),
+            ),
+            const SizedBox(height: 12),
+          ],
           if (widget.branches != null) ...[
             OutlinedButton.icon(
               onPressed: () => _go(_Page.branches),
@@ -378,6 +417,7 @@ class _CustomerWorkspaceState extends State<CustomerWorkspace> {
                   OutlinedButton(
                     onPressed: () {
                       _historyAccount = account;
+                      _historyMonth = null;
                       _go(_Page.history);
                     },
                     child: Text('View history · ${account.accountNumber}'),
@@ -420,6 +460,87 @@ class _CustomerWorkspaceState extends State<CustomerWorkspace> {
               label: const Text('Identity reference'),
             ),
           ],
+        ],
+      ],
+    );
+  }
+
+  void _openAssistantAction(AssistantAction action) {
+    _assistantAction = action;
+    _go(_Page.assistantAccounts);
+    unawaited(_flow.loadAccounts());
+  }
+
+  Widget _assistantAccounts() {
+    final action = _assistantAction!;
+    final history = action.activity == AssistantActivity.history;
+    final available = history
+        ? widget.history != null
+        : widget.security != null;
+    final accounts = (_flow.accounts ?? <BankAccount>[])
+        .where(
+          (a) =>
+              history ||
+              (a.status == 'active' &&
+                  a.currency == 'VND' &&
+                  (action.activity == AssistantActivity.transfer
+                      ? a.type == 'checking'
+                      : ['checking', 'saving'].contains(a.type))),
+        )
+        .toList();
+    return WorkspaceContent(
+      children: [
+        Text(
+          'Choose your account',
+          style: Theme.of(context).textTheme.headlineMedium,
+        ),
+        const SizedBox(height: 12),
+        Text(
+          history
+              ? 'Transaction history for ${action.month}'
+              : 'Open the normal ${action.activity.name} flow. Nothing has been submitted.',
+        ),
+        const SizedBox(height: 16),
+        if (!available)
+          const Text('This activity is unavailable in this build.'),
+        if (available && _flow.loadingAccounts)
+          const _Loading('Loading your accounts'),
+        if (available && _flow.accountsError != null) ...[
+          _Message(_flow.accountsError!, error: true),
+          TextButton(
+            onPressed: _flow.loadingAccounts ? null : _flow.loadAccounts,
+            child: const Text('Retry accounts'),
+          ),
+        ],
+        if (available &&
+            !_flow.loadingAccounts &&
+            _flow.accountsError == null) ...[
+          if (accounts.isEmpty)
+            const Text('No eligible accounts are available for this activity.'),
+          for (final account in accounts)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: OutlinedButton(
+                onPressed: () {
+                  _assistantDestination = true;
+                  if (history) {
+                    _historyAccount = account;
+                    _historyMonth = action.month;
+                    _go(_Page.history);
+                  } else {
+                    _confirmationAccount = account;
+                    _sendDemoMoney = true;
+                    _cashOperation = switch (action.activity) {
+                      AssistantActivity.deposit => CashOperation.deposit,
+                      AssistantActivity.withdrawal => CashOperation.withdrawal,
+                      _ => null,
+                    };
+                    _go(_Page.confirmation);
+                  }
+                },
+                child: Text('${account.typeLabel} · ${account.accountNumber}'),
+              ),
+            ),
         ],
       ],
     );
