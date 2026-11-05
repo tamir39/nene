@@ -1,3 +1,5 @@
+import { BranchesController } from './branches/branches.controller.js';
+import { WalkingRouteService } from './branches/walking-route.service.js';
 import { CashController } from './confirmation/cash.controller.js';
 import { Module } from '@nestjs/common';
 import { TransfersController } from './confirmation/transfers.controller.js';
@@ -28,6 +30,7 @@ import { IdentityStorageService } from './identity/identity-storage.service.js';
 @Module({
   imports: [ConfigModule],
   controllers: [
+    BranchesController,
     CashController,
     TransfersController,
     ConfirmationController,
@@ -42,6 +45,7 @@ import { IdentityStorageService } from './identity/identity-storage.service.js';
     IdentityController,
   ],
   providers: [
+    WalkingRouteService,
     ConfirmationService,
     SecurityManagementService,
     SecurityService,

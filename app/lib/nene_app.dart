@@ -1,3 +1,4 @@
+import 'data/branches_api.dart';
 import 'data/savings_policy_api.dart';
 import 'data/demo_accounts_api.dart';
 import 'data/account_history_api.dart';
@@ -24,6 +25,7 @@ class NeneApp extends StatefulWidget {
     this.savingsPolicy,
     this.demoAccounts,
     this.history,
+    this.branches,
     this.onDispose,
   }) : assert((controller == null) == (banking == null));
 
@@ -35,6 +37,7 @@ class NeneApp extends StatefulWidget {
   final SavingsPolicyApi? savingsPolicy;
   final DemoAccountsApi? demoAccounts;
   final AccountHistoryApi? history;
+  final BranchesApi? branches;
   final VoidCallback? onDispose;
 
   @override
@@ -103,6 +106,7 @@ class _NeneAppState extends State<NeneApp> with WidgetsBindingObserver {
                   savingsPolicy: widget.savingsPolicy,
                   demoAccounts: widget.demoAccounts,
                   history: widget.history,
+                  branches: widget.branches,
                 ),
                 SessionStatus.unavailable => _ProfileUnavailable(
                   controller: controller,
