@@ -64,7 +64,7 @@ BR-05, BR-06, BR-07, BR-08, BR-09; uses BR-03 and BR-04.
 BR-09, BR-10, BR-11, BR-12; uses BR-04.
 
 - [ ] Implement the other-bank transfer path and clearly identify its real, sandbox, or simulated behavior. Payment checkout alone does not cover interbank transfers.
-- [x] Compare simple payment providers against BR-10 and the existing app. [Payment research](docs/PAYMENT_OPTIONS.md) recommends VNPay hosted sandbox checkout conditional on credentials/callback access, with Stripe and MoMo alternatives. This is research, not provider selection or completed integration; face comparison stays deferred.
+- [x] Compare simple payment providers against BR-10 and the existing app. [Payment research](docs/PAYMENT_OPTIONS.md) evaluated VNPay, Stripe and MoMo; the user subsequently selected VNPay PAY sandbox. Test credentials/callback setup and implementation remain open in the [setup record](docs/VNPAY_SANDBOX_SETUP.md); face comparison stays deferred.
 - [ ] Integrate one payment provider, including verified callbacks, cancellation, failure, and duplicate-result handling.
 - [ ] Complete electricity payments, water payments, and phone top-ups with confirmation, 2FA, result, and history.
 - [ ] Implement the lecturer-confirmed purchase/booking coverage: flight tickets, movie tickets, hotel rooms, or e-commerce purchases. Keep all four alternatives unresolved until that breadth is clarified; do not silently assume one is sufficient.
@@ -117,7 +117,7 @@ Maps can progress once navigation and provider access are settled. Chatbot links
 
 **Next implementation: one payment-service integration (BR-10, PDF p. 2 Business 4).** Settle one provider's sandbox access and payment direction, then implement backend-owned review, transaction 2FA, checkout, verified server result, cancellation/failure, duplicate protection and result/history. Keep any applicable Nene amount/identity restrictions and distinguish external checkout from Nene-account debit or bill fulfillment. See the [bounded scope](docs/SCOPE_STATUS_AUDIT.md#current-decision-and-next-task). Face comparison/provider selection is deferred and high-value posting stays blocked. Other-bank transfers remain a separate requirement; utilities, maps/chat and release/report tasks stay on this roadmap.
 
-The [provider comparison](docs/PAYMENT_OPTIONS.md) recommends VNPay's hosted sandbox as the first candidate, conditional on test credentials and a reachable callback. No provider has been selected. Current LAN-only `run.bat` does not supply an internet callback; hosted/forwarded callback access and Edge's memory-only session return need deliberate handling before end-to-end testing.
+The user selected **VNPay PAY sandbox hosted checkout on 2026-11-05** after the [provider comparison](docs/PAYMENT_OPTIONS.md). The [setup record](docs/VNPAY_SANDBOX_SETUP.md) lists the user's test registration, terminal ID/signing secret and a restricted HTTPS IPN/return endpoint. Account/domain access, credentials and actual callback reachability remain pending; the user has no ngrok account or public URL yet. Current LAN-only `run.bat` does not supply an internet callback. Face comparison remains undecided.
 
 Customer history and all three account views are also ready for user acceptance. Month filtering and ownership checks are implemented; no sample transactions have been inserted. See [ACCOUNT_HISTORY.md](docs/ACCOUNT_HISTORY.md) for the PDF link and verification boundary.
 
