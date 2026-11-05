@@ -1,5 +1,7 @@
 # Nene API
 
+Current payment slice (6 November 2026): [VNPay sandbox and labelled demo services](../docs/SANDBOX_PAYMENTS.md) add separate payment review/TOTP, checkout, IPN and owned status/history routes. Checkout remains disabled without credentials; real bill settlement and phone credit are unavailable. The original foundation notes below are historical; [the full API contract](../docs/API.md) and [roadmap](../ROADMAP.md) describe later features.
+
 This is the single NestJS backend selected for Nene. It establishes configuration,
 session verification, customer/officer permissions, local synthetic customer
 creation, requested officer profile edits, customer contact edits and own account
@@ -56,7 +58,7 @@ Health confirms only that the process serves requests. It performs no database o
 Supabase check. `/me` verifies the token through Supabase Auth's `getUser(token)`,
 then queries `bank.user_profiles` with the verified subject ID. Application roles
 come from this table, never editable authentication metadata. All routes are
-protected by default; only health opts out. Missing/invalid sessions return 401;
+protected by default; health and the strictly validated/static VNPay IPN/return routes explicitly opt out. Missing/invalid sessions return 401;
 missing/disabled profiles return 403; dependency failures return 503.
 
 The SQL role has narrowly scoped column grants for this flow. Customer creation

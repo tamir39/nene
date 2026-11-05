@@ -80,6 +80,26 @@ Reference commands cannot set arbitrary state, object keys, match outcomes or cu
 
 Reference acceptance expires with the case's seven-day demo lifetime. Requested display-name edits invalidate the reference atomically; phone/address changes do not. The maintenance command in [REFERENCE_FLOW.md](REFERENCE_FLOW.md) physically removes expired/abandoned files; no public cleanup route exists.
 
-The gated local transfer and cash routes above can post synthetic transfers, deposits and withdrawals; external payments and actual face comparison remain unimplemented. No endpoint may allow a client to set its financial balance, officer role or identity-verification result. AWS remains undecided.
+The gated local transfer and cash routes above can post synthetic transfers, deposits and withdrawals. The VNPay routes below implement sandbox checkout code; real provider acceptance and actual face comparison remain open. No endpoint may allow a client to set its financial balance, officer role or identity-verification result. AWS remains undecided.
+
+## VNPay sandbox and labelled utility demos
+
+Implemented code supports BR-04/10/11 and BR-14 links. All routes use `/api/v1` and `Cache-Control: no-store`. See [SANDBOX_PAYMENTS.md](SANDBOX_PAYMENTS.md) for fixtures, configuration, verification limits and the separate fulfillment boundary.
+
+| Endpoint | Access and behavior |
+| --- | --- |
+| `GET /me/payments/configuration` | Customer; `{ enabled, services, highValueThresholdMinor, fulfillment }`. Catalogue is available while checkout is disabled. |
+| `GET /me/payments` | Customer; latest 20 owned orders, newest first, `{ orders }`. Separate from bank-account transaction history. |
+| `POST /me/payments/review` | Synthetic customer, configured sandbox, accepted reference and ready authenticator. Exactly `{ serviceId: "electricity" | "water" | "phone" }`. Amount and service details are server-owned. |
+| `POST /me/payments/confirm` | Exactly `{ reviewToken, code }`; six-digit code, signed customer/session/service/amount/reference/factor binding, expiry and shared proof replay checks. Creates one authorized checkout, not a paid result. |
+| `GET /me/payments/:id` | Owned order or security attempt; unauthorized IDs are 404. A valid pending checkout can be resumed after fresh sign-in without another TOTP confirmation. |
+| `GET /payments/vnpay/ipn` | Public provider route; verifies raw-query signature, terminal, reference, order details/amount and authorization before row-locked result update. Returns VNPay `{ RspCode, Message }`; never returns customer information. |
+| `GET /payments/vnpay/return` | Public static text instructing the customer to check Nene status. No query reflection, automatic redirect or payment mutation. |
+
+Review returns `reviewToken`, `requestId`, `revision`, `service`, `amountMinor`, `currency` and `expiresAt`. First successful confirmation adds `purpose: "vnpay-checkout"`, fresh `accessToken`/`refreshToken`, `replay: false`, `order` and `checkoutUrl`. Flutter adopts the pair only through its bound session owner. Repeated confirmation returns status plus `replay: true`, never the pair. Uncertain post-verification failures return 503 and require status/sign-in recovery, not blind code retry.
+
+An order contains `id`, `service`, `amountMinor`, `currency`, `state`, `createdAt`, `expiresAt`, nullable `paidAt`, and `fulfillment: "not_available"`. Payment state is `awaiting_payment`, `paid` or `failed`; a security attempt without an order can be `checking`, `rejected` or `unknown`. Checkout expiry alone does not prove failure. An authenticated late IPN can still record a result. Missing configuration returns 409 for new checkout, while catalogue and owned history remain readable.
+
+No route accepts a real bill/subscriber number, client amount, arbitrary callback/provider URL, bank debit instruction or fulfillment status. A sandbox payment cannot settle a real bill, credit a phone or mutate a Nene account balance. These restrictions keep the approved demo within the PDF feature groups without adding a separate billing platform.
 
 See [the source requirements](../REQUIREMENTS.md), [the scope boundaries](../SCOPE.md), and [the architecture](../DESIGN.md).

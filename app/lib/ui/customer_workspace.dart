@@ -1,4 +1,6 @@
 import 'assistant_screen.dart';
+import 'payments_screen.dart';
+import '../data/payments_api.dart';
 import '../assistant_controller.dart';
 import '../data/assistant_api.dart';
 import 'branch_map_screen.dart';
@@ -42,6 +44,7 @@ enum _Page {
   demoAccount,
   history,
   confirmation,
+  payments,
 }
 
 /// All protected pages live below the session branch, so signing out/expiring
@@ -89,6 +92,7 @@ class _CustomerWorkspaceState extends State<CustomerWorkspace> {
   AssistantAction? _assistantAction;
   bool _assistantDestination = false;
   String? _historyMonth;
+  String? _paymentService;
 
   @override
   void initState() {
@@ -133,7 +137,9 @@ class _CustomerWorkspaceState extends State<CustomerWorkspace> {
     if (_page == _Page.confirmation) unawaited(_flow.loadAccounts());
     if (_page == _Page.assistantAccounts ||
         (_assistantDestination &&
-            (_page == _Page.history || _page == _Page.confirmation))) {
+            (_page == _Page.history ||
+                _page == _Page.confirmation ||
+                _page == _Page.payments))) {
       _assistantDestination = false;
       _go(_Page.assistant);
       return;
@@ -196,6 +202,17 @@ class _CustomerWorkspaceState extends State<CustomerWorkspace> {
               onAction: _openAssistantAction,
             ),
             _Page.assistantAccounts => _assistantAccounts(),
+            _Page.payments =>
+              widget.security == null
+                  ? const WorkspaceContent(
+                      children: [
+                        Text('This activity is unavailable in this build.'),
+                      ],
+                    )
+                  : PaymentsScreen(
+                      api: PaymentsApi(widget.security!),
+                      initialService: _paymentService,
+                    ),
             _Page.branches => BranchMapScreen(
               session: widget.session,
               api: widget.branches!,
@@ -349,6 +366,18 @@ class _CustomerWorkspaceState extends State<CustomerWorkspace> {
             ),
             const SizedBox(height: 12),
           ],
+          if (widget.security != null) ...[
+            OutlinedButton.icon(
+              onPressed: () {
+                _paymentService = null;
+                _assistantDestination = false;
+                _go(_Page.payments);
+              },
+              icon: const Icon(Icons.receipt_long_outlined),
+              label: const Text('Bills & phone demo'),
+            ),
+            const SizedBox(height: 12),
+          ],
           TextButton(
             onPressed: _flow.loadingAccounts ? null : _flow.loadAccounts,
             child: const Text('Refresh accounts'),
@@ -429,7 +458,8 @@ class _CustomerWorkspaceState extends State<CustomerWorkspace> {
           const _Message(
             'Identity verification is not completed in this demo. '
             'Only explicitly enabled local demo transfers, deposits and withdrawals are supported. '
-            'Real cash services and external payments are not available.',
+            'Real cash services and live payments are unavailable. '
+            'Bills & phone demo uses separate VNPay sandbox checkout when configured; it does not settle real bills or change Nene balances.',
           ),
           const SizedBox(height: 28),
         ],
@@ -466,6 +496,15 @@ class _CustomerWorkspaceState extends State<CustomerWorkspace> {
   }
 
   void _openAssistantAction(AssistantAction action) {
+    if (action.activity == AssistantActivity.bills ||
+        action.activity == AssistantActivity.phone) {
+      _assistantDestination = true;
+      _paymentService = action.activity == AssistantActivity.phone
+          ? 'phone'
+          : 'electricity';
+      _go(_Page.payments);
+      return;
+    }
     _assistantAction = action;
     _go(_Page.assistantAccounts);
     unawaited(_flow.loadAccounts());

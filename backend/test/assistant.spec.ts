@@ -72,18 +72,26 @@ void test('financial intents offer form navigation only; unavailable services ne
     assert.deepEqual(response.actions, [{ type }]);
     assert.match(response.reply, /not created or sent/);
   }
-  for (const message of [
-    'Pay my electricity bill',
-    'thanh toán tiền nước',
-    'Phone top-up',
-    'nạp tiền điện thoại',
-    'Pay my phone bill',
-    'Transfer to another bank',
+  for (const [message, type] of [
+    ['Pay my electricity bill', 'bills'],
+    ['thanh toán tiền nước', 'bills'],
+    ['Phone top-up', 'phone'],
+    ['nạp tiền điện thoại', 'phone'],
+    ['Pay my phone bill', 'phone'],
   ]) {
-    const response = answerActivityQuestion(message, null, now);
-    assert.deepEqual(response.actions, []);
-    assert.match(response.reply, /not implemented/);
+    const response = answerActivityQuestion(message!, null, now);
+    assert.deepEqual(response.actions, [{ type }]);
+    assert.match(response.reply, /labelled/);
+    assert.match(response.reply, /No payment has been created or sent/);
   }
+  assert.deepEqual(
+    answerActivityQuestion('Transfer to another bank').actions,
+    [],
+  );
+  assert.match(
+    answerActivityQuestion('Transfer to another bank').reply,
+    /not implemented/,
+  );
   assert.deepEqual(
     answerActivityQuestion('transfer money and withdraw money').actions,
     [],

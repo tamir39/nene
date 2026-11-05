@@ -1,4 +1,5 @@
-export type Activity = 'history' | 'transfer' | 'deposit' | 'withdrawal';
+export type Activity =
+  'history' | 'transfer' | 'deposit' | 'withdrawal' | 'bills' | 'phone';
 export type AssistantAction =
   { type: 'history'; month: string } | { type: Exclude<Activity, 'history'> };
 export interface AssistantAnswer {
@@ -37,7 +38,7 @@ const monthNames = [
   'december',
 ];
 const help =
-  'I can help you open monthly transaction history, transfers, deposits or withdrawals. Try “show transactions for October 2026” or “lich su giao dich thang 10 nam 2026”. Ask one activity at a time. Bill payments and phone top-ups are not available yet.';
+  'I can help you open monthly transaction history, transfers, deposits, withdrawals or demo bill/phone services. Try “show transactions for October 2026” or “lich su giao dich thang 10 nam 2026”. Ask one activity at a time. Demo services cannot settle real bills or credit a phone.';
 
 export function requestedMonth(text: string, now: Date): string | null {
   const values: string[] = [];
@@ -143,11 +144,13 @@ export function answerActivityQuestion(
     );
   if (phone)
     return answer(
-      'Phone top-ups are not implemented yet. I cannot charge or top up a phone account. Once that flow is available, this assistant will link to its normal review and confirmation screen.',
+      'Open the labelled phone top-up demo. Sandbox checkout requires configuration, review and your authenticator. A sandbox payment cannot credit a real phone account. No payment has been created or sent.',
+      [{ type: 'phone' }],
     );
   if (bills)
     return answer(
-      'Electricity and water bill payments are not implemented yet. I cannot pay a bill or report one as paid. Their activity links will become available with the payment flows.',
+      'Open the labelled electricity and water bill demos. Sandbox checkout requires configuration, review and your authenticator. A sandbox payment does not settle a real bill. No payment has been created or sent.',
+      [{ type: 'bills' }],
     );
   const month = requestedMonth(text, now);
   const monthFollowUp =

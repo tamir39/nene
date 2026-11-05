@@ -4,7 +4,7 @@ This is the ordered checklist for completing Nene with Flutter, NestJS, and Supa
 
 The internal submission target remains **29 November 2026**, ahead of the portal deadline at the start of **1 December**.
 
-Scope decision, **2026-11-05**: face comparison itself and provider selection are deferred. Keep eKYC unresolved and high-value operations blocked. VNPay sandbox was selected, but credentials/callback setup remain pending. Branch navigation (BR-13) is implemented with testing deferred; the user then authorized the bounded activity chatbot (BR-14). The [current scope/status audit](docs/SCOPE_STATUS_AUDIT.md) distinguishes implemented features, supporting mechanisms and excluded extras. No new business feature is added.
+Scope decision, **2026-11-06**: face comparison itself and provider selection are deferred. Keep eKYC unresolved and high-value operations blocked. The [VNPay checkout and labelled utility-demo slice](docs/SANDBOX_PAYMENTS.md) is implemented with credentials, public callbacks and real fulfillment still pending. Branch navigation (BR-13) testing remains deferred; the bounded activity chatbot (BR-14) now links to the demo services. The [current scope/status audit](docs/SCOPE_STATUS_AUDIT.md) distinguishes code, verified behavior and remaining acceptance. No new business feature is added.
 
 ## Starting point
 
@@ -65,8 +65,8 @@ BR-09, BR-10, BR-11, BR-12; uses BR-04.
 
 - [ ] Implement the other-bank transfer path and clearly identify its real, sandbox, or simulated behavior. Payment checkout alone does not cover interbank transfers.
 - [x] Compare simple payment providers against BR-10 and the existing app. [Payment research](docs/PAYMENT_OPTIONS.md) evaluated VNPay, Stripe and MoMo; the user subsequently selected VNPay PAY sandbox. Test credentials/callback setup and implementation remain open in the [setup record](docs/VNPAY_SANDBOX_SETUP.md); face comparison stays deferred.
-- [ ] Integrate one payment provider, including verified callbacks, cancellation, failure, and duplicate-result handling.
-- [ ] Complete electricity payments, water payments, and phone top-ups with confirmation, 2FA, result, and history.
+- [ ] Complete provider-backed acceptance of one payment integration. The [VNPay sandbox adapter, bound TOTP, checkout, IPN and payment history](docs/SANDBOX_PAYMENTS.md) are implemented; actual credentials, callback isolation/delivery and success/failure/cancellation/retry evidence remain pending. Checkout stays disabled by default.
+- [ ] Complete electricity payments, water payments, and phone top-ups with confirmation, 2FA, result, and history. User-approved fixed demo services and payment-status screens are implemented. No real bill settlement or phone credit occurs; biller integration or lecturer acceptance of simulation remains unresolved.
 - [ ] Implement the lecturer-confirmed purchase/booking coverage: flight tickets, movie tickets, hotel rooms, or e-commerce purchases. Keep all four alternatives unresolved until that breadth is clarified; do not silently assume one is sufficient.
 
 Keep external fulfillment separate from payment success. Record sandbox/simulation limitations and any lecturer-approved exceptions. Reuse common payment components without building separate booking or commerce platforms.
@@ -87,7 +87,7 @@ BR-14.
 - [x] Implement the [bounded activity assistant](docs/ASSISTANT.md): English/Vietnamese requests, month clarification, plain-text answers and validated links to existing history/financial forms. Conversational adequacy and human acceptance remain open.
 - [x] Preserve an explicitly requested history month through customer-owned account selection and the history screen; resolve relative months using UTC+07.
 - [x] Keep financial links in the ordinary account/form/review/2FA flows; chat cannot post or authorize transactions. Clear its memory-only conversation on session changes.
-- [ ] Implement phone/bill service flows and connect their assistant destinations. Current replies honestly report these services unavailable; full BR-14 is not complete.
+- [ ] Complete phone/bill service acceptance. Assistant destinations now open the labelled [demo services](docs/SANDBOX_PAYMENTS.md), with separate review/TOTP and no automatic checkout. Actual fulfillment, provider evidence and full BR-14 acceptance remain open.
 - [ ] Complete human Edge/Android assistant testing when the user is ready; retain proof of the required linked activities for the report/demo.
 
 ### 7. Verify and submit the complete app
@@ -118,11 +118,11 @@ Maps can progress once navigation and provider access are settled. Chatbot links
 
 **Test deposits and withdrawals in Edge:** follow [LOCAL_CASH.md](docs/LOCAL_CASH.md#test-in-the-user-run-edge-demo) to prepare the one-time simulated cash source, restart the user-run launcher and test both checking/saving actions, balances and history. Real cash services and lecturer acceptance of simulation remain open.
 
-**Current slice: activity-linked chat (BR-14), ready for later user testing after automated verification.** [ASSISTANT.md](docs/ASSISTANT.md) records supported language/month requests, existing activity links and safety boundaries. Bill/top-up destinations remain dependent on their actual required service flows. Full BR-14 acceptance is open.
+**Current slice: VNPay checkout and labelled electricity/water/phone demos (BR-04/10/11).** [SANDBOX_PAYMENTS.md](docs/SANDBOX_PAYMENTS.md) records the implementation, disabled configuration state, transaction-bound authorization, provider callback and separate fulfillment boundary. [ASSISTANT.md](docs/ASSISTANT.md) now links to these screens. Full provider, service and chatbot acceptance remains open.
 
 **Branch-map testing is deferred at the user's request.** [BRANCH_NAVIGATION.md](docs/BRANCH_NAVIGATION.md#verification-and-local-test) retains the database, human Edge and Android checks. The user approved fictional Nene offices near TDTU; they are not another bank's branches. No deferred check is marked passed by chatbot work.
 
-**Payment-service integration remains pending (BR-10).** After VNPay test credentials and callback access are available, implement backend-owned review, transaction 2FA, checkout, verified server result, cancellation/failure, duplicate protection and result/history. Keep existing identity/amount restrictions; external checkout is not Nene-account debit or bill fulfillment. Face comparison remains undecided and high-value posting stays blocked. Other-bank transfers, utilities and release/report tasks remain required.
+**Next acceptance work:** run the isolated payment database/Auth checks when Docker is available, then review the disabled demo catalogue in the user-started Edge app. Once VNPay credentials and a public hostname are available, validate the restricted callback endpoint before testing actual sandbox checkout and IPN. Keep real bill fulfillment separate. Face comparison remains undecided and high-value posting stays blocked. Other-bank transfers, purchase/booking scope and release/report tasks remain required.
 
 The user selected **VNPay PAY sandbox hosted checkout on 2026-11-05** after the [provider comparison](docs/PAYMENT_OPTIONS.md). The [setup record](docs/VNPAY_SANDBOX_SETUP.md) lists the user's test registration, terminal ID/signing secret and a restricted HTTPS IPN/return endpoint. Account/domain access, credentials and actual callback reachability remain pending; the user has no ngrok account or public URL yet. Current LAN-only `run.bat` does not supply an internet callback. Face comparison remains undecided.
 
