@@ -1,6 +1,6 @@
 # Nene assignment scope
 
-Status: detailed source audit retained; local implementation status updated 2026-10-20. The first local officer/customer flow extends login with initial account creation and permitted profile edits. Full assignment acceptance remains open. No lecturer-approved exceptions have been supplied.
+Status updated **2026-11-05**: the [implementation scope audit](docs/SCOPE_STATUS_AUDIT.md) maps current routes/screens to all seven PDF groups and distinguishes required features from supporting mechanisms. Face comparison and its provider are deferred; eKYC remains unresolved. The next required integration is BR-10 payment service. Older slice descriptions below retain their original boundaries and do not describe the complete current app. Full assignment acceptance remains open; no lecturer-approved exceptions have been supplied.
 
 ## Scope statement
 

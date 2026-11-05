@@ -1,5 +1,7 @@
 # Face comparison options and recommendation
 
+**Later user decision, 2026-11-05:** leave face comparison itself and all providers undecided for now. The research recommendation below is retained for reference, not the next implementation task. See the [scope/status audit](SCOPE_STATUS_AUDIT.md). No matching experiment or AWS setup is scheduled; eKYC remains unresolved and high-value posting stays blocked.
+
 Research update: **2026-11-05**, requested after the local deposits/withdrawals slice. **Recommend evaluating AWS Rekognition CompareFaces first; no provider is selected or integration authorized by this recommendation.** AWS remains undecided. This replaces the unranked background comparison of 2026-10-27, without reversing the decision to keep the identity flow small.
 
 ## PDF scope and existing foundation
@@ -48,4 +50,4 @@ Browser camera access needs a secure context; PC localhost can be usable, while 
 
 Checked the PDF's complete security-requirements page, current roadmap and official sources above on 2026-11-05. No provider call, account, charge, image upload, model installation or application test occurred. Accuracy, latency, commercial access and end-to-end capture remain unverified. The shared policy folder `D:\Data\Downloads\Policies` was still unavailable; no policy compliance is claimed. Original assessment files and local-only launcher changes remain untouched.
 
-**Next decision:** accept a comparison provider for a bounded experiment. The recommendation is CompareFaces; AWS remains undecided until the user chooses it. Selection alone must not silently provision resources or incur costs. Keep the remaining PDF feature groups in [ROADMAP.md](../ROADMAP.md).
+**Deferred decision:** decide whether to retain the face-comparison approach before selecting a provider or experiment. The research recommendation is not an approved next step. Selection alone must not silently provision resources or incur costs. Continue the remaining PDF feature groups in [ROADMAP.md](../ROADMAP.md).
