@@ -1,0 +1,25 @@
+# Optional development endpoint policy, not a running tunnel.
+# Only apply to the owned Nene API loopback port (3001-3005), never the web preview.
+# Validate externally before registering the IPN URL or enabling checkout.
+# Docs: https://ngrok.com/docs/gateway/traffic-policy/actions/custom-response
+on_http_request:
+  - expressions:
+      - "req.method != 'GET' || req.url.path != req.url.raw_path || !(req.url.path in ['/', '/api/v1/payments/vnpay/ipn', '/api/v1/payments/vnpay/return'])"
+    actions:
+      - type: custom-response
+        config:
+          status_code: 404
+          body: "Not found"
+          headers:
+            content-type: text/plain
+            cache-control: no-store
+  - expressions:
+      - "req.url.path == '/'"
+    actions:
+      - type: custom-response
+        config:
+          status_code: 200
+          body: "Nene university project. Synthetic services and VNPay sandbox checkout only. No real bank, bill settlement or phone credit."
+          headers:
+            content-type: text/plain
+            cache-control: no-store

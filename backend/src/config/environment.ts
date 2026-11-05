@@ -10,6 +10,11 @@ export interface Environment {
   supabaseSecretKey?: string;
   localTransfersEnabled?: boolean;
   localCashEnabled?: boolean;
+  vnpaySandbox?: {
+    terminalCode: string;
+    hashSecret: string;
+    returnUrl: string;
+  };
   database: PoolConfig;
 }
 
@@ -110,6 +115,52 @@ export function readEnvironment(env: NodeJS.ProcessEnv): Environment {
     throw new Error(
       'Local transfers require non-production loopback Auth and database.',
     );
+  if (
+    env.VNPAY_SANDBOX_ENABLED &&
+    !['true', 'false'].includes(env.VNPAY_SANDBOX_ENABLED)
+  )
+    throw new Error('VNPAY_SANDBOX_ENABLED must be true or false.');
+  let vnpaySandbox: Environment['vnpaySandbox'];
+  if (env.VNPAY_SANDBOX_ENABLED === 'true') {
+    if (
+      nodeEnv === 'production' ||
+      !isLoopback(supabaseUrl.hostname) ||
+      !isLoopback(databaseUrl.hostname)
+    )
+      throw new Error(
+        'VNPay sandbox demo requires non-production loopback Auth and database.',
+      );
+    const terminalCode = required(env, 'VNPAY_TMN_CODE');
+    const hashSecret = required(env, 'VNPAY_HASH_SECRET');
+    if (!/^[A-Za-z0-9]{8}$/.test(terminalCode))
+      throw new Error('VNPAY_TMN_CODE must contain eight letters or digits.');
+    if (!/^[\x21-\x7e]{16,256}$/.test(hashSecret))
+      throw new Error(
+        'VNPAY_HASH_SECRET must contain 16-256 printable characters.',
+      );
+    const returnUrl = parseUrl(
+      required(env, 'VNPAY_RETURN_URL'),
+      'VNPAY_RETURN_URL',
+    );
+    if (
+      returnUrl.protocol !== 'https:' ||
+      returnUrl.username ||
+      returnUrl.password ||
+      returnUrl.port ||
+      returnUrl.search ||
+      returnUrl.hash ||
+      returnUrl.href.length > 255 ||
+      returnUrl.pathname !== '/api/v1/payments/vnpay/return' ||
+      !/^[a-z0-9-]+(?:\.[a-z0-9-]+)*\.[a-z]{2,}$/i.test(returnUrl.hostname) ||
+      /(?:^|\.)(localhost|local|internal|invalid|test)$/i.test(
+        returnUrl.hostname,
+      )
+    )
+      throw new Error(
+        'VNPAY_RETURN_URL must be the public HTTPS /api/v1/payments/vnpay/return endpoint without credentials, query or fragment.',
+      );
+    vnpaySandbox = { terminalCode, hashSecret, returnUrl: returnUrl.href };
+  }
   if (env.DATABASE_SSL_CA_FILE?.trim()) {
     if (sslMode !== 'verify-full')
       throw new Error('A PostgreSQL CA requires verify-full TLS.');
@@ -126,6 +177,7 @@ export function readEnvironment(env: NodeJS.ProcessEnv): Environment {
     port,
     localTransfersEnabled,
     localCashEnabled,
+    ...(vnpaySandbox ? { vnpaySandbox } : {}),
     supabaseUrl: supabaseUrl.toString().replace(/\/$/, ''),
     supabasePublishableKey: required(env, 'SUPABASE_PUBLISHABLE_KEY'),
     ...(env.SUPABASE_SECRET_KEY?.trim()

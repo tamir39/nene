@@ -1,6 +1,6 @@
 # VNPay sandbox access and callback setup
 
-Decision/check date: **2026-11-05**. The user selected **VNPay PAY sandbox hosted checkout** for BR-10 (PDF p. 2 Business 4), and asked to check credentials/callback setup before integration. Face comparison and AWS remain undecided. This is a setup plan; no merchant account, callback, payment route or tunnel has been created.
+Decision/check date: **2026-11-05**, implementation update **2026-11-06**. The user selected **VNPay PAY sandbox hosted checkout** for BR-10 (PDF p. 2 Business 4). [The sandbox payment slice](SANDBOX_PAYMENTS.md) now implements payment routes, signing and IPN checks. The user reconfirmed no credentials/public hostname yet; no merchant account or tunnel has been created. Face comparison and AWS remain undecided.
 
 The user confirmed they have neither an ngrok account nor a public HTTPS address. Recommend a free ngrok development domain for local callback testing; this is development connectivity, not a new application feature or backend. Account creation remains with the user. No paid domain, live merchant contract or production payment is needed for the proposed sandbox exercise.
 
@@ -24,7 +24,7 @@ Sources: [official registration form](https://sandbox.vnpayment.vn/devreg), [PAY
 
 ## The three different URLs
 
-These are **proposed paths**, not working endpoints. Replace `PUBLIC_HOST` with the actual assigned hostname only after configuration; do not submit literal placeholders.
+These are implemented API paths behind the local backend, with **public reachability still unverified**. Replace `PUBLIC_HOST` only after configuring and validating the actual hostname; do not submit literal placeholders.
 
 | Address | Purpose and reachability |
 | --- | --- |
@@ -52,7 +52,7 @@ The ngrok service sees test callback traffic; use synthetic payment references a
 
 The intended configuration consists of the terminal ID, signing secret, sandbox payment endpoint, Return URL and externally registered IPN URL. Portal passwords and ngrok agent tokens are not application payment credentials.
 
-`backend/.env.local` is already ignored by Git and is the appropriate local backend configuration location. Future integration will define validated variable names; none are consumed by the application yet. Do not place the signing secret in Flutter config, source control, URLs, command output or screenshots. No secret file was read or modified in this check.
+The runtime loads ignored **`backend/.env`** through `dotenv/config`; the earlier `.env.local` recommendation was incorrect for the current launcher. [backend/vnpay.env.example](../backend/vnpay.env.example) lists `VNPAY_SANDBOX_ENABLED`, `VNPAY_TMN_CODE`, `VNPAY_HASH_SECRET` and `VNPAY_RETURN_URL`. Add actual values privately to the existing `.env` without replacing Auth/database settings. Do not place the signing secret in Flutter config, source control, URLs, command output or screenshots. No VNPay credentials were available or configured by this work.
 
 ## Readiness and next work
 
@@ -62,11 +62,11 @@ The intended configuration consists of the terminal ID, signing secret, sandbox 
 | ngrok account / public hostname | User has neither; suggested account/domain setup is pending. |
 | VNPay registration, terminal ID and secret | Pending user action; no credential values inspected. |
 | IPN registration for that terminal | Pending actual account instructions and a working handler. |
-| Narrow public endpoint and browser return | Planned only; no tunnel started. |
-| NestJS payment adapter, signature checks and result persistence | Not implemented. |
+| Narrow public endpoint and browser return | Static return handler implemented; unactivated ngrok policy example supplied. Actual public isolation/reachability unverified; no tunnel started. |
+| NestJS payment adapter, signature checks and result persistence | Code implemented in the [payment slice](SANDBOX_PAYMENTS.md); real database/Auth and provider acceptance remain pending. |
 | Provider-sandbox success/failure/retry evidence | Not run. |
 
-Next engineering work is a bounded sandbox adapter and restricted callback/return setup, followed by signature, wrong-order/amount, duplicate and failure tests. The user continues starting `run.bat` for interactive app testing; local runner changes remain uncommitted. Do not request a test payment until callback isolation and terminal configuration are checked.
+Next acceptance work is the isolated database/Auth check, followed by actual terminal configuration and restricted public callback validation. Protocol and service fixtures do not prove VNPay delivery. The user continues starting `run.bat` for interactive app testing; local runner changes remain uncommitted. Do not request a provider test payment until callback isolation and terminal configuration are checked.
 
 This covers BR-10 setup and BR-04 support only. Nene TOTP remains separate from VNPay's test-bank OTP; preserve the existing high-value block and identity policy. External checkout is not an automatic Nene deposit/debit, interbank transfer or fulfilled bill. Scope, sandbox acceptance and actual eKYC remain as in the [scope audit](SCOPE_STATUS_AUDIT.md).
 

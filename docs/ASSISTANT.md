@@ -1,6 +1,6 @@
 # Activity-linked assistant
 
-Implemented 5 November 2026 for **BR-14**, PDF p. 2, Business 7. The source requires conversational answers with links to activities, including phone services, bills and monthly transactions. No particular AI vendor/model is prescribed. This slice implements a bounded intent-based assistant and existing activity links; it does **not** complete bill/top-up links or full BR-14 acceptance.
+Implemented 5 November 2026 for **BR-14**, PDF p. 2, Business 7; extended on 6 November with [labelled bill/phone-demo links](SANDBOX_PAYMENTS.md). The source requires conversational answers with activity links. No particular AI vendor/model is prescribed. The assistant does not settle services or complete full BR-14 acceptance.
 
 ## Implemented behavior
 
@@ -13,7 +13,8 @@ Customer home → **Ask Nene** opens an in-session chat using the existing Flutt
 | `Transactions this month`, `lịch sử tháng trước` | Resolve the month on the backend using UTC+07, including year rollover. |
 | `Transfer money`, `chuyển khoản` | Open the existing local same-bank transfer form after choosing an eligible VND checking account. |
 | `Deposit money`, `rút tiền` | Open the existing simulated cash deposit/withdrawal form after choosing an eligible VND checking/saving account. |
-| Phone top-up, electricity/water bill or other-bank transfer request | Explain that the relevant flow is not implemented. No fake payable screen, payment action or success result. |
+| Phone top-up or electricity/water bill request | Open the labelled demo-service screen. Explain that checkout needs configuration and normal review/TOTP, and cannot settle a real bill or credit a phone. |
+| Other-bank transfer request | Explain that this flow is not implemented; no fake action or result. |
 | Multiple recognized activities, invalid/full date, missing year, unsupported request | Clarify the activity/month or explain the supported requests. No guessed financial operation. |
 
 Explicit history dates support `YYYY-MM`, `MM/YYYY`, English full/three-letter month plus year and `thang M [nam] YYYY`. Years follow the existing history contract, 2000–2100. Unsupported phrasing may need rewording; this is not a general language model. A bare month without a year is not silently assigned to the current year.
@@ -28,7 +29,7 @@ Chat has loading/error/retry and clear-conversation states. It retains at most 4
 
 Request: `{ "message": "history October 2026", "context": "history_month" }`. Context is optional/null and only that enum value is accepted. The server accepts a nonblank message of at most 500 UTF-16 code units; other properties, unsupported context and control characters are rejected with 400. Context is a conversation hint, never permission.
 
-Response: `{ "reply": "...", "actions": [{ "type": "history", "month": "2026-10" }], "context": null }`. The only action types are `history`, `transfer`, `deposit` and `withdrawal`. Only history has a month. There are no client-selected account IDs, provider URLs, arbitrary paths or financial payloads. Flutter validates the response and action allowlist before rendering plain text and local navigation buttons. Transport disables redirects, bounds responses to 16 KiB and applies a 15-second timeout.
+Response: `{ "reply": "...", "actions": [{ "type": "history", "month": "2026-10" }], "context": null }`. The action types are `history`, `transfer`, `deposit`, `withdrawal`, `bills` and `phone`. Only history has a month. There are no client-selected account IDs, provider URLs, arbitrary paths or financial payloads. Flutter validates the response and action allowlist before rendering plain text and local navigation buttons. Transport disables redirects, bounds responses to 16 KiB and applies a 15-second timeout.
 
 The interpreter has no database/service/provider dependency: after normal session/profile authorization, it cannot read private banking records or mutate anything. The destination APIs still independently enforce ownership and financial rules. Questions about another customer's history and obvious credential/URL/account-number input receive a neutral explanation; this is not a guarantee of detecting every sensitive string. The UI asks users not to enter such data. Messages are not written to application logs, database or external AI services; no new storage or credentials are added.
 
@@ -39,10 +40,10 @@ The interpreter has no database/service/provider dependency: after normal sessio
 - No schema/grant or provider configuration changed. No new database fixture is required for the deterministic interpreter; existing account/history/confirmation endpoints retain their prior verification limits.
 - The user will test interactively later. No Docker/demo server, emulator or Android Studio was started. Branch PR #29 remains a draft with its database/interactive checks pending. The unavailable shared `D:\Data\Downloads\Policies` bundle was checked again; no compliance claim is made.
 
-When the user chooses to test, start/restart local `run.bat`, sign in as a customer, choose **Ask Nene** and try the examples above. Check that a history link preserves its month after selecting an account, Back restores the conversation, and sign-out clears it. Opening a financial link must only open its ordinary form; bill/top-up requests must clearly remain unavailable. The launcher remains local-use and uncommitted.
+When the user chooses to test, start/restart local `run.bat`, sign in as a customer, choose **Ask Nene** and try the examples above. Check that a history link preserves its month after selecting an account, Back restores the conversation, and sign-out clears it. Financial links only open their ordinary forms; bill/phone links show the labelled demo and disabled checkout while credentials are missing. The launcher remains local-use and uncommitted. The counts above describe the original assistant slice; extension evidence is recorded in [SANDBOX_PAYMENTS.md](SANDBOX_PAYMENTS.md).
 
 ## Remaining PDF work
 
-Connect real bill/phone-service destinations when those required flows are implemented. Confirm the assistant's demonstrated conversational adequacy during human/lecturer acceptance; a fixed example response or unlinked FAQ alone is not the complete requirement. Full Android, hosted/session and human end-to-end acceptance remain open.
+Complete service fulfillment acceptance separately from the implemented demo links. Confirm conversational adequacy during human/lecturer acceptance; a fixed example response or unlinked FAQ alone is not the complete requirement. Full Android, hosted/session and human end-to-end acceptance remain open.
 
 Face comparison itself and AWS stay undecided. Existing high-value posting remains blocked and reference acceptance is not completed eKYC. Branch-map testing stays deferred as requested. No additional product or AI platform is introduced.

@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'profile_api.dart';
 
-enum AssistantActivity { history, transfer, deposit, withdrawal }
+enum AssistantActivity { history, transfer, deposit, withdrawal, bills, phone }
 
 class AssistantAction {
   const AssistantAction(this.activity, {this.month});
@@ -29,6 +29,8 @@ class AssistantAction {
     AssistantActivity.transfer => 'Open demo transfer',
     AssistantActivity.deposit => 'Open demo deposit',
     AssistantActivity.withdrawal => 'Open demo withdrawal',
+    AssistantActivity.bills => 'Open demo bills',
+    AssistantActivity.phone => 'Open demo phone top-up',
   };
 }
 

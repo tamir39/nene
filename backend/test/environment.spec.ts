@@ -11,6 +11,57 @@ const localEnvironment = {
 };
 
 void describe('environment boundaries', () => {
+  void it('keeps VNPay disabled until complete sandbox configuration is explicitly enabled', () => {
+    assert.equal(readEnvironment(localEnvironment).vnpaySandbox, undefined);
+    const configured = {
+      ...localEnvironment,
+      VNPAY_SANDBOX_ENABLED: 'true',
+      VNPAY_TMN_CODE: 'TEST1234',
+      VNPAY_HASH_SECRET: 'synthetic-signing-secret-for-tests',
+      VNPAY_RETURN_URL: 'https://nene.example.com/api/v1/payments/vnpay/return',
+    };
+    assert.deepEqual(readEnvironment(configured).vnpaySandbox, {
+      terminalCode: configured.VNPAY_TMN_CODE,
+      hashSecret: configured.VNPAY_HASH_SECRET,
+      returnUrl: configured.VNPAY_RETURN_URL,
+    });
+    for (const override of [
+      { VNPAY_SANDBOX_ENABLED: 'yes' },
+      { VNPAY_TMN_CODE: '' },
+      { VNPAY_TMN_CODE: 'invalid-terminal' },
+      { VNPAY_HASH_SECRET: '' },
+      { VNPAY_HASH_SECRET: 'short' },
+      { VNPAY_RETURN_URL: '' },
+      {
+        VNPAY_RETURN_URL:
+          'http://nene.example.com/api/v1/payments/vnpay/return',
+      },
+      { VNPAY_RETURN_URL: 'https://localhost/api/v1/payments/vnpay/return' },
+      { VNPAY_RETURN_URL: 'https://127.0.0.1/api/v1/payments/vnpay/return' },
+      { VNPAY_RETURN_URL: 'https://nene.local/api/v1/payments/vnpay/return' },
+      { VNPAY_RETURN_URL: 'https://nene.example.com/' },
+      {
+        VNPAY_RETURN_URL:
+          'https://nene.example.com/api/v1/payments/vnpay/return?token=x',
+      },
+      {
+        VNPAY_RETURN_URL:
+          'https://user:secret@nene.example.com/api/v1/payments/vnpay/return',
+      },
+      { SUPABASE_URL: 'https://example.supabase.co' },
+      {
+        DATABASE_URL:
+          'postgresql://nene_api:example@remote.example:5432/postgres',
+        DATABASE_SSL_MODE: 'verify-full',
+      },
+      {
+        NODE_ENV: 'production',
+        SUPABASE_URL: 'https://localhost',
+        DATABASE_SSL_MODE: 'verify-full',
+      },
+    ])
+      assert.throws(() => readEnvironment({ ...configured, ...override }));
+  });
   void it('keeps cash simulation off by default and refuses remote or production activation', () => {
     assert.equal(readEnvironment(localEnvironment).localCashEnabled, false);
     assert.equal(

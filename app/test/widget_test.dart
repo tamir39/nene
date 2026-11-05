@@ -130,7 +130,8 @@ void main() {
       find.text(
         'Identity verification is not completed in this demo. '
         'Only explicitly enabled local demo transfers, deposits and withdrawals are supported. '
-        'Real cash services and external payments are not available.',
+        'Real cash services and live payments are unavailable. '
+        'Bills & phone demo uses separate VNPay sandbox checkout when configured; it does not settle real bills or change Nene balances.',
       ),
       findsOneWidget,
     );

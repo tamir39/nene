@@ -19,6 +19,7 @@ import 'package:nene_app/nene_app.dart';
 import 'package:nene_app/session_controller.dart';
 import 'package:nene_app/ui/assistant_screen.dart';
 import 'package:nene_app/ui/confirmation_screen.dart';
+import 'package:nene_app/ui/payments_screen.dart';
 import 'package:nene_app/ui/nene_brand.dart';
 import 'test_doubles.dart';
 import 'security_screen_test.dart' show Port;
@@ -66,6 +67,80 @@ Future<void> tap(WidgetTester tester, String label) async {
 }
 
 void main() {
+  for (final activity in [AssistantActivity.bills, AssistantActivity.phone]) {
+    testWidgets(
+      '${activity.name} action opens only the labelled catalog without checkout',
+      (tester) async {
+        final session = await owner();
+        final credentials = SessionOwner(Port());
+        await credentials.signIn('', '');
+        addTearDown(credentials.dispose);
+        final paths = <String>[];
+        final security = SecurityApi(
+          baseUrl: base,
+          owner: credentials,
+          client: MockClient((req) async {
+            expect(req.method, 'GET');
+            paths.add(req.url.path);
+            return http.Response(
+              jsonEncode(
+                req.url.path.endsWith('/configuration')
+                    ? {
+                        'enabled': false,
+                        'fulfillment': 'not_available',
+                        'services': [
+                          {
+                            'id': 'phone',
+                            'name': 'Demo phone top-up',
+                            'description': 'Fictional service only.',
+                            'amountMinor': '50000',
+                            'currency': 'VND',
+                          },
+                        ],
+                      }
+                    : {'orders': <Map<String, dynamic>>[]},
+              ),
+              200,
+            );
+          }),
+        );
+        await tester.pumpWidget(
+          NeneApp(
+            controller: session,
+            banking: FakeBanking(),
+            security: security,
+            assistant: api(
+              (_) async => reply(
+                actions: [
+                  {'type': activity.name},
+                ],
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tap(tester, 'Ask Nene');
+        await tap(tester, 'Pay my bills');
+        await tap(tester, AssistantAction(activity).label);
+        expect(find.byType(PaymentsScreen), findsOneWidget);
+        expect(find.text('Sandbox setup pending'), findsOneWidget);
+        expect(paths, [
+          '/api/v1/me/payments/configuration',
+          '/api/v1/me/payments/',
+        ]);
+        expect(
+          tester
+              .widget<PaymentsScreen>(find.byType(PaymentsScreen))
+              .initialService,
+          activity == AssistantActivity.phone ? 'phone' : 'electricity',
+        );
+        await tester.tap(find.byTooltip('Back'));
+        await tester.pumpAndSettle();
+        expect(find.text('Nene assistant'), findsOneWidget);
+        await tester.pumpWidget(const SizedBox());
+      },
+    );
+  }
   for (final activity in [
     AssistantActivity.transfer,
     AssistantActivity.deposit,

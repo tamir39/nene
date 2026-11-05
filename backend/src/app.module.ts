@@ -1,4 +1,9 @@
 import { AssistantController } from './assistant/assistant.controller.js';
+import {
+  PaymentsController,
+  VnpayCallbacksController,
+} from './payments/payments.controller.js';
+import { PaymentsService } from './payments/payments.service.js';
 import { BranchesController } from './branches/branches.controller.js';
 import { WalkingRouteService } from './branches/walking-route.service.js';
 import { CashController } from './confirmation/cash.controller.js';
@@ -31,6 +36,8 @@ import { IdentityStorageService } from './identity/identity-storage.service.js';
 @Module({
   imports: [ConfigModule],
   controllers: [
+    PaymentsController,
+    VnpayCallbacksController,
     AssistantController,
     BranchesController,
     CashController,
@@ -47,6 +54,7 @@ import { IdentityStorageService } from './identity/identity-storage.service.js';
     IdentityController,
   ],
   providers: [
+    PaymentsService,
     WalkingRouteService,
     ConfirmationService,
     SecurityManagementService,
