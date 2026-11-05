@@ -4,7 +4,7 @@ This is the ordered checklist for completing Nene with Flutter, NestJS, and Supa
 
 The internal submission target remains **29 November 2026**, ahead of the portal deadline at the start of **1 December**.
 
-Scope decision, **2026-11-05**: face comparison itself and provider selection are deferred. Keep eKYC unresolved and high-value operations blocked. VNPay sandbox was selected, but the user moved to branch navigation (BR-13) while credentials/callback setup remain pending. The [current scope/status audit](docs/SCOPE_STATUS_AUDIT.md) distinguishes implemented features, supporting mechanisms and excluded extras. No new business feature is added.
+Scope decision, **2026-11-05**: face comparison itself and provider selection are deferred. Keep eKYC unresolved and high-value operations blocked. VNPay sandbox was selected, but credentials/callback setup remain pending. Branch navigation (BR-13) is implemented with testing deferred; the user then authorized the bounded activity chatbot (BR-14). The [current scope/status audit](docs/SCOPE_STATUS_AUDIT.md) distinguishes implemented features, supporting mechanisms and excluded extras. No new business feature is added.
 
 ## Starting point
 
@@ -84,9 +84,11 @@ BR-13.
 
 BR-14.
 
-- [ ] Build a chat screen with useful conversational answers and validated links to app activities.
-- [ ] Support phone services, bills, and transaction-history requests that preserve a requested month.
-- [ ] Keep account access authorized and route money-related requests through the ordinary confirmation and 2FA flow. The chatbot must not independently authorize payments.
+- [x] Implement the [bounded activity assistant](docs/ASSISTANT.md): English/Vietnamese requests, month clarification, plain-text answers and validated links to existing history/financial forms. Conversational adequacy and human acceptance remain open.
+- [x] Preserve an explicitly requested history month through customer-owned account selection and the history screen; resolve relative months using UTC+07.
+- [x] Keep financial links in the ordinary account/form/review/2FA flows; chat cannot post or authorize transactions. Clear its memory-only conversation on session changes.
+- [ ] Implement phone/bill service flows and connect their assistant destinations. Current replies honestly report these services unavailable; full BR-14 is not complete.
+- [ ] Complete human Edge/Android assistant testing when the user is ready; retain proof of the required linked activities for the report/demo.
 
 ### 7. Verify and submit the complete app
 
@@ -116,7 +118,9 @@ Maps can progress once navigation and provider access are settled. Chatbot links
 
 **Test deposits and withdrawals in Edge:** follow [LOCAL_CASH.md](docs/LOCAL_CASH.md#test-in-the-user-run-edge-demo) to prepare the one-time simulated cash source, restart the user-run launcher and test both checking/saving actions, balances and history. Real cash services and lecturer acceptance of simulation remain open.
 
-**Immediate next task: test branch navigation (BR-13) in the user-started Edge demo.** Follow [BRANCH_NAVIGATION.md](docs/BRANCH_NAVIGATION.md#verification-and-local-test), including the database check after Docker is available. The user approved fictional Nene offices near TDTU; they are not another bank's branches. Human/Android real-location evidence is still required. Activity-linked chat (BR-14) is another independent PDF feature that can follow; it must preserve ordinary authorization and confirmation flows.
+**Current slice: activity-linked chat (BR-14), ready for later user testing after automated verification.** [ASSISTANT.md](docs/ASSISTANT.md) records supported language/month requests, existing activity links and safety boundaries. Bill/top-up destinations remain dependent on their actual required service flows. Full BR-14 acceptance is open.
+
+**Branch-map testing is deferred at the user's request.** [BRANCH_NAVIGATION.md](docs/BRANCH_NAVIGATION.md#verification-and-local-test) retains the database, human Edge and Android checks. The user approved fictional Nene offices near TDTU; they are not another bank's branches. No deferred check is marked passed by chatbot work.
 
 **Payment-service integration remains pending (BR-10).** After VNPay test credentials and callback access are available, implement backend-owned review, transaction 2FA, checkout, verified server result, cancellation/failure, duplicate protection and result/history. Keep existing identity/amount restrictions; external checkout is not Nene-account debit or bill fulfillment. Face comparison remains undecided and high-value posting stays blocked. Other-bank transfers, utilities and release/report tasks remain required.
 

@@ -11,10 +11,12 @@ class AccountHistoryScreen extends StatefulWidget {
     required this.session,
     required this.api,
     required this.account,
+    this.initialMonth,
   });
   final SessionController session;
   final AccountHistoryApi api;
   final BankAccount account;
+  final String? initialMonth;
   @override
   State<AccountHistoryScreen> createState() => _AccountHistoryScreenState();
 }
@@ -28,7 +30,7 @@ class _AccountHistoryScreenState extends State<AccountHistoryScreen> {
   @override
   void initState() {
     super.initState();
-    _month.text = _currentMonth();
+    _month.text = widget.initialMonth ?? _currentMonth();
     _load();
   }
 
