@@ -10,6 +10,8 @@ The user has deferred **face comparison itself and provider selection**, not jus
 
 Provider access, supported payment direction and sandbox acceptance must be settled for that integration. VNPay and Stripe are examples, not a requirement to integrate both. Do not equate an external checkout with a debit from a Nene account, a real deposit, bill fulfillment or an interbank transfer. No provider is selected in this audit; no account or charge is authorized. Until credentials are available, adapter tests and fixtures are only development evidence, not completed BR-10.
 
+Later research on 2026-11-05: [the payment-provider comparison](PAYMENT_OPTIONS.md) recommends VNPay hosted sandbox checkout conditional on test access and callback reachability. This does not select a provider, create a new business feature or reopen face comparison.
+
 ## Status by PDF feature group
 
 "Implemented locally" below describes code and recorded checks; it does not mean full Android, hosted or lecturer acceptance.
