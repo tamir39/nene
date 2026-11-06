@@ -84,13 +84,12 @@ void test('financial intents offer form navigation only; unavailable services ne
     assert.match(response.reply, /labelled/);
     assert.match(response.reply, /No payment has been created or sent/);
   }
-  assert.deepEqual(
-    answerActivityQuestion('Transfer to another bank').actions,
-    [],
-  );
+  assert.deepEqual(answerActivityQuestion('Transfer to another bank').actions, [
+    { type: 'interbank_transfer' },
+  ]);
   assert.match(
     answerActivityQuestion('Transfer to another bank').reply,
-    /not implemented/,
+    /no real bank receives money/,
   );
   assert.deepEqual(
     answerActivityQuestion('transfer money and withdraw money').actions,

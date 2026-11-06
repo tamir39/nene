@@ -54,6 +54,7 @@ Future<SessionOwner> showScreen(
   Future<http.Response> Function(http.Request) handler, {
   bool sendMoney = false,
   CashOperation? cashOperation,
+  bool interbank = false,
 }) async {
   tester.view.physicalSize = const Size(390, 1000);
   tester.view.devicePixelRatio = 1;
@@ -94,6 +95,7 @@ Future<SessionOwner> showScreen(
               security,
               sendMoney: sendMoney,
               cashOperation: cashOperation,
+              interbank: interbank,
             ),
           ),
         ),

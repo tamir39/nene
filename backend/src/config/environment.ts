@@ -10,6 +10,7 @@ export interface Environment {
   supabaseSecretKey?: string;
   localTransfersEnabled?: boolean;
   localCashEnabled?: boolean;
+  localInterbankEnabled?: boolean;
   vnpaySandbox?: {
     terminalCode: string;
     hashSecret: string;
@@ -107,7 +108,13 @@ export function readEnvironment(env: NodeJS.ProcessEnv): Environment {
     throw new Error('LOCAL_CASH_ENABLED must be true or false.');
   const localCashEnabled = env.LOCAL_CASH_ENABLED === 'true';
   if (
-    (localTransfersEnabled || localCashEnabled) &&
+    env.LOCAL_INTERBANK_ENABLED &&
+    !['true', 'false'].includes(env.LOCAL_INTERBANK_ENABLED)
+  )
+    throw new Error('LOCAL_INTERBANK_ENABLED must be true or false.');
+  const localInterbankEnabled = env.LOCAL_INTERBANK_ENABLED === 'true';
+  if (
+    (localTransfersEnabled || localCashEnabled || localInterbankEnabled) &&
     (nodeEnv === 'production' ||
       !isLoopback(supabaseUrl.hostname) ||
       !isLoopback(databaseUrl.hostname))
@@ -177,6 +184,7 @@ export function readEnvironment(env: NodeJS.ProcessEnv): Environment {
     port,
     localTransfersEnabled,
     localCashEnabled,
+    localInterbankEnabled,
     ...(vnpaySandbox ? { vnpaySandbox } : {}),
     supabaseUrl: supabaseUrl.toString().replace(/\/$/, ''),
     supabasePublishableKey: required(env, 'SUPABASE_PUBLISHABLE_KEY'),

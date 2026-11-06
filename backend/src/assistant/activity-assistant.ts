@@ -1,5 +1,11 @@
 export type Activity =
-  'history' | 'transfer' | 'deposit' | 'withdrawal' | 'bills' | 'phone';
+  | 'history'
+  | 'transfer'
+  | 'deposit'
+  | 'withdrawal'
+  | 'bills'
+  | 'phone'
+  | 'interbank_transfer';
 export type AssistantAction =
   { type: 'history'; month: string } | { type: Exclude<Activity, 'history'> };
 export interface AssistantAnswer {
@@ -192,7 +198,8 @@ export function answerActivityQuestion(
       )
     )
       return answer(
-        'Transfers to another bank are not implemented yet. The existing transfer flow supports only local synthetic accounts within Nene.',
+        'I can open the other-bank transfer demo. Choose a prepared Nene checking account, then a fictional bank and test recipient. Only local demo balances change; no real bank receives money. The ordinary review, reference and authenticator checks still apply. I have not created or sent a transaction.',
+        [{ type: 'interbank_transfer' }],
       );
     return answer(
       `I can open the ${label} screen. Choose an eligible account and enter the details there. Existing funding, identity, amount limits and authenticator confirmation still apply. I have not created or sent a transaction.`,

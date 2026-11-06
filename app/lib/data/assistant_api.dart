@@ -2,7 +2,15 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'profile_api.dart';
 
-enum AssistantActivity { history, transfer, deposit, withdrawal, bills, phone }
+enum AssistantActivity {
+  history,
+  transfer,
+  interbankTransfer,
+  deposit,
+  withdrawal,
+  bills,
+  phone,
+}
 
 class AssistantAction {
   const AssistantAction(this.activity, {this.month});
@@ -10,7 +18,11 @@ class AssistantAction {
     if (data.keys.any((key) => !['type', 'month'].contains(key))) {
       throw const FormatException('Unknown action field');
     }
-    final activity = AssistantActivity.values.byName(data['type'] as String);
+    final activity = data['type'] == 'interbank_transfer'
+        ? AssistantActivity.interbankTransfer
+        : AssistantActivity.values
+              .where((value) => value != AssistantActivity.interbankTransfer)
+              .firstWhere((value) => value.name == data['type']);
     final month = data['month'];
     if (activity == AssistantActivity.history) {
       if (month is! String ||
@@ -27,6 +39,7 @@ class AssistantAction {
   String get label => switch (activity) {
     AssistantActivity.history => 'View history · $month',
     AssistantActivity.transfer => 'Open demo transfer',
+    AssistantActivity.interbankTransfer => 'Open other-bank demo transfer',
     AssistantActivity.deposit => 'Open demo deposit',
     AssistantActivity.withdrawal => 'Open demo withdrawal',
     AssistantActivity.bills => 'Open demo bills',

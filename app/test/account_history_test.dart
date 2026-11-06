@@ -175,6 +175,10 @@ void main() {
         );
       }
       expect(HistoryEntry(entry(1)).timeLabel, '2026-11-01 00:00 (UTC+07)');
+      expect(
+        HistoryEntry({...entry(1), 'kind': 'interbank_transfer'}).kindLabel,
+        'Other-bank transfer (demo)',
+      );
     },
   );
   testWidgets('customer opens empty history from account card and returns', (

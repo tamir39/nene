@@ -1,5 +1,7 @@
 # API contract
 
+Local other-bank simulation added 7 November 2026: customer `/api/v1/me/interbank-transfers` configuration/review/confirm/status/recent/cancel routes use fictional bank and recipient records. [LOCAL_INTERBANK.md](LOCAL_INTERBANK.md#api) defines inputs, independent gates and explicit simulation results. The narrow posting function debits existing demo funds, credits a separate simulated recipient and writes the immutable receipt/history atomically; no real bank network is called.
+
 Activity assistant added 5 November 2026: customer-only `POST /api/v1/me/assistant/messages` accepts a bounded question and optional history-month context, returning plain-text answers and allowlisted activity descriptors. It does not query accounts or execute financial operations. See [ASSISTANT.md](ASSISTANT.md#api-and-authorization) for schema, supported intents and incomplete bill/top-up coverage.
 
 Branch navigation added 5 November 2026: customer-only `GET /api/v1/me/branches` reads the fictional Nene office catalog; `POST /api/v1/me/branches/route` accepts only a starting latitude/longitude and returns the walking route to the server-selected nearest office. See [BRANCH_NAVIGATION.md](BRANCH_NAVIGATION.md#api-and-storage) for coverage, response/error rules, privacy and local provider limits.

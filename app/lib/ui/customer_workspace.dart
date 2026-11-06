@@ -87,6 +87,7 @@ class _CustomerWorkspaceState extends State<CustomerWorkspace> {
   BankAccount? _historyAccount;
   BankAccount? _confirmationAccount;
   bool _sendDemoMoney = false;
+  bool _interbank = false;
   CashOperation? _cashOperation;
   AssistantController? _assistant;
   AssistantAction? _assistantAction;
@@ -247,6 +248,7 @@ class _CustomerWorkspaceState extends State<CustomerWorkspace> {
                 widget.security!,
                 sendMoney: _sendDemoMoney,
                 cashOperation: _cashOperation,
+                interbank: _interbank,
               ),
               account: _confirmationAccount!,
             ),
@@ -405,6 +407,7 @@ class _CustomerWorkspaceState extends State<CustomerWorkspace> {
                     onPressed: () {
                       _confirmationAccount = account;
                       _sendDemoMoney = false;
+                      _interbank = false;
                       _cashOperation = null;
                       _go(_Page.confirmation);
                     },
@@ -419,10 +422,25 @@ class _CustomerWorkspaceState extends State<CustomerWorkspace> {
                     onPressed: () {
                       _confirmationAccount = account;
                       _sendDemoMoney = true;
+                      _interbank = false;
                       _cashOperation = null;
                       _go(_Page.confirmation);
                     },
                     child: const Text('Transfer demo funds'),
+                  ),
+                if (widget.security != null &&
+                    account.type == 'checking' &&
+                    account.currency == 'VND' &&
+                    account.status == 'active')
+                  OutlinedButton(
+                    onPressed: () {
+                      _confirmationAccount = account;
+                      _sendDemoMoney = true;
+                      _interbank = true;
+                      _cashOperation = null;
+                      _go(_Page.confirmation);
+                    },
+                    child: const Text('Other-bank demo transfer'),
                   ),
                 if (widget.security != null &&
                     ['checking', 'saving'].contains(account.type) &&
@@ -433,6 +451,7 @@ class _CustomerWorkspaceState extends State<CustomerWorkspace> {
                       onPressed: () {
                         _confirmationAccount = account;
                         _sendDemoMoney = true;
+                        _interbank = false;
                         _cashOperation = operation;
                         _go(_Page.confirmation);
                       },
@@ -522,7 +541,10 @@ class _CustomerWorkspaceState extends State<CustomerWorkspace> {
               history ||
               (a.status == 'active' &&
                   a.currency == 'VND' &&
-                  (action.activity == AssistantActivity.transfer
+                  ([
+                        AssistantActivity.transfer,
+                        AssistantActivity.interbankTransfer,
+                      ].contains(action.activity)
                       ? a.type == 'checking'
                       : ['checking', 'saving'].contains(a.type))),
         )
@@ -537,7 +559,7 @@ class _CustomerWorkspaceState extends State<CustomerWorkspace> {
         Text(
           history
               ? 'Transaction history for ${action.month}'
-              : 'Open the normal ${action.activity.name} flow. Nothing has been submitted.',
+              : 'Open the normal ${action.activity == AssistantActivity.interbankTransfer ? 'other-bank demo transfer' : action.activity.name} flow. Nothing has been submitted.',
         ),
         const SizedBox(height: 16),
         if (!available)
@@ -569,6 +591,8 @@ class _CustomerWorkspaceState extends State<CustomerWorkspace> {
                   } else {
                     _confirmationAccount = account;
                     _sendDemoMoney = true;
+                    _interbank =
+                        action.activity == AssistantActivity.interbankTransfer;
                     _cashOperation = switch (action.activity) {
                       AssistantActivity.deposit => CashOperation.deposit,
                       AssistantActivity.withdrawal => CashOperation.withdrawal,
