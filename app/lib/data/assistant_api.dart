@@ -10,6 +10,7 @@ enum AssistantActivity {
   withdrawal,
   bills,
   phone,
+  movieTickets,
 }
 
 class AssistantAction {
@@ -18,11 +19,19 @@ class AssistantAction {
     if (data.keys.any((key) => !['type', 'month'].contains(key))) {
       throw const FormatException('Unknown action field');
     }
-    final activity = data['type'] == 'interbank_transfer'
-        ? AssistantActivity.interbankTransfer
-        : AssistantActivity.values
-              .where((value) => value != AssistantActivity.interbankTransfer)
-              .firstWhere((value) => value.name == data['type']);
+    final activity = switch (data['type']) {
+      'interbank_transfer' => AssistantActivity.interbankTransfer,
+      'movie_tickets' => AssistantActivity.movieTickets,
+      _ =>
+        AssistantActivity.values
+            .where(
+              (value) => !const {
+                AssistantActivity.interbankTransfer,
+                AssistantActivity.movieTickets,
+              }.contains(value),
+            )
+            .firstWhere((value) => value.name == data['type']),
+    };
     final month = data['month'];
     if (activity == AssistantActivity.history) {
       if (month is! String ||
@@ -44,6 +53,7 @@ class AssistantAction {
     AssistantActivity.withdrawal => 'Open demo withdrawal',
     AssistantActivity.bills => 'Open demo bills',
     AssistantActivity.phone => 'Open demo phone top-up',
+    AssistantActivity.movieTickets => 'Open demo movie tickets',
   };
 }
 

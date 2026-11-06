@@ -73,8 +73,11 @@ Map<String, dynamic> confirm() => {
   'order': order(),
   'checkoutUrl': checkout,
 };
-http.Response json(Object data, [int status = 200]) =>
-    http.Response(jsonEncode(data), status);
+http.Response json(Object data, [int status = 200]) => http.Response(
+  jsonEncode(data),
+  status,
+  headers: {'content-type': 'application/json; charset=utf-8'},
+);
 Future<PaymentsApi> createApi(
   Future<http.Response> Function(http.Request) handler,
 ) async {
@@ -104,6 +107,7 @@ Future<void> showScreen(
   PaymentsApi api, {
   Future<bool> Function(Uri)? open,
   bool capture = false,
+  bool movies = false,
 }) async {
   tester.view.physicalSize = const Size(390, 1000);
   tester.view.devicePixelRatio = 1;
@@ -134,7 +138,7 @@ Future<void> showScreen(
         key: const ValueKey('payment-capture'),
         child: Scaffold(
           appBar: AppBar(title: const NeneLogo(size: 30)),
-          body: PaymentsScreen(api: api, openCheckout: open),
+          body: PaymentsScreen(api: api, openCheckout: open, movies: movies),
         ),
       ),
     ),

@@ -12,10 +12,12 @@ class PaymentsScreen extends StatefulWidget {
     super.key,
     required this.api,
     this.initialService,
+    this.movies = false,
     this.openCheckout,
   });
   final PaymentsApi api;
   final String? initialService;
+  final bool movies;
   final Future<bool> Function(Uri)? openCheckout;
   @override
   State<PaymentsScreen> createState() => _PaymentsScreenState();
@@ -27,6 +29,7 @@ class _PaymentsScreenState extends State<PaymentsScreen>
   PaymentConfiguration? _configuration;
   List<PaymentOrder> _recent = [];
   PaymentReview? _review;
+  PaymentPreview? _preview;
   PaymentStatus? _status;
   String? _requestId, _error;
   bool _busy = false, _attempted = false, _expired = false, _hidden = false;
@@ -102,10 +105,11 @@ class _PaymentsScreenState extends State<PaymentsScreen>
   }
 
   Future<void> _prepare(PaymentServiceOffer service) => _run(() async {
-    final review = await widget.api.review(service.id);
+    final review = await widget.api.review(service.id, expected: service);
     if (!mounted) return;
     setState(() {
       _review = review;
+      _preview = null;
       _requestId = review.requestId;
       _status = null;
       _attempted = false;
@@ -122,6 +126,18 @@ class _PaymentsScreenState extends State<PaymentsScreen>
         });
       });
     }
+  });
+
+  Future<void> _previewOffer(PaymentServiceOffer service) => _run(() async {
+    final preview = await widget.api.preview(service.id);
+    if (!mounted) return;
+    setState(() {
+      _preview = preview;
+      _review = null;
+      _status = null;
+      _requestId = null;
+      _code.clear();
+    });
   });
 
   Future<void> _confirm() async {
@@ -156,6 +172,7 @@ class _PaymentsScreenState extends State<PaymentsScreen>
       _requestId = id;
       _status = status;
       _review = null;
+      _preview = null;
       _attempted = true;
       _code.clear();
     });
@@ -209,6 +226,7 @@ class _PaymentsScreenState extends State<PaymentsScreen>
     _expiry?.cancel();
     setState(() {
       _review = null;
+      _preview = null;
       _status = null;
       _requestId = null;
       _attempted = false;
@@ -223,13 +241,17 @@ class _PaymentsScreenState extends State<PaymentsScreen>
   Widget build(BuildContext context) => WorkspaceContent(
     children: [
       Text(
-        'Bills & phone demo',
+        widget.movies ? 'Movie tickets demo' : 'Bills & phone demo',
         style: Theme.of(context).textTheme.headlineMedium,
       ),
       const SizedBox(height: 12),
-      const _Notice(
-        'Fictional services · sandbox only',
-        'Try electricity, water and phone checkout with test data. No real bill is settled, no phone credit is delivered and your Nene balance is unchanged.',
+      _Notice(
+        widget.movies
+            ? 'Fictional cinema · sandbox only'
+            : 'Fictional services · sandbox only',
+        widget.movies
+            ? 'Explore two fictional one-ticket offers. No real showing, seat reservation or admission is provided. Your Nene balance is unchanged.'
+            : 'Try electricity, water and phone checkout with test data. No real bill is settled, no phone credit is delivered and your Nene balance is unchanged.',
       ),
       const SizedBox(height: 20),
       if (_busy)
@@ -243,6 +265,8 @@ class _PaymentsScreenState extends State<PaymentsScreen>
         ..._statusView(context)
       else if (_review != null)
         ..._reviewView(context)
+      else if (_preview != null)
+        ..._previewView(context)
       else
         ..._catalogView(context),
     ],
@@ -250,7 +274,12 @@ class _PaymentsScreenState extends State<PaymentsScreen>
 
   List<Widget> _catalogView(BuildContext context) {
     final config = _configuration;
-    final services = [...?config?.services];
+    final services = [
+      ...?config?.services,
+    ].where((service) => service.isMovie == widget.movies).toList();
+    final recent = _recent
+        .where((order) => order.service.isMovie == widget.movies)
+        .toList();
     if (widget.initialService != null) {
       services.sort(
         (a, b) => (a.id == widget.initialService ? 0 : 1).compareTo(
@@ -284,7 +313,8 @@ class _PaymentsScreenState extends State<PaymentsScreen>
                     Icon(switch (service.id) {
                       'electricity' => Icons.bolt_outlined,
                       'water' => Icons.water_drop_outlined,
-                      _ => Icons.phone_android_outlined,
+                      'phone' => Icons.phone_android_outlined,
+                      _ => Icons.movie_outlined,
                     }, color: NeneColors.action),
                     const SizedBox(width: 10),
                     Expanded(
@@ -315,11 +345,17 @@ class _PaymentsScreenState extends State<PaymentsScreen>
                   ),
                 OutlinedButton(
                   onPressed:
-                      _busy || config?.enabled != true || _blocked(service)
+                      _busy ||
+                          (!widget.movies &&
+                              (config?.enabled != true || _blocked(service)))
                       ? null
-                      : () => _prepare(service),
+                      : () => widget.movies
+                            ? _previewOffer(service)
+                            : _prepare(service),
                   child: Text(
-                    'Review ${service.id == 'phone' ? 'phone top-up' : '${service.id} bill'}',
+                    widget.movies
+                        ? 'View ticket details'
+                        : 'Review ${service.id == 'phone' ? 'phone top-up' : '${service.id} bill'}',
                   ),
                 ),
               ],
@@ -329,12 +365,14 @@ class _PaymentsScreenState extends State<PaymentsScreen>
         const SizedBox(height: 12),
       ],
       Text(
-        'Recent sandbox payments',
+        widget.movies
+            ? 'Recent movie sandbox payments'
+            : 'Recent sandbox payments',
         style: Theme.of(context).textTheme.titleLarge,
       ),
       const SizedBox(height: 8),
-      if (_recent.isEmpty && !_busy) const Text('No sandbox payments yet.'),
-      for (final order in _recent)
+      if (recent.isEmpty && !_busy) const Text('No sandbox payments yet.'),
+      for (final order in recent)
         ListTile(
           contentPadding: EdgeInsets.zero,
           title: Text(
@@ -357,8 +395,49 @@ class _PaymentsScreenState extends State<PaymentsScreen>
     (order) =>
         order.service.id == service.id &&
         (order.state == 'awaiting_payment' ||
-            (service.id != 'phone' && order.state == 'paid')),
+            (const {'electricity', 'water'}.contains(service.id) &&
+                order.state == 'paid')),
   );
+
+  List<Widget> _previewView(BuildContext context) {
+    final preview = _preview!;
+    return [
+      Text('Ticket details', style: Theme.of(context).textTheme.titleLarge),
+      const SizedBox(height: 16),
+      _Details(service: preview.service),
+      const SizedBox(height: 16),
+      const _Notice(
+        'Preview only',
+        'Viewing these details creates no order and reserves no ticket or seat. The offer contains one fictional ticket.',
+      ),
+      const SizedBox(height: 16),
+      if (!preview.checkoutAvailable)
+        const Text(
+          'Sandbox checkout is not configured yet. You can explore the offers; no payment can be started.',
+        )
+      else if (_blocked(preview.service))
+        const Text(
+          'An existing checkout is still pending. Return to recent payments and check its status before starting another.',
+        )
+      else ...[
+        const Text(
+          'Continue to review the exact offer and authorize sandbox checkout with your authenticator. No real ticket will be issued.',
+        ),
+        const SizedBox(height: 12),
+      ],
+      FilledButton(
+        onPressed:
+            _busy || !preview.checkoutAvailable || _blocked(preview.service)
+            ? null
+            : () => _prepare(preview.service),
+        child: const Text('Continue to secure checkout'),
+      ),
+      TextButton(
+        onPressed: _busy ? null : _catalog,
+        child: const Text('Back to movie offers'),
+      ),
+    ];
+  }
 
   List<Widget> _reviewView(BuildContext context) {
     final review = _review!;
@@ -429,7 +508,9 @@ class _PaymentsScreenState extends State<PaymentsScreen>
       const SizedBox(height: 12),
       Text(switch (status.state) {
         'paid' =>
-          'VNPay confirmed a successful sandbox payment. Service fulfillment is unavailable: this did not settle a bill or deliver phone credit.',
+          (order?.service.isMovie ?? widget.movies)
+              ? 'VNPay confirmed a successful sandbox payment. No real ticket, seat reservation or cinema admission was issued.'
+              : 'VNPay confirmed a successful sandbox payment. Service fulfillment is unavailable: this did not settle a bill or deliver phone credit.',
         'failed' =>
           'VNPay reported that this sandbox payment failed. No service was fulfilled.',
         'awaiting_payment' =>

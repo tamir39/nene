@@ -1,5 +1,7 @@
 # VNPay checkout and demo utility services
 
+Extension, 7 November 2026: [MOVIE_TICKET_DEMO.md](MOVIE_TICKET_DEMO.md) adds two fictional purchase offers and a read-only preview usable without provider credentials. Configured checkout reuses this lifecycle; the v2 signed review binds complete offer details and orders now store immutable `service_snapshot` values, including a migration backfill of the three original utility fixtures. Movie paid/failed results permit a fresh purchase, while pending orders still block duplicates. This does not issue real tickets or resolve BR-12 category/fulfillment acceptance. The original implementation evidence below remains dated and does not cover the new extension.
+
 Implementation slice: **6 November 2026**, supporting BR-04/10/11 and the BR-14 service links. The user selected VNPay sandbox and approved **labelled demo electricity/water bills and phone top-ups**, with real settlement and phone credit disabled. Test merchant credentials and a public HTTPS callback address are still unavailable. Face comparison and AWS remain undecided.
 
 This is a code implementation with synthetic test evidence, not a completed provider integration or full BR-11 acceptance. No account, tunnel, paid service or real payment is created by the implementation. Existing bank balances, cash simulation and account history are unaffected.

@@ -5,6 +5,7 @@ export type Activity =
   | 'withdrawal'
   | 'bills'
   | 'phone'
+  | 'movie_tickets'
   | 'interbank_transfer';
 export type AssistantAction =
   { type: 'history'; month: string } | { type: Exclude<Activity, 'history'> };
@@ -44,7 +45,7 @@ const monthNames = [
   'december',
 ];
 const help =
-  'I can help you open monthly transaction history, transfers, deposits, withdrawals or demo bill/phone services. Try “show transactions for October 2026” or “lich su giao dich thang 10 nam 2026”. Ask one activity at a time. Demo services cannot settle real bills or credit a phone.';
+  'I can help you open monthly transaction history, transfers, deposits, withdrawals or demo bill, phone and movie-ticket services. Try “show transactions for October 2026” or “lich su giao dich thang 10 nam 2026”. Ask one activity at a time. Demo services cannot settle real bills, credit a phone or issue a real ticket.';
 
 export function requestedMonth(text: string, now: Date): string | null {
   const values: string[] = [];
@@ -127,6 +128,13 @@ export function answerActivityQuestion(
     text,
   );
   const phone = /\b(phone|mobile|top[ -]?up|dien thoai|nap the)\b/.test(text);
+  const movies = /\b(movie|movies|cinema|ve xem phim|ve phim|rap phim)\b/.test(
+    text,
+  );
+  const otherPurchase =
+    /\b(flight|flights|airline|hotel|hotels|e-commerce|ecommerce|ve may bay|khach san)\b/.test(
+      text,
+    );
   const bills =
     /\b(electricity|water|tien dien(?! thoai)|tien nuoc)\b/.test(text) ||
     (!phone && /\b(bill|bills|hoa don)\b/.test(text));
@@ -141,12 +149,28 @@ export function answerActivityQuestion(
     /\b(deposit|deposits|add money|nap tien)\b/.test(text);
   const withdrawal =
     !historyOnly && /\b(withdraw|withdrawal|withdrawals|rut tien)\b/.test(text);
-  const count = [history, phone, bills, transfer, deposit, withdrawal].filter(
-    Boolean,
-  ).length;
+  const count = [
+    history,
+    phone,
+    bills,
+    transfer,
+    deposit,
+    withdrawal,
+    movies,
+    otherPurchase,
+  ].filter(Boolean).length;
   if (count > 1)
     return answer(
-      'Please ask for one activity at a time: transaction history, transfer, deposit, withdrawal, bills or phone top-up.',
+      'Please ask for one activity at a time: transaction history, transfer, deposit, withdrawal, bills, phone top-up or movie-ticket demo. Flight, hotel and e-commerce flows are not implemented.',
+    );
+  if (otherPurchase)
+    return answer(
+      'Flight, hotel and e-commerce flows are not implemented yet. The movie-ticket demo is available for selection and preview, but it does not issue real tickets or reservations. No purchase has been made.',
+    );
+  if (movies)
+    return answer(
+      'Open the labelled movie-ticket demo to choose a fictional offer and preview its details. Preview works without VNPay setup and creates no order. Sandbox checkout requires configuration, a separate review and your authenticator. No real ticket, seat or admission is provided; no purchase has been made.',
+      [{ type: 'movie_tickets' }],
     );
   if (phone)
     return answer(

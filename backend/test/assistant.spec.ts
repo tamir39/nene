@@ -114,6 +114,34 @@ void test('sensitive requests, external URLs and other-customer queries do not c
     [],
   );
 });
+void test('movie requests open only the labelled catalogue and preserve unresolved categories', () => {
+  for (const message of [
+    'Buy movie tickets',
+    'Mua vé xem phim',
+    'Open cinema demo',
+  ]) {
+    const response = answerActivityQuestion(message);
+    assert.deepEqual(response.actions, [{ type: 'movie_tickets' }]);
+    assert.equal(response.context, null);
+    assert.match(response.reply, /creates no order/);
+    assert.match(response.reply, /No real ticket/);
+  }
+  for (const message of [
+    'Buy flight tickets',
+    'Book hotel',
+    'Pay for ecommerce',
+    'Movie tickets and water bill',
+    'Buy flight or movie tickets',
+    'Mua vé máy bay và vé xem phim',
+    'My movie OTP is 123456',
+  ]) {
+    assert.deepEqual(answerActivityQuestion(message).actions, []);
+  }
+  assert.deepEqual(
+    answerActivityQuestion('Movie tickets', 'history_month').actions,
+    [{ type: 'movie_tickets' }],
+  );
+});
 void test('input does not accept client-selected actions, accounts, roles or arbitrary conversation history', () => {
   assert.deepEqual(
     assistantInput({ message: '  hello  ', context: 'history_month' }),

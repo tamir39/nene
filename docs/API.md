@@ -1,5 +1,7 @@
 # API contract
 
+Movie-ticket demo added 7 November 2026: existing customer payment routes now include two fictional movie offers and immutable stored offer snapshots. New `POST /api/v1/me/payments/preview` accepts exactly `{serviceId}` for a read-only preview without VNPay credentials; it returns `previewOnly: true`, offer/amount/currency, `checkoutAvailable` and `fulfillment: "not_available"`, with no token, order, proof or payment-provider call. Ordinary session validation applies; formal review/confirm remain configured and transaction-bound. See [MOVIE_TICKET_DEMO.md](MOVIE_TICKET_DEMO.md#backend-contract-and-data).
+
 Local other-bank simulation added 7 November 2026: customer `/api/v1/me/interbank-transfers` configuration/review/confirm/status/recent/cancel routes use fictional bank and recipient records. [LOCAL_INTERBANK.md](LOCAL_INTERBANK.md#api) defines inputs, independent gates and explicit simulation results. The narrow posting function debits existing demo funds, credits a separate simulated recipient and writes the immutable receipt/history atomically; no real bank network is called.
 
 Activity assistant added 5 November 2026: customer-only `POST /api/v1/me/assistant/messages` accepts a bounded question and optional history-month context, returning plain-text answers and allowlisted activity descriptors. It does not query accounts or execute financial operations. See [ASSISTANT.md](ASSISTANT.md#api-and-authorization) for schema, supported intents and incomplete bill/top-up coverage.
@@ -92,7 +94,8 @@ Implemented code supports BR-04/10/11 and BR-14 links. All routes use `/api/v1` 
 | --- | --- |
 | `GET /me/payments/configuration` | Customer; `{ enabled, services, highValueThresholdMinor, fulfillment }`. Catalogue is available while checkout is disabled. |
 | `GET /me/payments` | Customer; latest 20 owned orders, newest first, `{ orders }`. Separate from bank-account transaction history. |
-| `POST /me/payments/review` | Synthetic customer, configured sandbox, accepted reference and ready authenticator. Exactly `{ serviceId: "electricity" | "water" | "phone" }`. Amount and service details are server-owned. |
+| `POST /me/payments/preview` | Active customer; exactly `{serviceId}` from the catalogue. Read-only preview without provider setup or financial authorization. |
+| `POST /me/payments/review` | Synthetic customer, configured sandbox, accepted reference and ready authenticator. Exactly `{serviceId}`: `electricity`, `water`, `phone`, `movie_matinee_v1` or `movie_evening_v1`. Amount and complete offer details are server-owned and bound into the signed review. |
 | `POST /me/payments/confirm` | Exactly `{ reviewToken, code }`; six-digit code, signed customer/session/service/amount/reference/factor binding, expiry and shared proof replay checks. Creates one authorized checkout, not a paid result. |
 | `GET /me/payments/:id` | Owned order or security attempt; unauthorized IDs are 404. A valid pending checkout can be resumed after fresh sign-in without another TOTP confirmation. |
 | `GET /payments/vnpay/ipn` | Public provider route; verifies raw-query signature, terminal, reference, order details/amount and authorization before row-locked result update. Returns VNPay `{ RspCode, Message }`; never returns customer information. |
@@ -102,6 +105,6 @@ Review returns `reviewToken`, `requestId`, `revision`, `service`, `amountMinor`,
 
 An order contains `id`, `service`, `amountMinor`, `currency`, `state`, `createdAt`, `expiresAt`, nullable `paidAt`, and `fulfillment: "not_available"`. Payment state is `awaiting_payment`, `paid` or `failed`; a security attempt without an order can be `checking`, `rejected` or `unknown`. Checkout expiry alone does not prove failure. An authenticated late IPN can still record a result. Missing configuration returns 409 for new checkout, while catalogue and owned history remain readable.
 
-No route accepts a real bill/subscriber number, client amount, arbitrary callback/provider URL, bank debit instruction or fulfillment status. A sandbox payment cannot settle a real bill, credit a phone or mutate a Nene account balance. These restrictions keep the approved demo within the PDF feature groups without adding a separate billing platform.
+No route accepts a real bill/subscriber number, client amount/quantity, arbitrary callback/provider URL, bank debit instruction or fulfillment status. A sandbox payment cannot settle a real bill, credit a phone, issue a real movie ticket/reservation or mutate a Nene account balance. These restrictions keep the demo within the PDF feature groups without adding a billing or booking platform.
 
 See [the source requirements](../REQUIREMENTS.md), [the scope boundaries](../SCOPE.md), and [the architecture](../DESIGN.md).

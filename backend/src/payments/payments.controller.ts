@@ -31,6 +31,12 @@ export class PaymentsController {
   ) {
     return this.service.review(req, body);
   }
+  @Post('preview') @Header('Cache-Control', 'no-store') preview(
+    @Req() req: AuthenticatedRequest,
+    @Body() body: unknown,
+  ) {
+    return this.service.preview(req, body);
+  }
   @Post('confirm') @Header('Cache-Control', 'no-store') confirm(
     @Req() req: AuthenticatedRequest,
     @Body() body: unknown,
@@ -61,6 +67,6 @@ export class VnpayCallbacksController {
   @Header('X-Content-Type-Options', 'nosniff')
   @Header('Referrer-Policy', 'no-referrer')
   returned() {
-    return 'Return to your Nene tab and check payment status. This redirect does not confirm payment. Sign in again if your session has ended. These are sandbox payments; no real bill is paid and no phone account is credited.';
+    return 'Return to your Nene tab and check payment status. This redirect does not confirm payment. Sign in again if your session has ended. These are sandbox payments; no real bill, phone credit, movie ticket, seat reservation or admission is fulfilled.';
   }
 }

@@ -11,10 +11,23 @@ class PaymentServiceOffer {
     required this.amountMinor,
   });
   final String id, name, description, amountMinor;
+  bool get isMovie =>
+      const {'movie_matinee_v1', 'movie_evening_v1'}.contains(id);
+  bool sameDetails(PaymentServiceOffer other) =>
+      id == other.id &&
+      name == other.name &&
+      description == other.description &&
+      amountMinor == other.amountMinor;
   factory PaymentServiceOffer.fromJson(Object? raw) {
     final data = _object(raw);
     final id = _text(data, 'id', 32);
-    if (!{'electricity', 'water', 'phone'}.contains(id) ||
+    if (!{
+          'electricity',
+          'water',
+          'phone',
+          'movie_matinee_v1',
+          'movie_evening_v1',
+        }.contains(id) ||
         data['currency'] != 'VND') {
       throw const SessionCoordinationException();
     }
@@ -31,6 +44,12 @@ class PaymentConfiguration {
   const PaymentConfiguration(this.enabled, this.services);
   final bool enabled;
   final List<PaymentServiceOffer> services;
+}
+
+class PaymentPreview {
+  const PaymentPreview(this.service, this.checkoutAvailable);
+  final PaymentServiceOffer service;
+  final bool checkoutAvailable;
 }
 
 class PaymentReview {
@@ -210,7 +229,7 @@ class PaymentsApi {
         if (data['enabled'] is! bool ||
             data['fulfillment'] != 'not_available' ||
             data['services'] is! List ||
-            (data['services'] as List).length > 3) {
+            (data['services'] as List).length > 5) {
           throw const SessionCoordinationException();
         }
         final services = (data['services'] as List)
@@ -232,27 +251,57 @@ class PaymentsApi {
         .toList(growable: false);
   });
 
-  Future<PaymentReview> review(String serviceId) =>
+  Future<PaymentPreview> preview(String serviceId) =>
       security.owner.execute((s) async {
-        final data = await _request(s.pair.accessToken, 'review', {
+        final data = await _request(s.pair.accessToken, 'preview', {
           'serviceId': serviceId,
         });
         final service = PaymentServiceOffer.fromJson(data['service']);
-        if (service.id != serviceId ||
-            data['revision'] is! int ||
-            (data['revision'] as int) < 0 ||
+        if (data.keys.any(
+              (key) => !const {
+                'service',
+                'amountMinor',
+                'currency',
+                'checkoutAvailable',
+                'fulfillment',
+                'previewOnly',
+              }.contains(key),
+            ) ||
+            data['previewOnly'] != true ||
+            data['fulfillment'] != 'not_available' ||
+            data['checkoutAvailable'] is! bool ||
             data['currency'] != 'VND' ||
+            service.id != serviceId ||
             _amount(data) != service.amountMinor) {
           throw const SessionCoordinationException();
         }
-        return PaymentReview(
-          token: _text(data, 'reviewToken', 8192),
-          requestId: _text(data, 'requestId', 128),
-          revision: data['revision'] as int,
-          service: service,
-          expiresAt: _date(data, 'expiresAt'),
-        );
+        return PaymentPreview(service, data['checkoutAvailable'] as bool);
       });
+
+  Future<PaymentReview> review(
+    String serviceId, {
+    PaymentServiceOffer? expected,
+  }) => security.owner.execute((s) async {
+    final data = await _request(s.pair.accessToken, 'review', {
+      'serviceId': serviceId,
+    });
+    final service = PaymentServiceOffer.fromJson(data['service']);
+    if (service.id != serviceId ||
+        (expected != null && !service.sameDetails(expected)) ||
+        data['revision'] is! int ||
+        (data['revision'] as int) < 0 ||
+        data['currency'] != 'VND' ||
+        _amount(data) != service.amountMinor) {
+      throw const SessionCoordinationException();
+    }
+    return PaymentReview(
+      token: _text(data, 'reviewToken', 8192),
+      requestId: _text(data, 'requestId', 128),
+      revision: data['revision'] as int,
+      service: service,
+      expiresAt: _date(data, 'expiresAt'),
+    );
+  });
 
   Future<PaymentStatus> status(String id) => security.owner.execute((s) async {
     final data = await _request(s.pair.accessToken, Uri.encodeComponent(id));
@@ -282,8 +331,7 @@ class PaymentsApi {
           final order = result!.order;
           if (order != null &&
               (order.id != review.requestId ||
-                  order.service.id != review.service.id ||
-                  order.service.amountMinor != review.service.amountMinor)) {
+                  !order.service.sameDetails(review.service))) {
             throw const SessionCoordinationException();
           }
           if (data['replay'] == true) {

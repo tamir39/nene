@@ -94,6 +94,7 @@ class _CustomerWorkspaceState extends State<CustomerWorkspace> {
   bool _assistantDestination = false;
   String? _historyMonth;
   String? _paymentService;
+  bool _moviePayments = false;
 
   @override
   void initState() {
@@ -213,6 +214,7 @@ class _CustomerWorkspaceState extends State<CustomerWorkspace> {
                   : PaymentsScreen(
                       api: PaymentsApi(widget.security!),
                       initialService: _paymentService,
+                      movies: _moviePayments,
                     ),
             _Page.branches => BranchMapScreen(
               session: widget.session,
@@ -372,11 +374,23 @@ class _CustomerWorkspaceState extends State<CustomerWorkspace> {
             OutlinedButton.icon(
               onPressed: () {
                 _paymentService = null;
+                _moviePayments = false;
                 _assistantDestination = false;
                 _go(_Page.payments);
               },
               icon: const Icon(Icons.receipt_long_outlined),
               label: const Text('Bills & phone demo'),
+            ),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: () {
+                _paymentService = null;
+                _moviePayments = true;
+                _assistantDestination = false;
+                _go(_Page.payments);
+              },
+              icon: const Icon(Icons.movie_outlined),
+              label: const Text('Movie tickets demo'),
             ),
             const SizedBox(height: 12),
           ],
@@ -516,11 +530,15 @@ class _CustomerWorkspaceState extends State<CustomerWorkspace> {
 
   void _openAssistantAction(AssistantAction action) {
     if (action.activity == AssistantActivity.bills ||
-        action.activity == AssistantActivity.phone) {
+        action.activity == AssistantActivity.phone ||
+        action.activity == AssistantActivity.movieTickets) {
       _assistantDestination = true;
-      _paymentService = action.activity == AssistantActivity.phone
-          ? 'phone'
-          : 'electricity';
+      _moviePayments = action.activity == AssistantActivity.movieTickets;
+      _paymentService = switch (action.activity) {
+        AssistantActivity.phone => 'phone',
+        AssistantActivity.bills => 'electricity',
+        _ => null,
+      };
       _go(_Page.payments);
       return;
     }
