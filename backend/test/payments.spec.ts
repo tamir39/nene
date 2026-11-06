@@ -46,11 +46,14 @@ function fixture() {
   let ready = true,
     eligible = true,
     reference = true,
-    verifyCalls = 0;
+    verifyCalls = 0,
+    providerCalls = 0;
   let afterVerify: (() => void) | undefined;
   const fingerprints = new Set<string>(),
-    writes: string[] = [];
+    writes: string[] = [],
+    queries: string[] = [];
   const execute = (sql: string, values: unknown[] = []): Data[] => {
+    queries.push(sql);
     if (/update|insert|delete/.test(sql)) writes.push(sql);
     if (sql.startsWith('select secret'))
       return [{ secret: 'synthetic-review-secret' }];
@@ -73,7 +76,8 @@ function fixture() {
         payment.customer_id === values[0] &&
         payment.service_id === values[1] &&
         (payment.state === 'awaiting_payment' ||
-          (payment.state === 'paid' && payment.service_id !== 'phone'))
+          (payment.state === 'paid' &&
+            ['electricity', 'water'].includes(String(payment.service_id))))
         ? [{ id: payment.id }]
         : [];
     if (sql.startsWith('select (extract'))
@@ -146,6 +150,7 @@ function fixture() {
         terminal_code: values[5],
         order_info: values[6],
         ip_address: values[7],
+        service_snapshot: JSON.parse(String(values[9])) as unknown,
         state: 'awaiting_payment',
         created_at: new Date(),
         expires_at: new Date(Date.now() + 900000),
@@ -190,6 +195,7 @@ function fixture() {
       _token: string,
       body?: object,
     ): Promise<Record<string, unknown>> {
+      providerCalls++;
       if (path === '/user')
         return {
           id: customer,
@@ -225,7 +231,11 @@ function fixture() {
     get verifyCalls() {
       return verifyCalls;
     },
+    get providerCalls() {
+      return providerCalls;
+    },
     writes,
+    queries,
     restrict: () => {
       ready = false;
     },
@@ -267,13 +277,17 @@ function ipn(payment: Data, changes: Record<string, string> = {}) {
     createHmac('sha512', config.hashSecret).update(encoded).digest('hex')
   );
 }
-async function authorized(f = fixture()) {
+async function authorized(
+  f = fixture(),
+  serviceId = 'electricity',
+  code = '123456',
+) {
   const review = await f.service.review(request(), {
-    serviceId: 'electricity',
+    serviceId,
   });
   const result = await f.service.confirm(request(), {
     reviewToken: review.reviewToken,
-    code: '123456',
+    code,
   });
   return { f, review, result };
 }
@@ -285,6 +299,8 @@ void test('fixed synthetic services reject amounts, user references and unsuppor
       ['electricity', '200000'],
       ['water', '100000'],
       ['phone', '50000'],
+      ['movie_matinee_v1', '90000'],
+      ['movie_evening_v1', '120000'],
     ],
   );
   assert.equal(paymentInput({ serviceId: 'phone' }).amountMinor, '50000');
@@ -589,4 +605,236 @@ void test('return endpoint is static and cannot record payment; unavailable call
     nodeEnv: 'test',
   } as Environment);
   assert.equal((await disabled.ipn('fake')).RspCode, '99');
+});
+
+void test('movie preview works without setup and performs no authorization, provider or database work', async () => {
+  const f = fixture();
+  f.restrict();
+  f.denyReference();
+  const disabled = new PaymentsService(f.db, f.security, {
+    nodeEnv: 'test',
+  } as Environment);
+  for (const serviceId of ['movie_matinee_v1', 'movie_evening_v1']) {
+    const preview = disabled.preview(request(), { serviceId });
+    assert.equal(preview.service.id, serviceId);
+    assert.equal(preview.amountMinor, preview.service.amountMinor);
+    assert.equal(preview.currency, 'VND');
+    assert.equal(preview.previewOnly, true);
+    assert.equal(preview.checkoutAvailable, false);
+    assert.equal(preview.fulfillment, 'not_available');
+    assert.match(
+      preview.service.description,
+      /One ticket.*fictional.*No real showing, seat reservation or admission/,
+    );
+    for (const key of [
+      'reviewToken',
+      'requestId',
+      'order',
+      'state',
+      'checkoutUrl',
+      'accessToken',
+    ])
+      assert.equal(key in preview, false);
+  }
+  assert.equal(
+    f.service.preview(request(), { serviceId: 'movie_matinee_v1' })
+      .checkoutAvailable,
+    true,
+  );
+  assert.deepEqual(f.queries, []);
+  assert.deepEqual(f.writes, []);
+  assert.equal(f.providerCalls, 0);
+  await rejectStatus(
+    disabled.review(request(), { serviceId: 'movie_matinee_v1' }),
+    409,
+  );
+  assert.equal(f.payment, undefined);
+});
+
+void test('movie preview rejects officers, unsupported choices and client-controlled offer details', async () => {
+  const f = fixture();
+  const officer = {
+    ...request(),
+    user: { ...request().user, role: 'officer' },
+  } as AuthenticatedRequest;
+  assert.throws(
+    () => f.service.preview(officer, { serviceId: 'movie_matinee_v1' }),
+    (e) => (e as { getStatus(): number }).getStatus() === 403,
+  );
+  for (const body of [
+    null,
+    {},
+    { serviceId: 'real-cinema' },
+    { serviceId: 'movie_matinee_v1', quantity: 2 },
+    { serviceId: 'movie_matinee_v1', amountMinor: '1' },
+    { serviceId: 'movie_matinee_v1', seat: 'A1' },
+    { serviceId: 'movie_matinee_v1', serviceSnapshot: {} },
+  ])
+    assert.throws(() => f.service.preview(request(), body));
+  const preview = f.service.preview(request(), {
+    serviceId: 'movie_matinee_v1',
+  });
+  await rejectStatus(
+    f.service.confirm(request(), { ...preview, code: '123456' }),
+    400,
+  );
+  assert.deepEqual(f.queries, []);
+  assert.equal(f.providerCalls, 0);
+});
+
+void test('signed movie offer binds all display details and refuses obsolete v1 reviews before verification', async () => {
+  const f = fixture();
+  const review = await f.service.review(request(), {
+    serviceId: 'movie_matinee_v1',
+  });
+  const [encoded] = review.reviewToken.split('.');
+  const source = JSON.parse(
+    Buffer.from(encoded!, 'base64url').toString(),
+  ) as Data;
+  assert.deepEqual(source.serviceSnapshot, review.service);
+  assert.equal(source.policy, 'vnpay-synthetic-services-v2');
+  const sign = (data: Data) => {
+    const text = Buffer.from(JSON.stringify(data)).toString('base64url');
+    return `${text}.${createHmac('sha256', 'synthetic-review-secret')
+      .update('nene-vnpay-review-v1\0' + text)
+      .digest('base64url')}`;
+  };
+  for (const changed of [
+    {
+      ...source,
+      serviceSnapshot: { ...review.service, name: 'Changed movie' },
+    },
+    {
+      ...source,
+      serviceSnapshot: { ...review.service, description: 'Different session' },
+    },
+    { ...source, serviceSnapshot: { ...review.service, quantity: 2 } },
+    { ...source, serviceSnapshot: { ...review.service, amountMinor: '1' } },
+    { ...source, policy: 'vnpay-synthetic-utilities-v1' },
+  ])
+    await rejectStatus(
+      f.service.confirm(request(), {
+        reviewToken: sign(changed),
+        code: '123456',
+      }),
+      409,
+    );
+  assert.equal(f.verifyCalls, 0);
+  assert.equal(f.payment, undefined);
+});
+
+void test('movie offer change during verification cannot create checkout', async () => {
+  const f = fixture();
+  const review = await f.service.review(request(), {
+    serviceId: 'movie_evening_v1',
+  });
+  const offer = sandboxServices.find((s) => s.id === 'movie_evening_v1')!;
+  const original = offer.name;
+  f.afterVerify(() => {
+    (offer as unknown as Data).name = 'Changed session';
+  });
+  try {
+    await rejectStatus(
+      f.service.confirm(request(), {
+        reviewToken: review.reviewToken,
+        code: '123456',
+      }),
+      503,
+    );
+    assert.equal(f.payment, undefined);
+    assert.equal(f.verifyCalls, 1);
+  } finally {
+    (offer as unknown as Data).name = original;
+  }
+});
+
+void test('movie orders persist reviewed snapshots and recover independently of catalog display changes', async () => {
+  const { f, review, result } = await authorized(fixture(), 'movie_matinee_v1');
+  assert.equal(result.state, 'awaiting_payment');
+  assert.deepEqual(f.payment?.service_snapshot, review.service);
+  const offer = sandboxServices.find((s) => s.id === 'movie_matinee_v1')!;
+  const original = offer.description;
+  (offer as unknown as Data).description = 'Changed catalog description';
+  try {
+    // JSONB can return keys in any order; property order is not offer identity.
+    f.payment!.service_snapshot = Object.fromEntries(
+      Object.entries(review.service).reverse(),
+    );
+    assert.deepEqual(
+      (await f.service.status(request(), review.requestId)).order?.service,
+      review.service,
+    );
+    assert.deepEqual(
+      (await f.service.recent(request())).orders[0]?.service,
+      review.service,
+    );
+    assert.equal((await f.service.ipn(ipn(f.payment!))).RspCode, '00');
+    const paid = await f.service.status(request(), review.requestId);
+    assert.equal(paid.state, 'paid');
+    assert.equal(paid.order?.fulfillment, 'not_available');
+    assert.deepEqual(paid.order?.service, review.service);
+  } finally {
+    (offer as unknown as Data).description = original;
+  }
+  for (const snapshot of [
+    null,
+    {},
+    { ...review.service, amountMinor: '1' },
+    { ...review.service, currency: 'USD' },
+  ]) {
+    f.payment!.service_snapshot = snapshot;
+    await rejectStatus(f.service.status(request(), review.requestId), 503);
+  }
+});
+
+void test('paid or failed movie orders may repeat with a new proof while pending orders and replay cannot charge again', async () => {
+  for (const failed of [false, true]) {
+    const { f, review } = await authorized(fixture(), 'movie_evening_v1');
+    await rejectStatus(
+      f.service.review(request(), { serviceId: 'movie_evening_v1' }),
+      409,
+    );
+    assert.equal(
+      (
+        await f.service.ipn(
+          ipn(
+            f.payment!,
+            failed
+              ? { vnp_ResponseCode: '24', vnp_TransactionStatus: '02' }
+              : {},
+          ),
+        )
+      ).RspCode,
+      '00',
+    );
+    const replay = await f.service.confirm(request(), {
+      reviewToken: review.reviewToken,
+      code: '234567',
+    });
+    assert.equal(replay.replay, true);
+    assert.equal(f.verifyCalls, 1);
+    const next = await f.service.review(request(), {
+      serviceId: 'movie_evening_v1',
+    });
+    assert.notEqual(next.requestId, review.requestId);
+    const second = await f.service.confirm(request(), {
+      reviewToken: next.reviewToken,
+      code: '234567',
+    });
+    assert.equal(second.state, 'awaiting_payment');
+    assert.equal(second.order?.fulfillment, 'not_available');
+    assert.equal(f.verifyCalls, 2);
+    assert.equal(
+      f.writes.filter((sql) =>
+        sql.startsWith('insert into bank.sandbox_payments'),
+      ).length,
+      2,
+    );
+    assert.ok(
+      f.writes.every(
+        (sql) =>
+          !sql.includes('banking_accounts') && !sql.includes('account_history'),
+      ),
+    );
+  }
 });

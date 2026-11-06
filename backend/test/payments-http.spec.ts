@@ -52,6 +52,7 @@ void describe('payment HTTP session and callback boundary (Auth/database fakes)'
   let app: INestApplication;
   let server: Server;
   let role = 'customer';
+  let profileStatus = 'active';
   let profileReads = 0;
   let authReads = 0;
   let transactionAttempts = 0;
@@ -85,7 +86,7 @@ void describe('payment HTTP session and callback boundary (Auth/database fakes)'
               id: customerId,
               display_name: 'Synthetic customer',
               role,
-              status: 'active',
+              status: profileStatus,
               phone: null,
               address: null,
             },
@@ -104,6 +105,7 @@ void describe('payment HTTP session and callback boundary (Auth/database fakes)'
   });
   beforeEach(() => {
     role = 'customer';
+    profileStatus = 'active';
     profileReads = 0;
     authReads = 0;
     transactionAttempts = 0;
@@ -111,10 +113,10 @@ void describe('payment HTTP session and callback boundary (Auth/database fakes)'
   });
   after(async () => app?.close());
 
-  void it('requires customer sessions for configuration, history, status, review and confirmation', async () => {
+  void it('requires customer sessions for configuration, history, status, preview, review and confirmation', async () => {
     for (const path of ['configuration', '', paymentId])
       await request(server).get(`/api/v1/me/payments/${path}`).expect(401);
-    for (const path of ['review', 'confirm'])
+    for (const path of ['preview', 'review', 'confirm'])
       await request(server)
         .post(`/api/v1/me/payments/${path}`)
         .send({ serviceId: 'electricity' })
@@ -129,13 +131,13 @@ void describe('payment HTTP session and callback boundary (Auth/database fakes)'
         .get(`/api/v1/me/payments/${path}`)
         .set('Authorization', `Bearer ${token}`)
         .expect(403);
-    for (const path of ['review', 'confirm'])
+    for (const path of ['preview', 'review', 'confirm'])
       await request(server)
         .post(`/api/v1/me/payments/${path}`)
         .set('Authorization', `Bearer ${token}`)
         .send({ serviceId: 'electricity' })
         .expect(403);
-    assert.equal(profileReads, 5);
+    assert.equal(profileReads, 6);
     assert.equal(transactionAttempts, 0);
   });
 
@@ -154,7 +156,7 @@ void describe('payment HTTP session and callback boundary (Auth/database fakes)'
     assert.equal(body.fulfillment, 'not_available');
     assert.deepEqual(
       body.services.map((service) => service.id),
-      ['electricity', 'water', 'phone'],
+      ['electricity', 'water', 'phone', 'movie_matinee_v1', 'movie_evening_v1'],
     );
     assert.equal(profileReads, 1);
     assert.equal(transactionAttempts, 0);
@@ -179,6 +181,41 @@ void describe('payment HTTP session and callback boundary (Auth/database fakes)'
     assert.doesNotMatch(attacker.text, /<script>|DEMO123/);
     assert.equal(authReads, 0);
     assert.equal(profileReads, 0);
+    assert.equal(transactionAttempts, 0);
+  });
+
+  void it('offers a no-store movie preview while disabled, without payment or MFA work', async () => {
+    const response = await request(server)
+      .post('/api/v1/me/payments/preview')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ serviceId: 'movie_matinee_v1' })
+      .expect(201)
+      .expect('Cache-Control', 'no-store');
+    const body = response.body as Record<string, unknown>;
+    assert.equal(body.previewOnly, true);
+    assert.equal(body.checkoutAvailable, false);
+    assert.equal(body.fulfillment, 'not_available');
+    assert.equal(body.amountMinor, '90000');
+    assert.equal('requestId' in body, false);
+    assert.equal('reviewToken' in body, false);
+    assert.equal(profileReads, 1);
+    assert.equal(authReads, 1);
+    assert.equal(transactionAttempts, 0);
+    await request(server)
+      .post('/api/v1/me/payments/preview')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ serviceId: 'movie_matinee_v1', seat: 'A1' })
+      .expect(400);
+    assert.equal(transactionAttempts, 0);
+  });
+
+  void it('an inactive customer cannot view purchase previews', async () => {
+    profileStatus = 'inactive';
+    await request(server)
+      .post('/api/v1/me/payments/preview')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ serviceId: 'movie_evening_v1' })
+      .expect(403);
     assert.equal(transactionAttempts, 0);
   });
 

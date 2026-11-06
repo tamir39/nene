@@ -67,7 +67,11 @@ Future<void> tap(WidgetTester tester, String label) async {
 }
 
 void main() {
-  for (final activity in [AssistantActivity.bills, AssistantActivity.phone]) {
+  for (final activity in [
+    AssistantActivity.bills,
+    AssistantActivity.phone,
+    AssistantActivity.movieTickets,
+  ]) {
     testWidgets(
       '${activity.name} action opens only the labelled catalog without checkout',
       (tester) async {
@@ -112,7 +116,11 @@ void main() {
             assistant: api(
               (_) async => reply(
                 actions: [
-                  {'type': activity.name},
+                  {
+                    'type': activity == AssistantActivity.movieTickets
+                        ? 'movie_tickets'
+                        : activity.name,
+                  },
                 ],
               ),
             ),
@@ -132,7 +140,15 @@ void main() {
           tester
               .widget<PaymentsScreen>(find.byType(PaymentsScreen))
               .initialService,
-          activity == AssistantActivity.phone ? 'phone' : 'electricity',
+          switch (activity) {
+            AssistantActivity.phone => 'phone',
+            AssistantActivity.bills => 'electricity',
+            _ => null,
+          },
+        );
+        expect(
+          tester.widget<PaymentsScreen>(find.byType(PaymentsScreen)).movies,
+          activity == AssistantActivity.movieTickets,
         );
         await tester.tap(find.byTooltip('Back'));
         await tester.pumpAndSettle();

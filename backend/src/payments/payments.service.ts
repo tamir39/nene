@@ -47,10 +47,33 @@ export const sandboxServices = [
     description:
       'Fictional phone account. No real phone account will be credited.',
   },
+  {
+    id: 'movie_matinee_v1',
+    name: 'Demo movie ticket · matinee',
+    amountMinor: '90000',
+    currency: 'VND',
+    description:
+      'One ticket for A Pocket of Sunshine at fictional Nene Cinema, demo session A. No real showing, seat reservation or admission is provided.',
+  },
+  {
+    id: 'movie_evening_v1',
+    name: 'Demo movie ticket · evening',
+    amountMinor: '120000',
+    currency: 'VND',
+    description:
+      'One ticket for The Little Comet at fictional Nene Cinema, demo session B. No real showing, seat reservation or admission is provided.',
+  },
 ] as const;
 type Offer = (typeof sandboxServices)[number];
-const policy = 'vnpay-synthetic-utilities-v1';
+const policy = 'vnpay-synthetic-services-v2';
 const purpose = 'vnpay-checkout';
+const offerKeys = [
+  'id',
+  'name',
+  'description',
+  'amountMinor',
+  'currency',
+] as const;
 type Reference = {
   id: string;
   version: number;
@@ -66,6 +89,7 @@ type Review = {
   revision: number;
   policy: string;
   serviceId: Offer['id'];
+  serviceSnapshot: Offer;
   amountMinor: string;
   expires: number;
   reference: Reference;
@@ -84,6 +108,7 @@ type Payment = {
   id: string;
   customer_id: string;
   service_id: Offer['id'];
+  service_snapshot: unknown;
   amount_minor: string;
   currency: 'VND';
   provider_reference: string;
@@ -101,6 +126,16 @@ export function paymentInput(body: unknown): Offer {
   const offer = sandboxServices.find((s) => s.id === data.serviceId);
   if (!offer) throw new BadRequestException('Choose a supported demo service.');
   return offer;
+}
+
+function sameOffer(snapshot: unknown, offer: Offer): boolean {
+  if (!snapshot || typeof snapshot !== 'object' || Array.isArray(snapshot))
+    return false;
+  const data = snapshot as Record<string, unknown>;
+  return (
+    Object.keys(data).length === offerKeys.length &&
+    offerKeys.every((key) => data[key] === offer[key])
+  );
 }
 
 @Injectable()
@@ -130,6 +165,20 @@ export class PaymentsService {
       services: sandboxServices,
       highValueThresholdMinor: '5000000',
       fulfillment: 'not_available',
+    };
+  }
+  // Viewing a fixed offer is not an authorization or payment. SessionGuard
+  // supplies the active profile; no extra database or MFA calls are needed.
+  preview(req: AuthenticatedRequest, body: unknown) {
+    this.security.identity(req);
+    const service = paymentInput(body);
+    return {
+      service: { ...service },
+      amountMinor: service.amountMinor,
+      currency: 'VND',
+      checkoutAvailable: Boolean(this.config()),
+      fulfillment: 'not_available',
+      previewOnly: true,
     };
   }
   private async key() {
@@ -254,6 +303,7 @@ export class PaymentsService {
         revision: b.revision,
         policy,
         serviceId: offer.id,
+        serviceSnapshot: { ...offer },
         amountMinor: offer.amountMinor,
         expires: rows[0]!.expires,
         reference,
@@ -267,7 +317,7 @@ export class PaymentsService {
       reviewToken: encoded + '.' + this.mac(key, encoded),
       requestId: review.id,
       revision: review.revision,
-      service: offer,
+      service: { ...review.serviceSnapshot },
       amountMinor: offer.amountMinor,
       currency: 'VND',
       expiresAt: new Date(review.expires),
@@ -305,6 +355,7 @@ export class PaymentsService {
     const offer = paymentInput({ serviceId: review.serviceId });
     if (
       review.policy !== policy ||
+      !sameOffer(review.serviceSnapshot, offer) ||
       review.amountMinor !== offer.amountMinor ||
       BigInt(review.amountMinor) >= 5000000n ||
       !Number.isFinite(review.expires) ||
@@ -316,7 +367,27 @@ export class PaymentsService {
     return { identity, review, digest: this.mac(key, raw) };
   }
   private order(row: Payment) {
-    const service = sandboxServices.find((s) => s.id === row.service_id)!;
+    const snapshot = row.service_snapshot;
+    if (!snapshot || typeof snapshot !== 'object' || Array.isArray(snapshot))
+      throw new ServiceUnavailableException('Payment details are unavailable.');
+    const data = snapshot as Record<string, unknown>;
+    if (
+      Object.keys(data).length !== offerKeys.length ||
+      !offerKeys.every((key) => typeof data[key] === 'string') ||
+      data.id !== row.service_id ||
+      data.amountMinor !== row.amount_minor ||
+      data.currency !== row.currency ||
+      row.currency !== 'VND' ||
+      !/^[1-9]\d{0,6}$/.test(String(data.amountMinor)) ||
+      BigInt(String(data.amountMinor)) >= 5000000n ||
+      String(data.name).length < 1 ||
+      String(data.name).length > 120 ||
+      String(data.description).length < 1 ||
+      String(data.description).length > 600
+    )
+      throw new ServiceUnavailableException('Payment details are unavailable.');
+    // Receipts retain the exact reviewed details even after the catalog changes.
+    const service = { ...snapshot } as Offer;
     return {
       id: row.id,
       service,
@@ -456,7 +527,15 @@ export class PaymentsService {
     }
     let pair: Record<string, unknown>;
     try {
+      if (
+        !sameOffer(r.serviceSnapshot, paymentInput({ serviceId: r.serviceId }))
+      )
+        throw new ConflictException('Offer changed. Review again.');
       await this.activeProvider(identity.token, req.user.id, r.factor);
+      if (
+        !sameOffer(r.serviceSnapshot, paymentInput({ serviceId: r.serviceId }))
+      )
+        throw new ConflictException('Offer changed. Review again.');
       const challenge = await this.security.provider(
         `/factors/${r.factor}/challenge`,
         identity.token,
@@ -496,6 +575,13 @@ export class PaymentsService {
       )
         throw new Error();
       await this.db.transaction(async (client) => {
+        if (
+          !sameOffer(
+            r.serviceSnapshot,
+            paymentInput({ serviceId: r.serviceId }),
+          )
+        )
+          throw new ConflictException('Offer changed. Review again.');
         await this.binding(client, req.user.id, r);
         await this.available(client, req.user.id, r.serviceId);
         await this.eligibility(client, req.user.id, r.reference);
@@ -504,8 +590,16 @@ export class PaymentsService {
           [r.id, req.user.id, digest, identity.session],
         );
         if (!valid.rows.length) throw new ConflictException();
+        // Bind the same details after any security/reference lock waits, too.
+        if (
+          !sameOffer(
+            r.serviceSnapshot,
+            paymentInput({ serviceId: r.serviceId }),
+          )
+        )
+          throw new ConflictException('Offer changed. Review again.');
         const { rows } = await client.query<Payment>(
-          "insert into bank.sandbox_payments(id,customer_id,service_id,amount_minor,currency,provider_reference,terminal_code,order_info,ip_address,created_at,expires_at) select $1,$2,$3,$4,'VND',$5,$6,$7,$8,clock_timestamp(),clock_timestamp()+interval '15 minutes' where exists(select 1 from bank.identity_cases i join bank.identity_evidence e on e.id=i.evidence_id where i.id=$9 and i.expires_at>clock_timestamp() and e.expires_at>clock_timestamp()) and exists(select 1 from bank.sandbox_payment_authorizations where id=$1 and state='checking' and expires_at>clock_timestamp() and lease_until>clock_timestamp()) returning *,amount_minor::text",
+          "insert into bank.sandbox_payments(id,customer_id,service_id,amount_minor,currency,provider_reference,terminal_code,order_info,ip_address,created_at,expires_at,service_snapshot) select $1,$2,$3,$4,'VND',$5,$6,$7,$8,clock_timestamp(),clock_timestamp()+interval '15 minutes',$10::jsonb where exists(select 1 from bank.identity_cases i join bank.identity_evidence e on e.id=i.evidence_id where i.id=$9 and i.expires_at>clock_timestamp() and e.expires_at>clock_timestamp()) and exists(select 1 from bank.sandbox_payment_authorizations where id=$1 and state='checking' and expires_at>clock_timestamp() and lease_until>clock_timestamp()) returning *,amount_minor::text",
           [
             r.id,
             req.user.id,
@@ -513,9 +607,10 @@ export class PaymentsService {
             r.amountMinor,
             'N' + r.id.replaceAll('-', ''),
             config.terminalCode,
-            'Nene sandbox ' + r.serviceId,
+            'Nene sandbox ' + r.serviceId.replaceAll('_', '-'),
             r.ipAddress,
             r.reference.id,
+            JSON.stringify(r.serviceSnapshot),
           ],
         );
         if (!rows.length)
