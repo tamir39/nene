@@ -1,5 +1,7 @@
 # Account transaction history
 
+Update, 7 November 2026: [local other-bank transfers](LOCAL_INTERBANK.md) add kind `interbank_transfer`, displayed as **Other-bank transfer (demo)**. Its operation reference identifies the immutable local simulation receipt; only the source account receives a debit entry because the fictional external recipient is not a Nene account. Database/Auth runtime validation of this extension remains pending.
+
 Implemented 3 November 2026 for PDF page 2, Account management, BR-08: customers can view their accounts' transaction history. Month selection also prepares the month-specific history destination required by BR-14; no chatbot is implemented by this change. The later [local transfer slice](LOCAL_TRANSFERS.md) adds TOTP-authorized synthetic transfer entries; [local cash operations](LOCAL_CASH.md) now post deposit/withdrawal entries; external payments remain unfinished. AWS stays undecided.
 
 ## Customer flow

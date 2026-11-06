@@ -22,32 +22,38 @@ const policy = 'same-bank-confirmation-only-v1';
 const transferPolicy = 'local-vnd-under-5000000-v1';
 export type CashOperation = 'deposit' | 'withdrawal';
 // Preserve the preview/transfer callers while sharing one proof lifecycle.
-type Operation = boolean | CashOperation;
+type Operation = boolean | CashOperation | 'interbank';
 export function cashOperation(raw: string): CashOperation {
   if (raw !== 'deposit' && raw !== 'withdrawal')
     throw new BadRequestException('Unsupported cash operation.');
   return raw;
 }
 const isCash = (operation: Operation): operation is CashOperation =>
-  typeof operation === 'string';
+  operation === 'deposit' || operation === 'withdrawal';
 const purpose = (operation: Operation) =>
-  isCash(operation)
-    ? 'local_' + operation
-    : operation
-      ? 'local_transfer'
-      : 'preview';
+  operation === 'interbank'
+    ? 'local_interbank'
+    : isCash(operation)
+      ? 'local_' + operation
+      : operation
+        ? 'local_transfer'
+        : 'preview';
 const reviewPolicy = (operation: Operation) =>
-  isCash(operation)
-    ? 'local-cash-' + operation + '-v1'
-    : operation
-      ? transferPolicy
-      : policy;
+  operation === 'interbank'
+    ? 'local-interbank-v1'
+    : isCash(operation)
+      ? 'local-cash-' + operation + '-v1'
+      : operation
+        ? transferPolicy
+        : policy;
 const handoffPurpose = (operation: Operation) =>
-  isCash(operation)
-    ? 'cash-' + operation
-    : operation
-      ? 'same-bank-transfer'
-      : 'transaction-confirmation';
+  operation === 'interbank'
+    ? 'interbank-transfer'
+    : isCash(operation)
+      ? 'cash-' + operation
+      : operation
+        ? 'same-bank-transfer'
+        : 'transaction-confirmation';
 type Reference = {
   id: string;
   version: number;
@@ -65,6 +71,9 @@ type Review = {
   sourceNumber: string;
   destination: string;
   destinationNumber: string;
+  destinationBankCode?: string;
+  destinationBankName?: string;
+  destinationRecipientName?: string;
   amountMinor: string;
   currency: 'VND';
   feeMinor: '0';
@@ -80,6 +89,19 @@ type Account = {
   status: string;
   profile_status: string;
   balance: string;
+};
+type Destination = {
+  id: string;
+  number: string;
+  bankCode?: string;
+  bankName?: string;
+  recipientName?: string;
+};
+type ExternalRecipient = {
+  code: string;
+  name: string;
+  accountNumber: string;
+  recipientName: string;
 };
 type Binding = { factor_id: string; revision: number; state: string };
 type Confirmation = {
@@ -126,6 +148,27 @@ export function transferInput(body: unknown) {
     amountMinor: amountInput(data.amountMinor),
   };
 }
+export function interbankInput(body: unknown) {
+  const data = exact(body, [
+    'sourceAccountId',
+    'destinationBankCode',
+    'destinationAccountNumber',
+    'amountMinor',
+  ]);
+  if (
+    data.destinationBankCode !== 'DEMO_A' &&
+    data.destinationBankCode !== 'DEMO_B'
+  )
+    throw new BadRequestException('Choose a fictional demo bank.');
+  return {
+    ...transferInput({
+      sourceAccountId: data.sourceAccountId,
+      destinationAccountNumber: data.destinationAccountNumber,
+      amountMinor: data.amountMinor,
+    }),
+    bankCode: data.destinationBankCode,
+  };
+}
 function amountInput(raw: unknown) {
   if (
     typeof raw !== 'string' ||
@@ -153,22 +196,50 @@ export class ConfirmationService {
   async configuration(req: AuthenticatedRequest, operation: Operation = true) {
     this.security.identity(req);
     const enabled =
-      (isCash(operation)
-        ? this.env?.localCashEnabled
-        : this.env?.localTransfersEnabled) === true &&
+      (operation === 'interbank'
+        ? this.env?.localInterbankEnabled
+        : isCash(operation)
+          ? this.env?.localCashEnabled
+          : this.env?.localTransfersEnabled) === true &&
       this.env?.nodeEnv !== 'production';
     const rows = enabled
       ? await this.db.query<{ enabled: boolean }>(
-          isCash(operation)
-            ? 'select enabled from bank.local_cash_settings where id'
-            : 'select enabled from bank.local_transfer_settings where id',
+          operation === 'interbank'
+            ? 'select enabled from bank.local_interbank_settings where id'
+            : isCash(operation)
+              ? 'select enabled from bank.local_cash_settings where id'
+              : 'select enabled from bank.local_transfer_settings where id',
           [],
         )
       : [];
+    const recipients =
+      operation === 'interbank'
+        ? await this.db.query<ExternalRecipient>(
+            'select b.code,b.name,r.account_number as "accountNumber",r.recipient_name as "recipientName" from bank.demo_external_banks b join bank.demo_external_recipients r on r.bank_code=b.code where b.active and r.active order by b.code,r.account_number',
+            [],
+          )
+        : [];
+    const banks: {
+      code: string;
+      name: string;
+      recipients: { accountNumber: string; name: string }[];
+    }[] = [];
+    for (const recipient of recipients) {
+      let bank = banks.find((entry) => entry.code === recipient.code);
+      if (!bank) {
+        bank = { code: recipient.code, name: recipient.name, recipients: [] };
+        banks.push(bank);
+      }
+      bank.recipients.push({
+        accountNumber: recipient.accountNumber,
+        name: recipient.recipientName,
+      });
+    }
     return {
       enabled: enabled && rows[0]?.enabled === true,
       highValueThresholdMinor: '5000000',
       currency: 'VND',
+      ...(operation === 'interbank' ? { simulated: true, banks } : {}),
       ...(isCash(operation)
         ? {
             cashBalanceMinor:
@@ -264,7 +335,25 @@ export class ConfirmationService {
     source: string,
     destinationNumber: string,
     operation: Operation = false,
-  ) {
+    bankCode?: string,
+  ): Promise<{ from: Account; to: Destination }> {
+    if (operation === 'interbank') {
+      const { rows } = await client.query<Account>(
+        "select a.id,a.owner_id,a.account_number::text number,a.type,a.currency,a.status,p.status profile_status,a.balance_minor::text balance from bank.banking_accounts a join bank.user_profiles p on p.id=a.owner_id where a.id=$1 and a.owner_id=$2 and a.is_demo and a.type='checking' and a.currency='VND' and a.status='active' and p.status='active' and p.role='customer' and p.email like '%@example.invalid'",
+        [source, customer],
+      );
+      const from = rows[0];
+      const recipient = await client.query<Destination>(
+        'select r.id,r.account_number as number,b.code as "bankCode",b.name as "bankName",r.recipient_name as "recipientName" from bank.demo_external_recipients r join bank.demo_external_banks b on b.code=r.bank_code where b.code=$1 and r.account_number=$2 and b.active and r.active',
+        [bankCode, destinationNumber],
+      );
+      const to = recipient.rows[0];
+      if (!from || !to)
+        throw new BadRequestException(
+          'Choose your prepared active VND checking account and an available fictional recipient.',
+        );
+      return { from, to };
+    }
     if (isCash(operation)) {
       const { rows } = await client.query<Account>(
         "select a.id,a.owner_id,a.account_number::text number,a.type,a.currency,a.status,p.status profile_status,a.balance_minor::text balance from bank.banking_accounts a join bank.user_profiles p on p.id=a.owner_id where a.id=$1 and a.owner_id=$2 and a.is_demo and a.type in ('checking','saving') and a.currency='VND' and a.status='active' and p.status='active' and p.role='customer' and p.email like '%@example.invalid'",
@@ -301,6 +390,21 @@ export class ConfirmationService {
         'Choose two different active VND checking accounts, with your own account as source.',
       );
     return { from, to };
+  }
+  private matchDestination(
+    to: Destination,
+    review: Review,
+    operation: Operation,
+  ) {
+    if (
+      to.id !== review.destination ||
+      to.number !== review.destinationNumber ||
+      (operation === 'interbank' &&
+        (to.bankCode !== review.destinationBankCode ||
+          to.bankName !== review.destinationBankName ||
+          to.recipientName !== review.destinationRecipientName))
+    )
+      throw new ConflictException('Recipient details changed. Review again.');
   }
   private async binding(client: PoolClient, customer: string, review?: Review) {
     const result = await client.query<Binding>(
@@ -356,7 +460,12 @@ export class ConfirmationService {
         'Check the pending transfer before starting another.',
       );
     const identity = this.security.identity(req),
-      input = isCash(transfer) ? cashInput(body) : transferInput(body),
+      input =
+        transfer === 'interbank'
+          ? interbankInput(body)
+          : isCash(transfer)
+            ? cashInput(body)
+            : transferInput(body),
       key = await this.key();
     const result = await this.db.transaction(async (client) => {
       const binding = await this.binding(client, req.user.id);
@@ -366,6 +475,9 @@ export class ConfirmationService {
         input.source,
         input.destinationNumber,
         transfer,
+        'bankCode' in input && typeof input.bankCode === 'string'
+          ? input.bankCode
+          : undefined,
       );
       const time = await client.query<{ expires: number }>(
         'select (extract(epoch from now())*1000+600000)::float8 expires',
@@ -416,6 +528,13 @@ export class ConfirmationService {
         sourceNumber: from.number,
         destination: to.id,
         destinationNumber: to.number,
+        ...(transfer === 'interbank'
+          ? {
+              destinationBankCode: to.bankCode,
+              destinationBankName: to.bankName,
+              destinationRecipientName: to.recipientName,
+            }
+          : {}),
         amountMinor: input.amountMinor,
         currency: 'VND',
         feeMinor: '0',
@@ -446,6 +565,14 @@ export class ConfirmationService {
       sufficientFunds: result.sufficientFunds,
       executionAvailable: Boolean(transfer),
       identityCheck: 'not_implemented',
+      ...(transfer === 'interbank'
+        ? {
+            simulated: true,
+            destinationBankCode: result.review.destinationBankCode,
+            destinationBankName: result.review.destinationBankName,
+            destinationRecipientName: result.review.destinationRecipientName,
+          }
+        : {}),
       ...(isCash(transfer)
         ? { operation: transfer, accountNumber: result.review.sourceNumber }
         : {}),
@@ -466,9 +593,11 @@ export class ConfirmationService {
     if (row.purpose !== purpose(transfer)) throw new NotFoundException();
     if (row.state === 'posted') {
       const [receipt] = await this.db.query(
-        isCash(transfer)
-          ? 'select id,kind as operation,account_id as "accountId",amount_minor::text as "amountMinor",currency,posted_at as "postedAt" from bank.local_cash_operations where id=$1 and customer_id=$2'
-          : 'select id,amount_minor::text as "amountMinor",currency,posted_at as "postedAt" from bank.local_transfers where id=$1 and customer_id=$2',
+        transfer === 'interbank'
+          ? 'select id,source_account_id as "sourceAccountId",destination_bank_code as "destinationBankCode",destination_bank_name as "destinationBankName",destination_account_number as "destinationAccountNumber",destination_recipient_name as "destinationRecipientName",amount_minor::text as "amountMinor",currency,simulated,posted_at as "postedAt" from bank.local_interbank_transfers where id=$1 and customer_id=$2'
+          : isCash(transfer)
+            ? 'select id,kind as operation,account_id as "accountId",amount_minor::text as "amountMinor",currency,posted_at as "postedAt" from bank.local_cash_operations where id=$1 and customer_id=$2'
+            : 'select id,amount_minor::text as "amountMinor",currency,posted_at as "postedAt" from bank.local_transfers where id=$1 and customer_id=$2',
         [id, req.user.id],
       );
       if (!receipt) throw new ServiceUnavailableException();
@@ -478,6 +607,7 @@ export class ConfirmationService {
         sent: true,
         executionAvailable: true,
         receipt,
+        ...(transfer === 'interbank' ? { simulated: true } : {}),
       };
     }
     const [binding] = await this.db.query<Binding>(
@@ -502,7 +632,13 @@ export class ConfirmationService {
       )
         state = 'invalidated';
     }
-    return { requestId: id, state, executionAvailable: false, sent: false };
+    return {
+      requestId: id,
+      state,
+      executionAvailable: false,
+      sent: false,
+      ...(transfer === 'interbank' ? { simulated: true } : {}),
+    };
   }
   async recent(req: AuthenticatedRequest, transfer: Operation = true) {
     this.security.identity(req);
@@ -550,8 +686,9 @@ export class ConfirmationService {
         r.source,
         r.destinationNumber,
         transfer,
+        r.destinationBankCode,
       );
-      if (to.id !== r.destination) throw new ConflictException();
+      this.matchDestination(to, r, transfer);
       if (transfer) {
         if (!r.reference || BigInt(r.amountMinor) >= 5000000n)
           throw new BadRequestException();
@@ -640,8 +777,9 @@ export class ConfirmationService {
           r.source,
           r.destinationNumber,
           transfer,
+          r.destinationBankCode,
         );
-        if (to.id !== r.destination) throw new ConflictException();
+        this.matchDestination(to, r, transfer);
         const updated = await client.query(
           "update bank.transaction_confirmations set state='factor_confirmed',confirmed_until=least(expires_at,clock_timestamp()+interval '2 minutes') where id=$1 and state='checking' and expires_at>clock_timestamp() and lease_until>clock_timestamp() returning id",
           [r.id],
@@ -649,7 +787,28 @@ export class ConfirmationService {
         if (!updated.rows.length) throw new ConflictException();
         if (transfer) {
           const reference = r.reference!;
-          if (isCash(transfer)) {
+          if (transfer === 'interbank') {
+            await client.query(
+              'select bank.post_local_interbank($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)',
+              [
+                r.id,
+                req.user.id,
+                identity.session,
+                digest,
+                r.source,
+                r.destination,
+                r.destinationBankCode,
+                r.destinationBankName,
+                r.destinationNumber,
+                r.destinationRecipientName,
+                r.amountMinor,
+                reference.id,
+                reference.version,
+                reference.revision,
+                reference.evidence_id,
+              ],
+            );
+          } else if (isCash(transfer)) {
             await client.query(
               'select bank.post_local_cash($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)',
               [
@@ -748,6 +907,7 @@ export class ConfirmationService {
       state: 'cancelled',
       sent: false,
       executionAvailable: false,
+      ...(transfer === 'interbank' ? { simulated: true } : {}),
     };
   }
 }

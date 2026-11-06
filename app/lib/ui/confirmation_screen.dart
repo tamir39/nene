@@ -28,6 +28,12 @@ class _ConfirmationScreenState extends State<ConfirmationScreen>
   Timer? _expiry;
   bool _enabled = false;
   List<Map<String, dynamic>> _recent = [];
+  List<Map<String, dynamic>> _banks = [];
+  String? _bankCode, _recipient;
+  bool get _interbank => widget.api.interbank;
+  bool get _hasReviewToken => _review?['reviewToken'] is String;
+  Map<String, dynamic>? get _bank =>
+      _banks.where((bank) => bank['code'] == _bankCode).firstOrNull;
   bool get _send => widget.api.sendMoney;
   bool get _cash => widget.api.cashOperation != null;
   bool get _deposit => widget.api.cashOperation == CashOperation.deposit;
@@ -36,6 +42,8 @@ class _ConfirmationScreenState extends State<ConfirmationScreen>
       _cash ? (_deposit ? 'Deposit' : 'Withdrawal') : 'Transfer';
   String get _confirmLabel => _cash
       ? (_deposit ? 'Confirm demo deposit' : 'Confirm demo withdrawal')
+      : _interbank
+      ? 'Confirm simulated transfer'
       : 'Confirm and send demo funds';
   @override
   void initState() {
@@ -51,6 +59,13 @@ class _ConfirmationScreenState extends State<ConfirmationScreen>
       setState(() {
         _enabled = config['enabled'] == true;
         _cashBalance = config['cashBalanceMinor'] as String?;
+        if (_interbank) {
+          _banks = (config['banks'] as List).cast<Map<String, dynamic>>();
+          if (!_banks.any((bank) => bank['code'] == _bankCode)) {
+            _bankCode = null;
+            _recipient = null;
+          }
+        }
         _recent = (data[_cash ? 'operations' : 'transfers'] as List)
             .cast<Map<String, dynamic>>();
       });
@@ -121,10 +136,15 @@ class _ConfirmationScreenState extends State<ConfirmationScreen>
       );
       return;
     }
-    if ((!_cash && !RegExp(r'^\d{12}$').hasMatch(_destination.text.trim())) ||
+    if ((_interbank && (_bankCode == null || _recipient == null)) ||
+        (!_cash &&
+            !_interbank &&
+            !RegExp(r'^\d{12}$').hasMatch(_destination.text.trim())) ||
         !RegExp(r'^[1-9]\d{0,15}$').hasMatch(_amount.text.trim())) {
       setState(
-        () => _error = _cash
+        () => _error = _interbank
+            ? 'Choose a fictional bank and demo recipient, then enter a positive whole VND amount.'
+            : _cash
             ? 'Enter a positive whole VND amount.'
             : 'Enter a 12-digit Nene account number and a positive whole VND amount.',
       );
@@ -132,8 +152,9 @@ class _ConfirmationScreenState extends State<ConfirmationScreen>
     }
     final data = await widget.api.review(
       widget.account.id,
-      _destination.text.trim(),
+      _interbank ? _recipient! : _destination.text.trim(),
       _amount.text.trim(),
+      destinationBankCode: _bankCode,
     );
     if (!mounted) return;
     setState(() {
@@ -146,7 +167,11 @@ class _ConfirmationScreenState extends State<ConfirmationScreen>
       () {
         if (mounted) {
           setState(() {
-            if (_state == 'posted') return;
+            if (_state == 'posted' ||
+                _state == 'unknown' ||
+                _state == 'checking') {
+              return;
+            }
             _state = 'expired';
             _code.clear();
           });
@@ -170,7 +195,27 @@ class _ConfirmationScreenState extends State<ConfirmationScreen>
   Future<void> _status() => _run(() async {
     final data = await widget.api.status(_review!['requestId'] as String);
     if (data['state'] == 'posted') _expiry?.cancel();
-    if (mounted) setState(() => _state = data['state'] as String);
+    if (mounted) {
+      setState(() {
+        _state = data['state'] as String;
+        if (_interbank && data['receipt'] != null) {
+          _review = {..._review!, ...data['receipt'] as Map<String, dynamic>};
+        }
+      });
+    }
+  });
+  Future<void> _recover(String requestId) => _run(() async {
+    final data = await widget.api.status(requestId);
+    if (!mounted) return;
+    setState(() {
+      _expiry?.cancel();
+      _review = {
+        'requestId': requestId,
+        if (data['receipt'] != null) ...data['receipt'] as Map<String, dynamic>,
+      };
+      _state = data['state'] as String;
+      _code.clear();
+    });
   });
   Future<void> _cancel() => _run(() async {
     final data = await widget.api.cancel(_review!['reviewToken'] as String);
@@ -197,7 +242,9 @@ class _ConfirmationScreenState extends State<ConfirmationScreen>
   Widget build(BuildContext context) => WorkspaceContent(
     children: [
       Text(
-        _cash
+        _interbank
+            ? 'Other-bank demo transfer'
+            : _cash
             ? (_deposit ? 'Deposit demo funds' : 'Withdraw demo funds')
             : _send
             ? 'Transfer demo funds'
@@ -206,7 +253,9 @@ class _ConfirmationScreenState extends State<ConfirmationScreen>
       ),
       const SizedBox(height: 16),
       Text(
-        _cash
+        _interbank
+            ? 'Local simulation with fictional banks and test recipients. No real bank receives a payment. Confirmation changes your source demo balance and records simulated delivery. Amounts of 5,000,000 VND or more are blocked while face comparison remains undecided.'
+            : _cash
             ? 'Local cash simulation only. Deposits move your limited simulated cash into this account; withdrawals move it back. No real cash or external payment is involved. Amounts of 5,000,000 VND or more are blocked.'
             : _send
             ? 'Synthetic local funds only. Sending changes both demo balances and records a transfer. Amounts of 5,000,000 VND or more are blocked until actual face comparison is available.'
@@ -234,10 +283,21 @@ class _ConfirmationScreenState extends State<ConfirmationScreen>
               ListTile(
                 title: Text(
                   item['state'] == 'posted'
-                      ? '${_cash ? (_deposit ? 'Deposited' : 'Withdrawn') : 'Sent'} ${(item['receipt'] as Map)['amountMinor']} VND · demo funds'
+                      ? '${_interbank
+                            ? 'Simulated'
+                            : _cash
+                            ? (_deposit ? 'Deposited' : 'Withdrawn')
+                            : 'Sent'} ${(item['receipt'] as Map)['amountMinor']} VND · demo funds'
                       : '${item['state']} · check before sending again',
                 ),
-                subtitle: Text(item['requestId'] as String),
+                subtitle: Text(
+                  _interbank && item['receipt'] != null
+                      ? '${item['receipt']['destinationBankName']} · ${item['receipt']['destinationRecipientName']}\n${item['receipt']['destinationAccountNumber']}'
+                      : item['requestId'] as String,
+                ),
+                onTap: _interbank && !_busy
+                    ? () => _recover(item['requestId'] as String)
+                    : null,
               ),
           ],
           TextButton(
@@ -252,7 +312,50 @@ class _ConfirmationScreenState extends State<ConfirmationScreen>
             'Simulated cash outside accounts: ${_cashBalance ?? 'not prepared'}${_cashBalance == null ? '' : ' VND'}',
           ),
         Text('${_cash ? 'Account' : 'From'} ${widget.account.accountNumber}'),
-        if (!_cash)
+        if (_interbank) ...[
+          DropdownButtonFormField<String>(
+            initialValue: _bankCode,
+            isExpanded: true,
+            decoration: const InputDecoration(labelText: 'Fictional bank'),
+            items: _banks
+                .map(
+                  (bank) => DropdownMenuItem(
+                    value: bank['code'] as String,
+                    child: Text(bank['name'] as String),
+                  ),
+                )
+                .toList(),
+            onChanged: _busy
+                ? null
+                : (value) => setState(() {
+                    _bankCode = value;
+                    _recipient = null;
+                  }),
+          ),
+          const SizedBox(height: 12),
+          DropdownButtonFormField<String>(
+            key: ValueKey(_bankCode),
+            initialValue: _recipient,
+            isExpanded: true,
+            decoration: const InputDecoration(labelText: 'Demo recipient'),
+            items: ((_bank?['recipients'] as List?) ?? [])
+                .map(
+                  (recipient) => DropdownMenuItem(
+                    value: recipient['accountNumber'] as String,
+                    child: Text(
+                      '${recipient['name']} · ${recipient['accountNumber']}',
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                )
+                .toList(),
+            onChanged: _busy || _bank == null
+                ? null
+                : (value) => setState(() => _recipient = value),
+          ),
+          const SizedBox(height: 12),
+        ],
+        if (!_cash && !_interbank)
           TextField(
             controller: _destination,
             enabled: !_busy,
@@ -277,6 +380,7 @@ class _ConfirmationScreenState extends State<ConfirmationScreen>
           child: const Text('Review confirmation'),
         ),
       ] else ...[
+        if (_interbank) Text('Reference: ${_review!['requestId']}'),
         if (_cash) ...[
           Text(
             _deposit
@@ -288,25 +392,32 @@ class _ConfirmationScreenState extends State<ConfirmationScreen>
                 ? 'To account ${_review!['accountNumber']}'
                 : 'To simulated cash',
           ),
-        ] else ...[
-          Text('From ${_review!['sourceAccountNumber']}'),
+        ] else if (_review!['destinationAccountNumber'] != null) ...[
+          if (_review!['sourceAccountNumber'] != null)
+            Text('From ${_review!['sourceAccountNumber']}'),
+          if (_interbank) ...[
+            Text('Fictional bank: ${_review!['destinationBankName']}'),
+            Text('Demo recipient: ${_review!['destinationRecipientName']}'),
+          ],
           Text('To ${_review!['destinationAccountNumber']}'),
         ],
-        Text(
-          '${_review!['amountMinor']} VND',
-          style: Theme.of(context).textTheme.headlineSmall,
-        ),
-        Text(
-          _send
-              ? 'Demo ${_noun.toLowerCase()} fee: 0 VND.'
-              : 'Preview fee: 0 VND. This is not a transfer quote.',
-        ),
+        if (_review!['amountMinor'] != null)
+          Text(
+            '${_review!['amountMinor']} VND',
+            style: Theme.of(context).textTheme.headlineSmall,
+          ),
+        if (_hasReviewToken)
+          Text(
+            _send
+                ? 'Demo ${_noun.toLowerCase()} fee: 0 VND.'
+                : 'Preview fee: 0 VND. This is not a transfer quote.',
+          ),
         if (_review!['sufficientFunds'] == false)
           const Text(
             'Insufficient funds for this amount. You can test the confirmation check, but this transfer cannot be sent.',
           ),
         const SizedBox(height: 16),
-        if (_state == 'review') ...[
+        if (_state == 'review' && _hasReviewToken) ...[
           const Text(
             'Check the accounts and amount. Enter a fresh code from your registered authenticator. A recovery code cannot confirm this operation.',
           ),
@@ -333,7 +444,9 @@ class _ConfirmationScreenState extends State<ConfirmationScreen>
             liveRegion: true,
             child: Text(switch (_state) {
               'posted' =>
-                _cash
+                _interbank
+                    ? 'Simulated delivery recorded. Your source demo balance and transaction history were updated. No real bank received a payment.'
+                    : _cash
                     ? 'Demo ${_noun.toLowerCase()} completed. Account balance and history were updated. No real cash moved.'
                     : 'Demo transfer sent. Balances and transaction history were updated.',
               'factor_confirmed' =>
@@ -365,12 +478,12 @@ class _ConfirmationScreenState extends State<ConfirmationScreen>
             child: const Text('Check confirmation status'),
           ),
         ],
-        if (_state != 'posted')
+        if (_state != 'posted' && _hasReviewToken)
           TextButton(
             onPressed: _busy ? null : _edit,
             child: const Text('Edit details / new review'),
           ),
-        if (_state == 'posted')
+        if (_state == 'posted' || !_hasReviewToken)
           TextButton(
             onPressed: _busy
                 ? null
@@ -382,12 +495,14 @@ class _ConfirmationScreenState extends State<ConfirmationScreen>
                     await _loadRecent();
                   }),
             child: Text(
-              _cash
+              !_hasReviewToken
+                  ? 'Back to recent transfers'
+                  : _cash
                   ? 'Start another ${_noun.toLowerCase()}'
                   : 'Start another transfer',
             ),
           ),
-        if (_state != 'cancelled' && _state != 'posted')
+        if (_state != 'cancelled' && _state != 'posted' && _hasReviewToken)
           TextButton(
             onPressed: _busy ? null : _cancel,
             child: const Text('Cancel confirmation'),

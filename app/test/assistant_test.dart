@@ -143,6 +143,7 @@ void main() {
   }
   for (final activity in [
     AssistantActivity.transfer,
+    AssistantActivity.interbankTransfer,
     AssistantActivity.deposit,
     AssistantActivity.withdrawal,
   ]) {
@@ -154,7 +155,10 @@ void main() {
         await credentials.signIn('', '');
         addTearDown(credentials.dispose);
         final paths = <String>[];
-        final root = activity == AssistantActivity.transfer
+        final interbank = activity == AssistantActivity.interbankTransfer;
+        final root = interbank
+            ? 'interbank-transfers'
+            : activity == AssistantActivity.transfer
             ? 'transfers'
             : 'cash/${activity.name}';
         final security = SecurityApi(
@@ -169,9 +173,17 @@ void main() {
             return http.Response(
               jsonEncode(
                 req.url.path.endsWith('/configuration')
-                    ? <String, dynamic>{'enabled': false}
+                    ? <String, dynamic>{
+                        'enabled': false,
+                        if (interbank) ...{
+                          'simulated': true,
+                          'currency': 'VND',
+                          'highValueThresholdMinor': '5000000',
+                          'banks': <Map<String, dynamic>>[],
+                        },
+                      }
                     : <String, dynamic>{
-                        activity == AssistantActivity.transfer
+                        activity == AssistantActivity.transfer || interbank
                                 ? 'transfers'
                                 : 'operations':
                             <Map<String, dynamic>>[],
@@ -189,7 +201,7 @@ void main() {
             assistant: api(
               (_) async => reply(
                 actions: [
-                  {'type': activity.name},
+                  {'type': interbank ? 'interbank_transfer' : activity.name},
                 ],
               ),
             ),
@@ -209,9 +221,10 @@ void main() {
           find.byType(ConfirmationScreen),
         );
         expect(screen.api.sendMoney, isTrue);
+        expect(screen.api.interbank, interbank);
         expect(
           screen.api.cashOperation,
-          activity == AssistantActivity.transfer
+          activity == AssistantActivity.transfer || interbank
               ? null
               : activity == AssistantActivity.deposit
               ? CashOperation.deposit

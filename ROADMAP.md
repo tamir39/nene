@@ -4,7 +4,7 @@ This is the ordered checklist for completing Nene with Flutter, NestJS, and Supa
 
 The internal submission target remains **29 November 2026**, ahead of the portal deadline at the start of **1 December**.
 
-Scope decision, **2026-11-06**: face comparison itself and provider selection are deferred. Keep eKYC unresolved and high-value operations blocked. The [VNPay checkout and labelled utility-demo slice](docs/SANDBOX_PAYMENTS.md) is implemented with credentials, public callbacks and real fulfillment still pending. Branch navigation (BR-13) testing remains deferred; the bounded activity chatbot (BR-14) now links to the demo services. The [current scope/status audit](docs/SCOPE_STATUS_AUDIT.md) distinguishes code, verified behavior and remaining acceptance. No new business feature is added.
+Scope update, **2026-11-07**: the user-approved [local other-bank simulation](docs/LOCAL_INTERBANK.md) adds fictional bank/recipient selection, bound TOTP, local posting, receipts/history and a chatbot link. Database/Auth runtime and human acceptance remain pending. Face comparison and AWS stay undecided; eKYC remains unresolved and high-value posting blocked. [VNPay and utility demos](docs/SANDBOX_PAYMENTS.md) still need credentials, public callbacks and fulfillment acceptance. Branch testing remains deferred. The [scope/status audit](docs/SCOPE_STATUS_AUDIT.md) separates code from verified behavior; no new business feature is added.
 
 ## Starting point
 
@@ -63,7 +63,7 @@ BR-05, BR-06, BR-07, BR-08, BR-09; uses BR-03 and BR-04.
 
 BR-09, BR-10, BR-11, BR-12; uses BR-04.
 
-- [ ] Implement the other-bank transfer path and clearly identify its real, sandbox, or simulated behavior. Payment checkout alone does not cover interbank transfers.
+- [ ] Validate the implemented [other-bank transfer simulation](docs/LOCAL_INTERBANK.md): separate fictional recipients, existing demo funds, bound TOTP and atomic debit/credit/receipt/history. Database/Auth, Edge/native and lecturer acceptance remain open; no real interbank network is connected. Payment checkout remains a separate flow.
 - [x] Compare simple payment providers against BR-10 and the existing app. [Payment research](docs/PAYMENT_OPTIONS.md) evaluated VNPay, Stripe and MoMo; the user subsequently selected VNPay PAY sandbox. Test credentials/callback setup and implementation remain open in the [setup record](docs/VNPAY_SANDBOX_SETUP.md); face comparison stays deferred.
 - [ ] Complete provider-backed acceptance of one payment integration. The [VNPay sandbox adapter, bound TOTP, checkout, IPN and payment history](docs/SANDBOX_PAYMENTS.md) are implemented; actual credentials, callback isolation/delivery and success/failure/cancellation/retry evidence remain pending. Checkout stays disabled by default.
 - [ ] Complete electricity payments, water payments, and phone top-ups with confirmation, 2FA, result, and history. User-approved fixed demo services and payment-status screens are implemented. No real bill settlement or phone credit occurs; biller integration or lecturer acceptance of simulation remains unresolved.
@@ -118,11 +118,11 @@ Maps can progress once navigation and provider access are settled. Chatbot links
 
 **Test deposits and withdrawals in Edge:** follow [LOCAL_CASH.md](docs/LOCAL_CASH.md#test-in-the-user-run-edge-demo) to prepare the one-time simulated cash source, restart the user-run launcher and test both checking/saving actions, balances and history. Real cash services and lecturer acceptance of simulation remain open.
 
-**Current slice: VNPay checkout and labelled electricity/water/phone demos (BR-04/10/11).** [SANDBOX_PAYMENTS.md](docs/SANDBOX_PAYMENTS.md) records the implementation, disabled configuration state, transaction-bound authorization, provider callback and separate fulfillment boundary. [ASSISTANT.md](docs/ASSISTANT.md) now links to these screens. Full provider, service and chatbot acceptance remains open.
+**Current slice: labelled local other-bank transfers (BR-04/08/09).** [LOCAL_INTERBANK.md](docs/LOCAL_INTERBANK.md) records fictional destinations, existing demo funding, independent default-off gates, bound confirmation and receipt/history behavior. [ASSISTANT.md](docs/ASSISTANT.md) links to this form. The database/Auth fixture and user-started Edge checks are the next acceptance gate. [VNPay and utility demos](docs/SANDBOX_PAYMENTS.md) retain their separate credential/callback/fulfillment limits.
 
 **Branch-map testing is deferred at the user's request.** [BRANCH_NAVIGATION.md](docs/BRANCH_NAVIGATION.md#verification-and-local-test) retains the database, human Edge and Android checks. The user approved fictional Nene offices near TDTU; they are not another bank's branches. No deferred check is marked passed by chatbot work.
 
-**Next acceptance work:** run the isolated payment database/Auth checks when Docker is available, then review the disabled demo catalogue in the user-started Edge app. Once VNPay credentials and a public hostname are available, validate the restricted callback endpoint before testing actual sandbox checkout and IPN. Keep real bill fulfillment separate. Face comparison remains undecided and high-value posting stays blocked. Other-bank transfers, purchase/booking scope and release/report tasks remain required.
+**Next acceptance work:** when Docker is available, run the isolated interbank and payment database/Auth checks, then test the other-bank flow in the user-started Edge app. Once VNPay credentials and a public hostname are available, validate the restricted callback endpoint before sandbox checkout/IPN. Keep real bill fulfillment and lecturer acceptance of simulation separate. Face comparison remains undecided and high-value posting stays blocked. Purchase/booking coverage and release/report tasks remain required.
 
 The user selected **VNPay PAY sandbox hosted checkout on 2026-11-05** after the [provider comparison](docs/PAYMENT_OPTIONS.md). The [setup record](docs/VNPAY_SANDBOX_SETUP.md) lists the user's test registration, terminal ID/signing secret and a restricted HTTPS IPN/return endpoint. Account/domain access, credentials and actual callback reachability remain pending; the user has no ngrok account or public URL yet. Current LAN-only `run.bat` does not supply an internet callback. Face comparison remains undecided.
 

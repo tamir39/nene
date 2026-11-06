@@ -7,6 +7,7 @@ import { PaymentsService } from './payments/payments.service.js';
 import { BranchesController } from './branches/branches.controller.js';
 import { WalkingRouteService } from './branches/walking-route.service.js';
 import { CashController } from './confirmation/cash.controller.js';
+import { InterbankController } from './confirmation/interbank.controller.js';
 import { Module } from '@nestjs/common';
 import { TransfersController } from './confirmation/transfers.controller.js';
 import { ConfirmationController } from './confirmation/confirmation.controller.js';
@@ -41,6 +42,7 @@ import { IdentityStorageService } from './identity/identity-storage.service.js';
     AssistantController,
     BranchesController,
     CashController,
+    InterbankController,
     TransfersController,
     ConfirmationController,
     SecurityManagementController,

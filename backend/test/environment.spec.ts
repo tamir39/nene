@@ -11,6 +11,40 @@ const localEnvironment = {
 };
 
 void describe('environment boundaries', () => {
+  void it('keeps interbank simulation independently disabled and rejects remote or production enablement', () => {
+    assert.equal(
+      readEnvironment(localEnvironment).localInterbankEnabled,
+      false,
+    );
+    const enabled = readEnvironment({
+      ...localEnvironment,
+      LOCAL_INTERBANK_ENABLED: 'true',
+    });
+    assert.equal(enabled.localInterbankEnabled, true);
+    assert.equal(enabled.localTransfersEnabled, false);
+    assert.equal(enabled.localCashEnabled, false);
+    for (const override of [
+      { LOCAL_INTERBANK_ENABLED: 'yes' },
+      { SUPABASE_URL: 'https://example.supabase.co' },
+      {
+        DATABASE_URL:
+          'postgresql://nene_api:example@database.example:5432/postgres',
+        DATABASE_SSL_MODE: 'verify-full',
+      },
+      {
+        NODE_ENV: 'production',
+        SUPABASE_URL: 'https://localhost',
+        DATABASE_SSL_MODE: 'verify-full',
+      },
+    ])
+      assert.throws(() =>
+        readEnvironment({
+          ...localEnvironment,
+          LOCAL_INTERBANK_ENABLED: 'true',
+          ...override,
+        }),
+      );
+  });
   void it('keeps VNPay disabled until complete sandbox configuration is explicitly enabled', () => {
     assert.equal(readEnvironment(localEnvironment).vnpaySandbox, undefined);
     const configured = {
