@@ -10,7 +10,17 @@ abstract final class NeneColors {
   static const muted = Color(0xFF4D626B);
   static const pale = Color(0xFFEFF7F5);
   static const border = Color(0xFFD7DFDF);
+  // Banking-UI refresh additions (24 Nov 2026), derived from the same palette.
+  static const deep = Color(0xFF1C525B);
+  static const apricotSoft = Color(0xFFFCEDE1);
+  static const line = Color(0xFFE6ECEB);
+  static const positive = Color(0xFF1F7A4D);
 }
+
+const neneFontFamily = 'BeVietnamPro';
+
+/// Amounts align digit-by-digit like a statement.
+const neneTabularFigures = [FontFeature.tabularFigures()];
 
 ThemeData neneTheme() {
   final scheme =
@@ -27,16 +37,113 @@ ThemeData neneTheme() {
         onPrimaryContainer: NeneColors.ink,
         error: const Color(0xFF9B3434),
       );
+  final base = ThemeData(useMaterial3: true, fontFamily: neneFontFamily);
+  final text = base.textTheme
+      .apply(bodyColor: NeneColors.ink, displayColor: NeneColors.ink)
+      .copyWith(
+        headlineMedium: base.textTheme.headlineMedium?.copyWith(
+          fontWeight: FontWeight.w700,
+          letterSpacing: -0.6,
+          color: NeneColors.ink,
+        ),
+        headlineSmall: base.textTheme.headlineSmall?.copyWith(
+          fontWeight: FontWeight.w700,
+          letterSpacing: -0.3,
+          color: NeneColors.ink,
+        ),
+        titleLarge: base.textTheme.titleLarge?.copyWith(
+          fontWeight: FontWeight.w700,
+          color: NeneColors.ink,
+        ),
+        titleMedium: base.textTheme.titleMedium?.copyWith(
+          fontWeight: FontWeight.w600,
+          color: NeneColors.ink,
+        ),
+        bodyMedium: base.textTheme.bodyMedium?.copyWith(
+          height: 1.45,
+          color: NeneColors.ink,
+        ),
+      );
+  final rounded = RoundedRectangleBorder(
+    borderRadius: BorderRadius.circular(14),
+  );
   return ThemeData(
     useMaterial3: true,
+    fontFamily: neneFontFamily,
+    textTheme: text,
     colorScheme: scheme,
     scaffoldBackgroundColor: NeneColors.ivory,
-    appBarTheme: const AppBarTheme(
+    appBarTheme: AppBarTheme(
       backgroundColor: NeneColors.ivory,
       foregroundColor: NeneColors.ink,
       surfaceTintColor: Colors.transparent,
       centerTitle: false,
+      titleTextStyle: text.titleLarge,
     ),
+    outlinedButtonTheme: OutlinedButtonThemeData(
+      style: OutlinedButton.styleFrom(
+        minimumSize: const Size(48, 50),
+        foregroundColor: NeneColors.action,
+        backgroundColor: Colors.white,
+        side: const BorderSide(color: NeneColors.border),
+        shape: rounded,
+        textStyle: const TextStyle(
+          fontFamily: neneFontFamily,
+          fontSize: 15,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    ),
+    textButtonTheme: TextButtonThemeData(
+      style: TextButton.styleFrom(
+        foregroundColor: NeneColors.action,
+        shape: rounded,
+        textStyle: const TextStyle(
+          fontFamily: neneFontFamily,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    ),
+    navigationBarTheme: NavigationBarThemeData(
+      height: 70,
+      backgroundColor: Colors.white,
+      surfaceTintColor: Colors.transparent,
+      indicatorColor: NeneColors.pale,
+      elevation: 0,
+      labelTextStyle: WidgetStateProperty.resolveWith(
+        (states) => TextStyle(
+          fontFamily: neneFontFamily,
+          fontSize: 12,
+          fontWeight: states.contains(WidgetState.selected)
+              ? FontWeight.w700
+              : FontWeight.w500,
+          color: states.contains(WidgetState.selected)
+              ? NeneColors.action
+              : NeneColors.muted,
+        ),
+      ),
+      iconTheme: WidgetStateProperty.resolveWith(
+        (states) => IconThemeData(
+          color: states.contains(WidgetState.selected)
+              ? NeneColors.action
+              : NeneColors.muted,
+        ),
+      ),
+    ),
+    chipTheme: base.chipTheme.copyWith(
+      side: BorderSide.none,
+      shape: const StadiumBorder(),
+      labelStyle: const TextStyle(
+        fontFamily: neneFontFamily,
+        fontWeight: FontWeight.w600,
+        color: NeneColors.ink,
+      ),
+    ),
+    listTileTheme: const ListTileThemeData(
+      iconColor: NeneColors.action,
+      contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+    ),
+    dividerTheme: const DividerThemeData(color: NeneColors.line, space: 1),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
       fillColor: Colors.white,
@@ -52,8 +159,12 @@ ThemeData neneTheme() {
       style: FilledButton.styleFrom(
         minimumSize: const Size(48, 54),
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+        shape: rounded,
+        textStyle: const TextStyle(
+          fontFamily: neneFontFamily,
+          fontSize: 16,
+          fontWeight: FontWeight.w600,
+        ),
       ),
     ),
     cardTheme: CardThemeData(
@@ -62,8 +173,8 @@ ThemeData neneTheme() {
       elevation: 0,
       margin: EdgeInsets.zero,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(18),
-        side: const BorderSide(color: NeneColors.border),
+        borderRadius: BorderRadius.circular(20),
+        side: const BorderSide(color: NeneColors.line),
       ),
     ),
   );

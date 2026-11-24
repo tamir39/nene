@@ -121,7 +121,7 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(banking.accountsCalls, 1);
-      await chat_fixture.tap(tester, 'Other-bank demo transfer');
+      await chat_fixture.tap(tester, 'Other bank');
       expect(
         tester
             .widget<ConfirmationScreen>(find.byType(ConfirmationScreen))
@@ -132,7 +132,7 @@ void main() {
       await tester.tap(find.byTooltip('Back'));
       await tester.pumpAndSettle();
       expect(banking.accountsCalls, 2);
-      await chat_fixture.tap(tester, 'Transfer demo funds');
+      await chat_fixture.tap(tester, 'Transfer');
       expect(
         tester
             .widget<ConfirmationScreen>(find.byType(ConfirmationScreen))
