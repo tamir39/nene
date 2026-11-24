@@ -11,7 +11,10 @@ import {
   type User,
 } from '@supabase/supabase-js';
 import { ENVIRONMENT } from '../config/config.module.js';
-import type { Environment } from '../config/environment.js';
+import {
+  allowsSyntheticDemo,
+  type Environment,
+} from '../config/environment.js';
 
 @Injectable()
 export class SupabaseAdminService {
@@ -38,12 +41,7 @@ export class SupabaseAdminService {
   }
 
   assertAvailable(): void {
-    const host = new URL(this.environment.supabaseUrl).hostname;
-    if (
-      !this.client ||
-      this.environment.nodeEnv === 'production' ||
-      !['127.0.0.1', 'localhost', '[::1]'].includes(host)
-    ) {
+    if (!this.client || !allowsSyntheticDemo(this.environment)) {
       throw new ServiceUnavailableException(
         'Demo customer creation is not configured for this environment.',
       );

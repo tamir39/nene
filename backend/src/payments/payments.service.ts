@@ -146,7 +146,8 @@ export class PaymentsService {
     @Inject(ENVIRONMENT) private readonly env: Environment,
   ) {}
   private config(): VnpaySandboxConfig | undefined {
-    return this.env.nodeEnv === 'production'
+    return this.env.nodeEnv === 'production' &&
+      this.env.demoDeployment !== 'hosted-sandbox'
       ? undefined
       : this.env.vnpaySandbox;
   }

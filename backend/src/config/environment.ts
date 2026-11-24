@@ -11,6 +11,8 @@ export interface Environment {
   localTransfersEnabled?: boolean;
   localCashEnabled?: boolean;
   localInterbankEnabled?: boolean;
+  /** Explicit opt-in for the hosted course demo; see docs/HOSTED_DEMO.md. */
+  demoDeployment?: 'hosted-sandbox';
   vnpaySandbox?: {
     terminalCode: string;
     hashSecret: string;
@@ -35,6 +37,22 @@ function parseUrl(value: string, name: string): URL {
 
 function isLoopback(hostname: string): boolean {
   return ['localhost', '127.0.0.1', '[::1]'].includes(hostname);
+}
+
+/**
+ * Synthetic demo provisioning and simulated money movement run only against
+ * non-production loopback Auth, or on a deployment explicitly marked as the
+ * hosted sandbox demo. Hosted mode still uses synthetic data, sandbox
+ * providers and every ordinary authorization check.
+ */
+export function allowsSyntheticDemo(
+  env: Pick<Environment, 'nodeEnv' | 'supabaseUrl' | 'demoDeployment'>,
+): boolean {
+  return (
+    env.demoDeployment === 'hosted-sandbox' ||
+    (env.nodeEnv !== 'production' &&
+      isLoopback(new URL(env.supabaseUrl).hostname))
+  );
 }
 
 export function readEnvironment(env: NodeJS.ProcessEnv): Environment {
@@ -95,6 +113,19 @@ export function readEnvironment(env: NodeJS.ProcessEnv): Environment {
     );
   }
   let ca: string | undefined;
+  const demoDeployment = env.DEMO_DEPLOYMENT?.trim() || undefined;
+  if (demoDeployment !== undefined && demoDeployment !== 'hosted-sandbox')
+    throw new Error('DEMO_DEPLOYMENT must be hosted-sandbox when set.');
+  // Production mode already forces HTTPS Auth and verified PostgreSQL TLS.
+  if (demoDeployment && nodeEnv !== 'production')
+    throw new Error(
+      'DEMO_DEPLOYMENT=hosted-sandbox requires NODE_ENV=production.',
+    );
+  const hostedSandbox = demoDeployment === 'hosted-sandbox';
+  const localServices =
+    nodeEnv !== 'production' &&
+    isLoopback(supabaseUrl.hostname) &&
+    isLoopback(databaseUrl.hostname);
   if (
     env.LOCAL_TRANSFERS_ENABLED &&
     !['true', 'false'].includes(env.LOCAL_TRANSFERS_ENABLED)
@@ -115,12 +146,11 @@ export function readEnvironment(env: NodeJS.ProcessEnv): Environment {
   const localInterbankEnabled = env.LOCAL_INTERBANK_ENABLED === 'true';
   if (
     (localTransfersEnabled || localCashEnabled || localInterbankEnabled) &&
-    (nodeEnv === 'production' ||
-      !isLoopback(supabaseUrl.hostname) ||
-      !isLoopback(databaseUrl.hostname))
+    !localServices &&
+    !hostedSandbox
   )
     throw new Error(
-      'Local transfers require non-production loopback Auth and database.',
+      'Local transfers require non-production loopback Auth and database, or DEMO_DEPLOYMENT=hosted-sandbox.',
     );
   if (
     env.VNPAY_SANDBOX_ENABLED &&
@@ -129,13 +159,9 @@ export function readEnvironment(env: NodeJS.ProcessEnv): Environment {
     throw new Error('VNPAY_SANDBOX_ENABLED must be true or false.');
   let vnpaySandbox: Environment['vnpaySandbox'];
   if (env.VNPAY_SANDBOX_ENABLED === 'true') {
-    if (
-      nodeEnv === 'production' ||
-      !isLoopback(supabaseUrl.hostname) ||
-      !isLoopback(databaseUrl.hostname)
-    )
+    if (!localServices && !hostedSandbox)
       throw new Error(
-        'VNPay sandbox demo requires non-production loopback Auth and database.',
+        'VNPay sandbox demo requires non-production loopback Auth and database, or DEMO_DEPLOYMENT=hosted-sandbox.',
       );
     const terminalCode = required(env, 'VNPAY_TMN_CODE');
     const hashSecret = required(env, 'VNPAY_HASH_SECRET');
@@ -185,6 +211,7 @@ export function readEnvironment(env: NodeJS.ProcessEnv): Environment {
     localTransfersEnabled,
     localCashEnabled,
     localInterbankEnabled,
+    ...(hostedSandbox ? { demoDeployment: 'hosted-sandbox' as const } : {}),
     ...(vnpaySandbox ? { vnpaySandbox } : {}),
     supabaseUrl: supabaseUrl.toString().replace(/\/$/, ''),
     supabasePublishableKey: required(env, 'SUPABASE_PUBLISHABLE_KEY'),

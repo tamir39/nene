@@ -192,3 +192,30 @@ void test('provider failures and unrelated route geometry fail closed without ec
     /Walking route unavailable/,
   );
 });
+void test('production routing stays off unless the hosted sandbox is explicit', async (t) => {
+  const saved = {
+    NODE_ENV: process.env.NODE_ENV,
+    DEMO_DEPLOYMENT: process.env.DEMO_DEPLOYMENT,
+  };
+  t.after(() => {
+    for (const [key, value] of Object.entries(saved))
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+  });
+  const fetchMock = t.mock.method(globalThis, 'fetch', async () =>
+    Response.json(result()),
+  );
+  process.env.NODE_ENV = 'production';
+  delete process.env.DEMO_DEPLOYMENT;
+  await assert.rejects(
+    new WalkingRouteService().walk(origin, offices[1]!),
+    /not configured for release/,
+  );
+  assert.equal(fetchMock.mock.callCount(), 0);
+  process.env.DEMO_DEPLOYMENT = 'hosted-sandbox';
+  assert.equal(
+    (await new WalkingRouteService().walk(origin, offices[1]!)).points.length,
+    2,
+  );
+  assert.equal(fetchMock.mock.callCount(), 1);
+});

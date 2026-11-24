@@ -82,3 +82,35 @@ void it('demo endpoint denies customers, production and hosted Auth before touch
     );
   }
 });
+void it('demo endpoint admits officers on the explicit hosted sandbox only', async () => {
+  const db = {
+    transaction: () => {
+      throw new Error('must not access DB');
+    },
+  } as unknown as DatabaseService;
+  const hosted = {
+    nodeEnv: 'production',
+    supabaseUrl: 'https://project-ref.supabase.co',
+    demoDeployment: 'hosted-sandbox',
+  } as Environment;
+  const status = (e: unknown) => (e as { getStatus(): number }).getStatus();
+  // Past the environment guard, input validation (400) runs before any DB use.
+  await assert.rejects(
+    new DemoAccountController(db, hosted).create(
+      { user: { role: 'officer' } } as AuthenticatedRequest,
+      'bad',
+      'bad',
+      {},
+    ),
+    (e) => status(e) === 400,
+  );
+  await assert.rejects(
+    new DemoAccountController(db, hosted).create(
+      { user: { role: 'customer' } } as AuthenticatedRequest,
+      'bad',
+      'bad',
+      {},
+    ),
+    (e) => status(e) === 403,
+  );
+});

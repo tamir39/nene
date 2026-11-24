@@ -51,6 +51,26 @@ void describe('local demo Auth provisioning adapter (HTTP responses mocked)', ()
     assert.equal(fetchMock.mock.callCount(), 0);
   });
 
+  void it('permits demo customer creation on the explicit hosted sandbox only', () => {
+    const hosted = {
+      NODE_ENV: 'production',
+      DEMO_DEPLOYMENT: 'hosted-sandbox',
+      SUPABASE_URL: 'https://project-ref.supabase.co',
+      DATABASE_URL:
+        'postgresql://nene_api.project-ref:test@pooler.example:5432/postgres',
+      DATABASE_SSL_MODE: 'verify-full',
+    };
+    assert.doesNotThrow(() => admin(hosted).assertAvailable());
+    assert.throws(
+      () => admin({ ...hosted, DEMO_DEPLOYMENT: '' }).assertAvailable(),
+      ServiceUnavailableException,
+    );
+    assert.throws(
+      () => admin({ ...hosted, SUPABASE_SECRET_KEY: '' }).assertAvailable(),
+      ServiceUnavailableException,
+    );
+  });
+
   void it('uses the durable ID and local password activation without sending invitations', async () => {
     const requests: string[] = [];
     mock.method(

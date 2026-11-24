@@ -201,7 +201,8 @@ export class ConfirmationService {
         : isCash(operation)
           ? this.env?.localCashEnabled
           : this.env?.localTransfersEnabled) === true &&
-      this.env?.nodeEnv !== 'production';
+      (this.env?.nodeEnv !== 'production' ||
+        this.env?.demoDeployment === 'hosted-sandbox');
     const rows = enabled
       ? await this.db.query<{ enabled: boolean }>(
           operation === 'interbank'

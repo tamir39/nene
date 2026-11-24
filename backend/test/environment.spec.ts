@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { readEnvironment } from '../src/config/environment.js';
+import {
+  allowsSyntheticDemo,
+  readEnvironment,
+} from '../src/config/environment.js';
 
 const localEnvironment = {
   NODE_ENV: 'test',
@@ -291,6 +294,106 @@ void describe('environment boundaries', () => {
             'postgresql://postgres:example@127.0.0.1:54322/postgres',
         }),
       /restricted nene_api role/,
+    );
+  });
+
+  const hostedSandbox = {
+    NODE_ENV: 'production',
+    DEMO_DEPLOYMENT: 'hosted-sandbox',
+    SUPABASE_URL: 'https://project-ref.supabase.co',
+    SUPABASE_PUBLISHABLE_KEY: 'test-public-key',
+    DATABASE_URL:
+      'postgresql://nene_api.project-ref:example@pooler.example:5432/postgres',
+    DATABASE_SSL_MODE: 'verify-full',
+  };
+
+  void it('enables synthetic money movement and VNPay sandbox only on an explicit hosted sandbox', () => {
+    const vnpay = {
+      VNPAY_TMN_CODE: 'TEST1234',
+      VNPAY_HASH_SECRET: 'synthetic-signing-secret-for-tests',
+      VNPAY_RETURN_URL: 'https://nene.example.com/api/v1/payments/vnpay/return',
+    };
+    const flags = [
+      'LOCAL_TRANSFERS_ENABLED',
+      'LOCAL_CASH_ENABLED',
+      'LOCAL_INTERBANK_ENABLED',
+      'VNPAY_SANDBOX_ENABLED',
+    ];
+    const allOn = Object.fromEntries(flags.map((flag) => [flag, 'true']));
+    const hosted = readEnvironment({ ...hostedSandbox, ...vnpay, ...allOn });
+    assert.equal(hosted.demoDeployment, 'hosted-sandbox');
+    assert.equal(hosted.localTransfersEnabled, true);
+    assert.equal(hosted.localCashEnabled, true);
+    assert.equal(hosted.localInterbankEnabled, true);
+    assert.equal(hosted.vnpaySandbox?.terminalCode, 'TEST1234');
+    assert.deepEqual(hosted.database.ssl, { rejectUnauthorized: true });
+    // Without the explicit marker, each hosted enablement still fails closed.
+    for (const flag of flags)
+      assert.throws(
+        () =>
+          readEnvironment({
+            ...hostedSandbox,
+            ...vnpay,
+            DEMO_DEPLOYMENT: '',
+            [flag]: 'true',
+          }),
+        /DEMO_DEPLOYMENT=hosted-sandbox/,
+      );
+    // Off by default even when hosted.
+    const quiet = readEnvironment(hostedSandbox);
+    assert.equal(quiet.localTransfersEnabled, false);
+    assert.equal(quiet.vnpaySandbox, undefined);
+  });
+
+  void it('accepts only the exact hosted-sandbox marker under production TLS rules', () => {
+    for (const value of ['true', 'hosted', 'HOSTED-SANDBOX', 'local'])
+      assert.throws(
+        () => readEnvironment({ ...hostedSandbox, DEMO_DEPLOYMENT: value }),
+        /DEMO_DEPLOYMENT must be hosted-sandbox/,
+      );
+    assert.throws(
+      () =>
+        readEnvironment({
+          ...localEnvironment,
+          DEMO_DEPLOYMENT: 'hosted-sandbox',
+        }),
+      /requires NODE_ENV=production/,
+    );
+    assert.throws(
+      () => readEnvironment({ ...hostedSandbox, DATABASE_SSL_MODE: 'disable' }),
+      /TLS may be disabled only/,
+    );
+    assert.throws(
+      () =>
+        readEnvironment({
+          ...hostedSandbox,
+          SUPABASE_URL: 'http://project-ref.supabase.co',
+        }),
+      /requires HTTPS/,
+    );
+    assert.equal(
+      readEnvironment({ ...hostedSandbox, DEMO_DEPLOYMENT: '' }).demoDeployment,
+      undefined,
+    );
+  });
+
+  void it('allows synthetic demo provisioning only locally or on the hosted sandbox', () => {
+    assert.equal(allowsSyntheticDemo(readEnvironment(localEnvironment)), true);
+    assert.equal(allowsSyntheticDemo(readEnvironment(hostedSandbox)), true);
+    assert.equal(
+      allowsSyntheticDemo(
+        readEnvironment({ ...hostedSandbox, DEMO_DEPLOYMENT: '' }),
+      ),
+      false,
+    );
+    assert.equal(
+      allowsSyntheticDemo(
+        readEnvironment({
+          ...localEnvironment,
+          SUPABASE_URL: 'https://project-ref.supabase.co',
+        }),
+      ),
+      false,
     );
   });
 });

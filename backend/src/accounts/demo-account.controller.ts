@@ -15,7 +15,10 @@ import {
 import { randomUUID } from 'node:crypto';
 import type { AuthenticatedRequest } from '../auth/auth.types.js';
 import { ENVIRONMENT } from '../config/config.module.js';
-import type { Environment } from '../config/environment.js';
+import {
+  allowsSyntheticDemo,
+  type Environment,
+} from '../config/environment.js';
 import { DatabaseService } from '../database/database.service.js';
 import { uuid } from '../customers/customer.validation.js';
 
@@ -97,15 +100,9 @@ export class DemoAccountController {
     @Headers('idempotency-key') rawKey: unknown,
     @Body() body: unknown,
   ) {
-    if (
-      req.user.role !== 'officer' ||
-      this.env.nodeEnv === 'production' ||
-      !['localhost', '127.0.0.1', '[::1]'].includes(
-        new URL(this.env.supabaseUrl).hostname,
-      )
-    )
+    if (req.user.role !== 'officer' || !allowsSyntheticDemo(this.env))
       throw new ForbiddenException(
-        'Demo provisioning is available only to officers on local Auth.',
+        'Demo provisioning is available only to officers on local or hosted demo Auth.',
       );
     const customer = uuid(rawCustomer),
       key = uuid(rawKey, 'Idempotency-Key'),

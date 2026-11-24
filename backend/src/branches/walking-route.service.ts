@@ -64,8 +64,12 @@ export class WalkingRouteService {
   private nextRequestAt = 0;
   private pending = false;
   async walk(origin: Point, destination: Point) {
-    // Public demo capacity is for this single-process local course preview only.
-    if (process.env.NODE_ENV === 'production')
+    // The public FOSSGIS instance suits only light course-demo use: the local
+    // preview or the single-instance hosted sandbox, rate-limited below.
+    if (
+      process.env.NODE_ENV === 'production' &&
+      process.env.DEMO_DEPLOYMENT?.trim() !== 'hosted-sandbox'
+    )
       throw new ServiceUnavailableException(
         'Routing provider is not configured for release.',
       );
