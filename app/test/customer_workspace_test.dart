@@ -134,7 +134,8 @@ void main() {
       expect(find.text('synthetic-demo-password'), findsNothing);
       await tester.tap(find.byTooltip('Back'));
       await tester.pumpAndSettle();
-      await tester.tap(find.byTooltip('Back'));
+      // Customer search is an officer tab now; return Home through the bar.
+      await tester.tap(find.text('Home'));
       await tester.pumpAndSettle();
       await tapText(tester, 'Create customer');
       for (final field in tester.widgetList<TextFormField>(

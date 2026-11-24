@@ -128,7 +128,7 @@ void main() {
         );
         await tester.pumpAndSettle();
         await tap(tester, 'Assistant');
-        await tap(tester, 'Pay my bills');
+        await tap(tester, 'Pay my electricity bill');
         await tap(tester, AssistantAction(activity).label);
         expect(find.byType(PaymentsScreen), findsOneWidget);
         expect(find.text('Sandbox setup pending'), findsOneWidget);
@@ -449,7 +449,7 @@ void main() {
       );
       await tester.pumpAndSettle();
       await tap(tester, 'Assistant');
-      await tap(tester, 'History last month');
+      await tap(tester, 'Transactions this month');
       await tap(tester, 'View history · 2026-10');
       expect(
         find.text('No eligible accounts are available for this activity.'),

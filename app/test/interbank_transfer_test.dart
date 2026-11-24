@@ -196,9 +196,12 @@ void main() {
       await fixture.tap(tester, 'Review confirmation');
       expect(find.textContaining('Choose a fictional bank'), findsOneWidget);
       await prepare(tester);
-      expect(find.text('Fictional bank: Demo Bank A'), findsOneWidget);
-      expect(find.text('Demo recipient: Demo recipient A'), findsOneWidget);
-      expect(find.text('To 990000000001'), findsOneWidget);
+      expect(fixture.detail('Fictional bank', 'Demo Bank A'), findsOneWidget);
+      expect(
+        fixture.detail('Demo recipient', 'Demo recipient A'),
+        findsOneWidget,
+      );
+      expect(fixture.detail('To', '990000000001'), findsOneWidget);
       await fixture.captureTransfer(tester, 'interbank-review');
       await tester.enterText(find.byType(TextField), '123456');
       await fixture.tap(tester, 'Confirm simulated transfer');
@@ -209,8 +212,11 @@ void main() {
       );
       await fixture.captureTransfer(tester, 'interbank-posted');
       await fixture.tap(tester, 'Start another transfer');
-      await fixture.tap(tester, 'Simulated 100000 VND · demo funds');
-      expect(find.text('Demo recipient: Demo recipient A'), findsOneWidget);
+      await fixture.tap(tester, 'Simulated 100,000 VND · demo funds');
+      expect(
+        fixture.detail('Demo recipient', 'Demo recipient A'),
+        findsOneWidget,
+      );
       expect(find.text('Confirm simulated transfer'), findsNothing);
       expect(find.text('Cancel confirmation'), findsNothing);
       expect(find.text('Back to recent transfers'), findsOneWidget);

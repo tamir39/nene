@@ -40,6 +40,12 @@ Map<String, dynamic> review() => {
   'executionAvailable': false,
 };
 http.Response json(Object body) => http.Response(jsonEncode(body), 200);
+
+/// A review or receipt detail row showing [label] beside [value].
+Finder detail(String label, String value) => find.ancestor(
+  of: find.text(value),
+  matching: find.ancestor(of: find.text(label), matching: find.byType(Row)),
+);
 Future<void> tap(WidgetTester tester, String label) async {
   FocusManager.instance.primaryFocus?.unfocus();
   await tester.pumpAndSettle();
@@ -183,14 +189,14 @@ void main() {
           });
         }, cashOperation: operation);
         expect(
-          find.text('Simulated cash outside accounts: 3000000 VND'),
+          find.text('Simulated cash outside accounts: 3,000,000 VND'),
           findsOneWidget,
         );
         expect(find.byType(TextField), findsOneWidget);
         await tester.enterText(find.byType(TextField), '100000');
         await tap(tester, 'Review confirmation');
         expect(
-          find.text(deposit ? 'From simulated cash' : 'To simulated cash'),
+          detail(deposit ? 'From' : 'To', 'Simulated cash'),
           findsOneWidget,
         );
         await captureTransfer(tester, 'cash-${operation.name}-review');
@@ -206,7 +212,7 @@ void main() {
         await tap(tester, 'Start another ${operation.name}');
         expect(
           find.text(
-            '${deposit ? 'Deposited' : 'Withdrawn'} 100000 VND · demo funds',
+            '${deposit ? 'Deposited' : 'Withdrawn'} 100,000 VND · demo funds',
           ),
           findsOneWidget,
         );
@@ -300,7 +306,7 @@ void main() {
       expect(find.text('Cancel confirmation'), findsNothing);
       await captureTransfer(tester, 'demo-transfer-sent');
       await tap(tester, 'Start another transfer');
-      expect(find.text('Sent 100000 VND · demo funds'), findsOneWidget);
+      expect(find.text('Sent 100,000 VND · demo funds'), findsOneWidget);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox());
     },
@@ -397,7 +403,7 @@ void main() {
         throw StateError('Unexpected route');
       });
       await prepare(tester);
-      expect(find.text('To 100000000002'), findsOneWidget);
+      expect(detail('To', '100000000002'), findsOneWidget);
       expect(find.textContaining('Insufficient funds'), findsOneWidget);
       if (const bool.fromEnvironment('CAPTURE_CONFIRMATION_UI')) {
         final boundary = tester.renderObject<RenderRepaintBoundary>(

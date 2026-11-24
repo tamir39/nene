@@ -112,7 +112,6 @@ void main() {
     }
 
     await capture('saving');
-    await tapVisible(tester, find.byType(DropdownButtonFormField<String>));
     await tapVisible(tester, find.text('Mortgage').last);
     await capture('mortgage');
     await tester.ensureVisible(find.text('Check customer'));
@@ -215,7 +214,6 @@ void main() {
           ),
         ),
       );
-      await tapVisible(tester, find.byType(DropdownButtonFormField<String>));
       await tapVisible(tester, find.text('Mortgage').last);
       final fields = find.byType(TextField);
       for (final (index, value) in [

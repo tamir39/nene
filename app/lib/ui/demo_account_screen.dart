@@ -5,6 +5,8 @@ import '../data/profile_api.dart';
 import '../data/user_profile.dart';
 import '../session_controller.dart';
 import 'customer_workspace.dart' show WorkspaceContent;
+import 'nene_brand.dart';
+import 'nene_components.dart' show NeneAvatar, SectionTitle;
 
 class DemoAccountScreen extends StatefulWidget {
   const DemoAccountScreen({
@@ -134,85 +136,303 @@ class _DemoAccountScreenState extends State<DemoAccountScreen> {
   }
 
   @override
-  Widget build(BuildContext context) => WorkspaceContent(
-    children: [
-      Text(
-        'Add demo account',
-        style: Theme.of(context).textTheme.headlineMedium,
-      ),
-      Text('Customer: ${widget.customerName}'),
-      const SizedBox(height: 16),
-      const Text(
-        'Local synthetic customers only (.invalid or .test email). One demo savings and one demo mortgage account per customer. Opening balance is 0 VND; no money is moved.',
-      ),
-      const SizedBox(height: 16),
-      DropdownButtonFormField<String>(
-        initialValue: _type,
-        decoration: const InputDecoration(labelText: 'Account type'),
-        items: const [
-          DropdownMenuItem(value: 'saving', child: Text('Savings')),
-          DropdownMenuItem(value: 'mortgage', child: Text('Mortgage')),
-        ],
-        onChanged: _editable ? (value) => setState(() => _type = value!) : null,
-      ),
-      if (_type == 'mortgage') ...[
+  Widget build(BuildContext context) {
+    final mortgage = _type == 'mortgage';
+    return WorkspaceContent(
+      children: [
+        Text(
+          'Add demo account',
+          style: Theme.of(context).textTheme.headlineMedium,
+        ),
+        const SizedBox(height: 16),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                NeneAvatar(widget.customerName),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Customer',
+                        style: TextStyle(color: NeneColors.muted, fontSize: 13),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        widget.customerName,
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
         const SizedBox(height: 12),
-        const Text(
-          'Sample schedule at 0% interest for testing views. This does not issue a loan or create a real repayment obligation. Regular monthly amounts round down to whole VND; the last payment would include the remainder.',
+        const _Note(
+          icon: Icons.science_outlined,
+          text:
+              'Local synthetic customers only (.invalid or .test email). One demo savings and one demo mortgage account per customer. Opening balance is 0 VND; no money is moved.',
         ),
-        TextField(
-          controller: _principal,
-          enabled: _editable,
-          keyboardType: TextInputType.number,
-          decoration: const InputDecoration(
-            labelText: 'Sample principal (VND)',
+        const SizedBox(height: 24),
+        const SectionTitle('Account type'),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: _TypeTile(
+                icon: Icons.savings_outlined,
+                label: 'Savings',
+                caption: 'Opens at 0 VND',
+                selected: !mortgage,
+                onTap: _editable
+                    ? () => setState(() => _type = 'saving')
+                    : null,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _TypeTile(
+                icon: Icons.home_work_outlined,
+                label: 'Mortgage',
+                caption: 'Sample 0% schedule',
+                selected: mortgage,
+                onTap: _editable
+                    ? () => setState(() => _type = 'mortgage')
+                    : null,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 24),
+        SectionTitle(mortgage ? 'Sample schedule' : 'Details'),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(18, 18, 18, 10),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (mortgage) ...[
+                  const _Note(
+                    icon: Icons.info_outline_rounded,
+                    text:
+                        'Sample schedule at 0% interest for testing views. This does not issue a loan or create a real repayment obligation. Regular monthly amounts round down to whole VND; the last payment would include the remainder.',
+                  ),
+                  const SizedBox(height: 18),
+                  TextField(
+                    controller: _principal,
+                    enabled: _editable,
+                    keyboardType: TextInputType.number,
+                    style: const TextStyle(fontFeatures: neneTabularFigures),
+                    decoration: const InputDecoration(
+                      labelText: 'Sample principal (VND)',
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _months,
+                    enabled: _editable,
+                    keyboardType: TextInputType.number,
+                    style: const TextStyle(fontFeatures: neneTabularFigures),
+                    decoration: const InputDecoration(
+                      labelText: 'Term (months)',
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _date,
+                    enabled: _editable,
+                    keyboardType: TextInputType.datetime,
+                    style: const TextStyle(fontFeatures: neneTabularFigures),
+                    decoration: const InputDecoration(
+                      labelText: 'First due date (YYYY-MM-DD)',
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                ],
+                TextField(
+                  controller: _reason,
+                  enabled: _editable,
+                  maxLength: 500,
+                  decoration: const InputDecoration(
+                    labelText: 'Reason for demo account',
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
-        TextField(
-          controller: _months,
-          enabled: _editable,
-          keyboardType: TextInputType.number,
-          decoration: const InputDecoration(labelText: 'Term (months)'),
-        ),
-        TextField(
-          controller: _date,
-          enabled: _editable,
-          keyboardType: TextInputType.datetime,
-          decoration: const InputDecoration(
-            labelText: 'First due date (YYYY-MM-DD)',
+        const SizedBox(height: 16),
+        CheckboxListTile(
+          value: _confirmed,
+          onChanged: _editable
+              ? (value) => setState(() => _confirmed = value ?? false)
+              : null,
+          controlAffinity: ListTileControlAffinity.leading,
+          contentPadding: const EdgeInsets.fromLTRB(8, 6, 16, 6),
+          tileColor: NeneColors.apricotSoft,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
           ),
+          title: const Text(
+            'I confirm this customer and these details are synthetic test data.',
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+          ),
+        ),
+        if (_message != null) ...[
+          const SizedBox(height: 12),
+          Semantics(
+            liveRegion: true,
+            child: _Note(
+              icon: Icons.error_outline_rounded,
+              text: _message!,
+              error: true,
+            ),
+          ),
+        ],
+        if (_busy) ...[
+          const SizedBox(height: 12),
+          const LinearProgressIndicator(
+            semanticsLabel: 'Creating demo account',
+            borderRadius: BorderRadius.all(Radius.circular(99)),
+          ),
+        ],
+        const SizedBox(height: 20),
+        FilledButton(
+          onPressed: _busy || _blocked ? null : _submit,
+          child: Text(
+            _attempt == null ? 'Create demo account' : 'Retry same request',
+          ),
+        ),
+        const SizedBox(height: 4),
+        TextButton(
+          onPressed: _busy ? null : widget.onDone,
+          child: const Text('Check customer'),
         ),
       ],
-      TextField(
-        controller: _reason,
-        enabled: _editable,
-        maxLength: 500,
-        decoration: const InputDecoration(labelText: 'Reason for demo account'),
-      ),
-      CheckboxListTile(
-        contentPadding: EdgeInsets.zero,
-        value: _confirmed,
-        onChanged: _editable
-            ? (value) => setState(() => _confirmed = value ?? false)
-            : null,
-        title: const Text(
-          'I confirm this customer and these details are synthetic test data.',
+    );
+  }
+}
+
+/// One option of the Savings / Mortgage selector.
+class _TypeTile extends StatelessWidget {
+  const _TypeTile({
+    required this.icon,
+    required this.label,
+    required this.caption,
+    required this.selected,
+    required this.onTap,
+  });
+  final IconData icon;
+  final String label, caption;
+  final bool selected;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    button: true,
+    selected: selected,
+    inMutuallyExclusiveGroup: true,
+    enabled: onTap != null,
+    child: Opacity(
+      opacity: onTap == null && !selected ? .55 : 1,
+      child: Material(
+        color: selected ? NeneColors.pale : Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(18),
+          side: BorderSide(
+            color: selected ? NeneColors.action : NeneColors.line,
+            width: selected ? 1.5 : 1,
+          ),
+        ),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(18),
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: selected ? NeneColors.action : NeneColors.pale,
+                        borderRadius: BorderRadius.circular(13),
+                      ),
+                      child: Icon(
+                        icon,
+                        size: 22,
+                        color: selected ? Colors.white : NeneColors.action,
+                      ),
+                    ),
+                    const Spacer(),
+                    Icon(
+                      selected
+                          ? Icons.check_circle_rounded
+                          : Icons.radio_button_unchecked_rounded,
+                      size: 20,
+                      color: selected ? NeneColors.action : NeneColors.border,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  label,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  caption,
+                  style: const TextStyle(
+                    color: NeneColors.muted,
+                    fontSize: 12.5,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
-      if (_message != null) Semantics(liveRegion: true, child: Text(_message!)),
-      if (_busy)
-        const LinearProgressIndicator(semanticsLabel: 'Creating demo account'),
-      const SizedBox(height: 16),
-      FilledButton(
-        onPressed: _busy || _blocked ? null : _submit,
-        child: Text(
-          _attempt == null ? 'Create demo account' : 'Retry same request',
+    ),
+  );
+}
+
+class _Note extends StatelessWidget {
+  const _Note({required this.icon, required this.text, this.error = false});
+  final IconData icon;
+  final String text;
+  final bool error;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.all(14),
+    decoration: BoxDecoration(
+      color: error ? const Color(0xFFFBEBEA) : NeneColors.pale,
+      borderRadius: BorderRadius.circular(14),
+    ),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(
+          icon,
+          size: 20,
+          color: error
+              ? Theme.of(context).colorScheme.error
+              : NeneColors.action,
         ),
-      ),
-      TextButton(
-        onPressed: _busy ? null : widget.onDone,
-        child: const Text('Check customer'),
-      ),
-    ],
+        const SizedBox(width: 10),
+        Expanded(child: Text(text, style: const TextStyle(fontSize: 13.5))),
+      ],
+    ),
   );
 }
