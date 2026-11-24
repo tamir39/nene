@@ -84,21 +84,7 @@ class _NeneAppState extends State<NeneApp> with WidgetsBindingObserver {
               listenable: controller,
               builder: (context, _) => switch (controller.status) {
                 SessionStatus.signedOut => SignInScreen(controller: controller),
-                SessionStatus.loading => const Scaffold(
-                  body: _Content(
-                    children: [
-                      NeneLogo(),
-                      SizedBox(height: 32),
-                      Center(
-                        child: CircularProgressIndicator(
-                          semanticsLabel: 'Please wait',
-                        ),
-                      ),
-                      SizedBox(height: 20),
-                      Text('Please wait…', textAlign: TextAlign.center),
-                    ],
-                  ),
-                ),
+                SessionStatus.loading => const _SessionLoading(),
                 SessionStatus.ready => CustomerWorkspace(
                   key: ValueKey(controller.generation),
                   session: controller,
@@ -125,15 +111,54 @@ class _SetupUnavailable extends StatelessWidget {
   const _SetupUnavailable();
 
   @override
+  Widget build(BuildContext context) => Scaffold(
+    body: _Content(
+      children: [
+        const Center(child: NeneLogo()),
+        const SizedBox(height: 40),
+        const _StateIcon(Icons.cloud_off_rounded),
+        const SizedBox(height: 20),
+        Text(
+          'Nene is unavailable',
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.headlineSmall,
+        ),
+        const SizedBox(height: 10),
+        const Text(
+          'This build is not ready to connect. Please contact the project team.',
+          textAlign: TextAlign.center,
+          style: TextStyle(color: NeneColors.muted),
+        ),
+      ],
+    ),
+  );
+}
+
+class _SessionLoading extends StatelessWidget {
+  const _SessionLoading();
+
+  @override
   Widget build(BuildContext context) => const Scaffold(
     body: _Content(
       children: [
-        NeneLogo(),
-        SizedBox(height: 24),
-        Text('Nene is unavailable', style: TextStyle(fontSize: 24)),
-        SizedBox(height: 12),
+        Center(child: NeneLogo(size: 52)),
+        SizedBox(height: 44),
+        Center(
+          child: SizedBox.square(
+            dimension: 36,
+            child: CircularProgressIndicator(
+              strokeWidth: 3.5,
+              strokeCap: StrokeCap.round,
+              backgroundColor: NeneColors.pale,
+              semanticsLabel: 'Please wait',
+            ),
+          ),
+        ),
+        SizedBox(height: 18),
         Text(
-          'This build is not ready to connect. Please contact the project team.',
+          'Please wait…',
+          textAlign: TextAlign.center,
+          style: TextStyle(color: NeneColors.muted, fontSize: 15),
         ),
       ],
     ),
@@ -172,124 +197,262 @@ class _SignInScreenState extends State<SignInScreen> {
     body: _Content(
       topAligned: true,
       children: [
+        const _SignInHero(),
+        const SizedBox(height: 20),
         Container(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
           decoration: BoxDecoration(
-            color: NeneColors.pale,
+            color: Colors.white,
             borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: NeneColors.line),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const NeneLogo(),
-              const SizedBox(height: 28),
-              const Text(
-                'A little clarity, every day',
-                style: TextStyle(color: NeneColors.muted, fontSize: 13),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Your money.\nWithin reach.',
-                style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                  color: NeneColors.action,
-                  fontWeight: FontWeight.w600,
+          child: Form(
+            key: _form,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  'Welcome back',
+                  style: Theme.of(context).textTheme.headlineSmall,
                 ),
-              ),
-              const SizedBox(height: 20),
-              Container(
-                width: 48,
-                height: 5,
-                decoration: BoxDecoration(
-                  color: NeneColors.apricot,
-                  borderRadius: BorderRadius.circular(3),
+                const SizedBox(height: 6),
+                const Text(
+                  'Sign in with the details provided by your bank officer.',
+                  style: TextStyle(color: NeneColors.muted),
                 ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 28),
-        Text('Welcome back', style: Theme.of(context).textTheme.headlineSmall),
-        const SizedBox(height: 8),
-        const Text(
-          'Sign in with the details provided by your bank officer.',
-          style: TextStyle(color: NeneColors.muted),
-        ),
-        const SizedBox(height: 24),
-        Form(
-          key: _form,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              TextFormField(
-                controller: _email,
-                decoration: const InputDecoration(labelText: 'Email'),
-                keyboardType: TextInputType.emailAddress,
-                textInputAction: TextInputAction.next,
-                autofillHints: const [AutofillHints.username],
-                autocorrect: false,
-                validator: (value) =>
-                    value != null &&
-                        RegExp(
-                          r'^[^\s@]+@[^\s@]+\.[^\s@]+$',
-                        ).hasMatch(value.trim())
-                    ? null
-                    : 'Enter a valid email address.',
-              ),
-              const SizedBox(height: 20),
-              TextFormField(
-                controller: _password,
-                obscureText: _hidePassword,
-                autocorrect: false,
-                enableSuggestions: false,
-                autofillHints: const [AutofillHints.password],
-                textInputAction: TextInputAction.done,
-                onFieldSubmitted: (_) => _submit(),
-                decoration: InputDecoration(
-                  labelText: 'Password',
-                  suffixIcon: IconButton(
-                    tooltip: _hidePassword ? 'Show password' : 'Hide password',
-                    icon: Icon(
-                      _hidePassword ? Icons.visibility : Icons.visibility_off,
-                    ),
-                    onPressed: () =>
-                        setState(() => _hidePassword = !_hidePassword),
+                const SizedBox(height: 24),
+                TextFormField(
+                  controller: _email,
+                  decoration: const InputDecoration(
+                    labelText: 'Email',
+                    prefixIcon: Icon(Icons.mail_outline_rounded),
                   ),
+                  keyboardType: TextInputType.emailAddress,
+                  textInputAction: TextInputAction.next,
+                  autofillHints: const [AutofillHints.username],
+                  autocorrect: false,
+                  validator: (value) =>
+                      value != null &&
+                          RegExp(
+                            r'^[^\s@]+@[^\s@]+\.[^\s@]+$',
+                          ).hasMatch(value.trim())
+                      ? null
+                      : 'Enter a valid email address.',
                 ),
-                validator: (value) => value != null && value.isNotEmpty
-                    ? null
-                    : 'Enter your password.',
-              ),
-              if (widget.controller.message != null) ...[
                 const SizedBox(height: 16),
-                Semantics(
-                  liveRegion: true,
-                  child: Text(
-                    widget.controller.message!,
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.error,
+                TextFormField(
+                  controller: _password,
+                  obscureText: _hidePassword,
+                  autocorrect: false,
+                  enableSuggestions: false,
+                  autofillHints: const [AutofillHints.password],
+                  textInputAction: TextInputAction.done,
+                  onFieldSubmitted: (_) => _submit(),
+                  decoration: InputDecoration(
+                    labelText: 'Password',
+                    prefixIcon: const Icon(Icons.lock_outline_rounded),
+                    suffixIcon: IconButton(
+                      tooltip: _hidePassword
+                          ? 'Show password'
+                          : 'Hide password',
+                      icon: Icon(
+                        _hidePassword
+                            ? Icons.visibility_outlined
+                            : Icons.visibility_off_outlined,
+                      ),
+                      onPressed: () =>
+                          setState(() => _hidePassword = !_hidePassword),
                     ),
                   ),
+                  validator: (value) => value != null && value.isNotEmpty
+                      ? null
+                      : 'Enter your password.',
                 ),
+                if (widget.controller.message != null) ...[
+                  const SizedBox(height: 16),
+                  _ErrorNotice(widget.controller.message!),
+                ],
+                const SizedBox(height: 24),
+                FilledButton(onPressed: _submit, child: const Text('Sign in')),
               ],
-              const SizedBox(height: 24),
-              FilledButton(onPressed: _submit, child: const Text('Sign in')),
-            ],
+            ),
           ),
         ),
         const SizedBox(height: 20),
-        const Text(
-          'Need access? A bank officer can help you get started.',
-          style: TextStyle(color: NeneColors.muted),
+        const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 4),
+          child: Row(
+            children: [
+              _StateIcon(Icons.support_agent_rounded, size: 40),
+              SizedBox(width: 14),
+              Expanded(
+                child: Text(
+                  'Need access? A bank officer can help you get started.',
+                  style: TextStyle(color: NeneColors.muted),
+                ),
+              ),
+            ],
+          ),
         ),
-        const SizedBox(height: 24),
-        const Text(
-          'Educational banking project · Demo only',
+        const SizedBox(height: 32),
+        const Text.rich(
+          TextSpan(
+            children: [
+              WidgetSpan(
+                alignment: PlaceholderAlignment.middle,
+                child: Padding(
+                  padding: EdgeInsets.only(right: 6),
+                  child: Icon(
+                    Icons.school_outlined,
+                    size: 16,
+                    color: NeneColors.muted,
+                  ),
+                ),
+              ),
+              TextSpan(text: 'Educational banking project · Demo only'),
+            ],
+          ),
           textAlign: TextAlign.center,
           style: TextStyle(fontSize: 12, color: NeneColors.muted),
         ),
       ],
     ),
   );
+}
+
+/// Brand welcome panel: the logo, tagline and promise on a soft pocket tint.
+class _SignInHero extends StatelessWidget {
+  const _SignInHero();
+
+  @override
+  Widget build(BuildContext context) => ClipRRect(
+    borderRadius: BorderRadius.circular(28),
+    child: ColoredBox(
+      color: NeneColors.pale,
+      child: Stack(
+        children: [
+          const Positioned(
+            top: -56,
+            right: -44,
+            child: _Disc(size: 180, color: NeneColors.apricotSoft),
+          ),
+          Positioned(
+            bottom: -96,
+            right: -64,
+            child: _Disc(
+              size: 180,
+              color: NeneColors.brand.withValues(alpha: .10),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 24, 24, 28),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const NeneLogo(size: 40),
+                const SizedBox(height: 40),
+                const Text(
+                  'A little clarity, every day',
+                  style: TextStyle(
+                    color: NeneColors.muted,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: .2,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Your money.\nWithin reach.',
+                  style: Theme.of(context).textTheme.headlineLarge?.copyWith(
+                    color: NeneColors.deep,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: -0.8,
+                    height: 1.15,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Container(
+                  width: 48,
+                  height: 5,
+                  decoration: BoxDecoration(
+                    color: NeneColors.apricot,
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+class _Disc extends StatelessWidget {
+  const _Disc({required this.size, required this.color});
+  final double size;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: size,
+    height: size,
+    decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+  );
+}
+
+/// Tinted rounded-square icon used by the sign-in help line and state pages.
+class _StateIcon extends StatelessWidget {
+  const _StateIcon(this.icon, {this.size = 64});
+  final IconData icon;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) => Center(
+    child: Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: NeneColors.apricotSoft,
+        borderRadius: BorderRadius.circular(size * .3),
+      ),
+      child: Icon(icon, color: NeneColors.deep, size: size * .5),
+    ),
+  );
+}
+
+class _ErrorNotice extends StatelessWidget {
+  const _ErrorNotice(this.text);
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final error = Theme.of(context).colorScheme.error;
+    return Semantics(
+      liveRegion: true,
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFBEDEC),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: error.withValues(alpha: .22)),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(Icons.error_outline_rounded, color: error, size: 20),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                text,
+                style: TextStyle(color: error, fontWeight: FontWeight.w500),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _ProfileUnavailable extends StatelessWidget {
@@ -301,14 +464,29 @@ class _ProfileUnavailable extends StatelessWidget {
     appBar: AppBar(title: const NeneLogo(size: 30)),
     body: _Content(
       children: [
-        const Icon(Icons.info_outline, size: 48),
-        const SizedBox(height: 24),
-        Semantics(liveRegion: true, child: Text(controller.message!)),
-        const SizedBox(height: 24),
-        FilledButton(
-          onPressed: controller.loadProfile,
-          child: const Text('Try again'),
+        const _StateIcon(Icons.person_off_outlined),
+        const SizedBox(height: 20),
+        Text(
+          'Profile unavailable',
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.headlineSmall,
         ),
+        const SizedBox(height: 10),
+        Semantics(
+          liveRegion: true,
+          child: Text(
+            controller.message!,
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: NeneColors.muted),
+          ),
+        ),
+        const SizedBox(height: 28),
+        FilledButton.icon(
+          onPressed: controller.loadProfile,
+          icon: const Icon(Icons.refresh_rounded),
+          label: const Text('Try again'),
+        ),
+        const SizedBox(height: 8),
         TextButton(
           onPressed: controller.signOut,
           child: const Text('Sign out'),
