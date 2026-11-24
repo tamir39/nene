@@ -45,7 +45,7 @@ Never paste passwords or keys into chat, commits or screenshots.
    insert into bank.user_profiles (id, display_name, role, email)
    values ('<auth-user-uuid>', 'Demo officer', 'officer', '<officer-email>');
    ```
-6. **Render web service:** connect the GitHub repo, root directory `backend`, build `npm ci --include=dev && npm run build` (with `NODE_ENV=production`, plain `npm ci` skips the TypeScript compiler), start `npm start`, health check `/api/v1/health`. Set variables from [hosted.env.example](../backend/hosted.env.example). Upload Supabase's database CA (Dashboard → Database settings → SSL certificate) as Render secret file `supabase-ca.crt`. `DATABASE_URL` comes from Dashboard → Connect → **Session pooler**, with the user changed from `postgres.<ref>` to `nene_api.<ref>`.
+6. **Render web service:** connect the GitHub repo, root directory `backend`, build `npm ci --include=dev && npm run build` (with `NODE_ENV=production`, plain `npm ci` skips the TypeScript compiler), start `npm start`, health check `/api/v1/health`. Set variables from [hosted.env.example](../backend/hosted.env.example). Supabase's public root CA ships as [backend/certs/supabase-root-2021.crt](../backend/certs/supabase-root-2021.crt) (`CN=Supabase Root 2021 CA`, valid to 2031); `DATABASE_SSL_CA_FILE=certs/supabase-root-2021.crt` resolves from Render's `backend` root. `DATABASE_URL` comes from Dashboard → Connect → **Session pooler**, with the user changed from `postgres.<ref>` to `nene_api.<ref>`.
 7. **Demo customers and funds:** sign in to the app as the officer and create two customers with `@example.invalid` emails. Then print the seed SQL locally and run it in the SQL Editor:
    ```powershell
    node scripts/hosted-seed-sql.mjs <source-account> <recipient-account>
@@ -55,8 +55,8 @@ Never paste passwords or keys into chat, commits or screenshots.
 
 ## Known limits and unverified points
 
-- Verified so far: backend lint/build, 168 unit/HTTP tests and the seed SQL printer. No hosted deployment has run yet.
-- To confirm on first deploy: Supabase pooler TLS with the downloaded CA under `verify-full`; the restrictive storage policies in the first migration on hosted Supabase; recovery-code availability.
+- Verified 24 Nov: backend lint/build, 168 unit/HTTP tests and the seed SQL printer. All 16 migrations, including the restrictive storage policies, applied to the hosted project, and local/remote history match. Pooler TLS fails with Node's default CA store (`SELF_SIGNED_CERT_IN_CHAIN`) and passes `verify-full` with the bundled Supabase root CA.
+- To confirm on first deploy: the Render service itself, and recovery-code availability.
 - Render free instances sleep after inactivity; the first request can take about a minute. Supabase free projects pause after about a week without activity, so keep them active through grading.
 - VNPay `vnp_IpAddr` records Render's proxy address rather than the phone's address. This is informational in the sandbox.
 - The interbank, cash and transfer flows are simulations; the hosted marker does not turn them into real banking services.
