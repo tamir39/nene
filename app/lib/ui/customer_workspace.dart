@@ -125,11 +125,14 @@ class _CustomerWorkspaceState extends State<CustomerWorkspace> {
     super.dispose();
   }
 
+  // Customer tabs plus the officer-only Customers and Rates tabs.
   static const _tabPages = {
     _Page.home,
     _Page.assistant,
     _Page.branches,
     _Page.profile,
+    _Page.search,
+    _Page.savingsPolicy,
   };
 
   void _go(_Page page, {String? notice}) {
@@ -195,7 +198,12 @@ class _CustomerWorkspaceState extends State<CustomerWorkspace> {
               if (widget.branches != null) _Page.branches,
               _Page.profile,
             ]
-          : const <_Page>[];
+          : [
+              _Page.home,
+              _Page.search,
+              if (widget.savingsPolicy != null) _Page.savingsPolicy,
+              _Page.profile,
+            ];
       final tabIndex = tabs.indexOf(_page);
       return PopScope(
         canPop: _page == _Page.home,
@@ -220,6 +228,15 @@ class _CustomerWorkspaceState extends State<CustomerWorkspace> {
                           icon: Icon(Icons.map_outlined),
                           selectedIcon: Icon(Icons.map),
                           label: 'Offices',
+                        ),
+                        _Page.search => const NavigationDestination(
+                          icon: Icon(Icons.people_outline),
+                          selectedIcon: Icon(Icons.people),
+                          label: 'Customers',
+                        ),
+                        _Page.savingsPolicy => const NavigationDestination(
+                          icon: Icon(Icons.percent_rounded),
+                          label: 'Rates',
                         ),
                         _Page.profile => const NavigationDestination(
                           icon: Icon(Icons.person_outline),
@@ -618,14 +635,6 @@ class _CustomerWorkspaceState extends State<CustomerWorkspace> {
           onTap: () => _go(_Page.savingsPolicy),
         ),
       ],
-      const SizedBox(height: 24),
-      const SectionTitle('My profile'),
-      Card(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(18, 18, 18, 0),
-          child: _Info('Email', profile.email ?? 'Not provided'),
-        ),
-      ),
     ],
   );
 
@@ -655,57 +664,37 @@ class _CustomerWorkspaceState extends State<CustomerWorkspace> {
                           profile.email ?? 'Not provided',
                           style: const TextStyle(color: NeneColors.muted),
                         ),
+                        if (profile.role == AppRole.officer) ...[
+                          const SizedBox(height: 8),
+                          const Chip(
+                            avatar: Icon(Icons.badge_outlined, size: 18),
+                            label: Text('Bank officer'),
+                            backgroundColor: NeneColors.apricotSoft,
+                            visualDensity: VisualDensity.compact,
+                          ),
+                        ],
                       ],
                     ),
                   ),
                 ],
               ),
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 16),
-                child: Divider(),
-              ),
-              _Info('Phone', profile.phone ?? 'Not provided'),
-              _Info('Address', profile.address ?? 'Not provided'),
+              if (profile.role == AppRole.customer) ...[
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 16),
+                  child: Divider(),
+                ),
+                _Info('Phone', profile.phone ?? 'Not provided'),
+                _Info('Address', profile.address ?? 'Not provided'),
+              ],
             ],
           ),
         ),
       ),
       const SizedBox(height: 16),
-      Card(
-        clipBehavior: Clip.antiAlias,
-        child: Column(
-          children: [
-            ListTile(
-              leading: const Icon(Icons.edit_outlined),
-              title: const Text('Edit contact details'),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () {
-                _flow.clearContactError();
-                _go(_Page.contact);
-              },
-            ),
-            if (widget.security != null) ...[
-              const Divider(),
-              ListTile(
-                leading: const Icon(Icons.verified_user_outlined),
-                title: const Text('Transaction security'),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => _go(_Page.security),
-              ),
-            ],
-            if (widget.identity != null) ...[
-              const Divider(),
-              ListTile(
-                leading: const Icon(Icons.portrait_outlined),
-                title: const Text('Identity reference'),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => _go(_Page.identity),
-              ),
-            ],
-          ],
-        ),
-      ),
-      const SizedBox(height: 16),
+      if (profile.role == AppRole.customer) ...[
+        _customerSettings(),
+        const SizedBox(height: 16),
+      ],
       OutlinedButton.icon(
         onPressed: widget.session.signOut,
         style: OutlinedButton.styleFrom(
@@ -715,6 +704,41 @@ class _CustomerWorkspaceState extends State<CustomerWorkspace> {
         label: const Text('Sign out of Nene'),
       ),
     ],
+  );
+
+  Widget _customerSettings() => Card(
+    clipBehavior: Clip.antiAlias,
+    child: Column(
+      children: [
+        ListTile(
+          leading: const Icon(Icons.edit_outlined),
+          title: const Text('Edit contact details'),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () {
+            _flow.clearContactError();
+            _go(_Page.contact);
+          },
+        ),
+        if (widget.security != null) ...[
+          const Divider(),
+          ListTile(
+            leading: const Icon(Icons.verified_user_outlined),
+            title: const Text('Transaction security'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => _go(_Page.security),
+          ),
+        ],
+        if (widget.identity != null) ...[
+          const Divider(),
+          ListTile(
+            leading: const Icon(Icons.portrait_outlined),
+            title: const Text('Identity reference'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => _go(_Page.identity),
+          ),
+        ],
+      ],
+    ),
   );
 
   void _openAssistantAction(AssistantAction action) {

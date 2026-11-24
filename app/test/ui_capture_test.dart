@@ -15,6 +15,7 @@ import 'package:nene_app/data/account_history_api.dart';
 import 'package:nene_app/data/assistant_api.dart';
 import 'package:nene_app/data/banking_repository.dart';
 import 'package:nene_app/data/branches_api.dart';
+import 'package:nene_app/data/savings_policy_api.dart';
 import 'package:nene_app/data/security_api.dart';
 import 'package:nene_app/data/session_owner.dart';
 import 'package:nene_app/data/user_profile.dart';
@@ -88,7 +89,9 @@ Future<void> _fonts(WidgetTester tester) async {
     }
     await family.load();
     await (FontLoader('MaterialIcons')..addFont(
-          bytes('$sdk/bin/cache/artifacts/material_fonts/MaterialIcons-Regular.otf'),
+          bytes(
+            '$sdk/bin/cache/artifacts/material_fonts/MaterialIcons-Regular.otf',
+          ),
         ))
         .load();
   });
@@ -128,6 +131,7 @@ Future<void> _mount(
         history: AccountHistoryApi(baseUrl: _base, client: _offline),
         branches: BranchesApi(baseUrl: _base, client: _offline),
         assistant: AssistantApi(baseUrl: _base, client: _offline),
+        savingsPolicy: SavingsPolicyApi(baseUrl: _base, client: _offline),
       ),
     ),
   );
@@ -136,9 +140,7 @@ Future<void> _mount(
 
 Future<void> _shoot(WidgetTester tester, String name) async {
   await tester.pumpAndSettle();
-  final boundary = tester.renderObject<RenderRepaintBoundary>(
-    find.byKey(_key),
-  );
+  final boundary = tester.renderObject<RenderRepaintBoundary>(find.byKey(_key));
   await tester.runAsync(() async {
     final image = await boundary.toImage(pixelRatio: 2);
     final data = await image.toByteData(format: ui.ImageByteFormat.png);
@@ -174,5 +176,12 @@ void main() {
     if (!_capture) return;
     await _mount(tester, _officer);
     await _shoot(tester, 'officer-home');
+  });
+
+  testWidgets('capture officer profile tab', (tester) async {
+    if (!_capture) return;
+    await _mount(tester, _officer);
+    await tester.tap(find.text('Profile'));
+    await _shoot(tester, 'officer-profile');
   });
 }
