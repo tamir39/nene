@@ -1,4 +1,4 @@
-package com.example.nene_app
+package vn.nene.bank
 
 import io.flutter.embedding.android.FlutterActivity
 
