@@ -340,6 +340,7 @@ Future<FakeIdentity> _identity(
         session: session,
         repository: repository,
         photos: FakePhotos(),
+        faceCheck: FakeFaceCheck(),
         customerId: officer ? 'customer-id' : null,
       ),
       scale: scale,

@@ -21,6 +21,7 @@ import 'package:flutter/material.dart';
 
 import '../customer_flow_controller.dart';
 import '../data/banking_repository.dart';
+import '../data/face_check.dart';
 import '../data/identity_repository.dart';
 import '../data/reference_photo_source.dart';
 import '../data/user_profile.dart';
@@ -58,6 +59,7 @@ class CustomerWorkspace extends StatefulWidget {
     required this.repository,
     this.identity,
     this.photos,
+    this.faceCheck,
     this.security,
     this.savingsPolicy,
     this.demoAccounts,
@@ -70,6 +72,7 @@ class CustomerWorkspace extends StatefulWidget {
   final BankingRepository repository;
   final IdentityRepository? identity;
   final ReferencePhotoSource? photos;
+  final FaceCheck? faceCheck;
   final SecurityApi? security;
   final SavingsPolicyApi? savingsPolicy;
   final DemoAccountsApi? demoAccounts;
@@ -353,6 +356,7 @@ class _CustomerWorkspaceState extends State<CustomerWorkspace> {
               session: widget.session,
               repository: widget.identity!,
               photos: widget.photos ?? DeviceReferencePhotoSource(),
+              faceCheck: widget.faceCheck ?? createDeviceFaceCheck(),
               customerId: profile.role == AppRole.officer ? _customerId : null,
             ),
             _Page.editCustomer => _OfficerEditForm(

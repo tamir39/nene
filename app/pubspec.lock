@@ -336,6 +336,22 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.2.5"
+  google_mlkit_commons:
+    dependency: transitive
+    description:
+      name: google_mlkit_commons
+      sha256: "58b969da65027b6242afb38b944f5a0d3f6b90305b29d70b0cca3048a50b4263"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.0.3"
+  google_mlkit_face_detection:
+    dependency: "direct main"
+    description:
+      name: google_mlkit_face_detection
+      sha256: cd8d54f798e29dd90418b6580094be618278e50f2192fc392bd8e258478890b7
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.0.3"
   gotrue:
     dependency: transitive
     description:

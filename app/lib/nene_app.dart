@@ -10,6 +10,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'data/banking_repository.dart';
+import 'data/face_check.dart';
 import 'data/identity_repository.dart';
 import 'data/reference_photo_source.dart';
 import 'session_controller.dart';
@@ -23,6 +24,7 @@ class NeneApp extends StatefulWidget {
     this.banking,
     this.identity,
     this.photos,
+    this.faceCheck,
     this.security,
     this.savingsPolicy,
     this.demoAccounts,
@@ -36,6 +38,7 @@ class NeneApp extends StatefulWidget {
   final BankingRepository? banking;
   final IdentityRepository? identity;
   final ReferencePhotoSource? photos;
+  final FaceCheck? faceCheck;
   final SecurityApi? security;
   final SavingsPolicyApi? savingsPolicy;
   final DemoAccountsApi? demoAccounts;
@@ -92,6 +95,7 @@ class _NeneAppState extends State<NeneApp> with WidgetsBindingObserver {
                   repository: widget.banking!,
                   identity: widget.identity,
                   photos: widget.photos,
+                  faceCheck: widget.faceCheck,
                   security: widget.security,
                   savingsPolicy: widget.savingsPolicy,
                   demoAccounts: widget.demoAccounts,

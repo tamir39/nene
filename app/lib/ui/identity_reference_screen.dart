@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import '../data/face_check.dart';
 import '../data/identity_repository.dart';
 import '../data/reference_photo_source.dart';
 import '../identity_controller.dart';
@@ -21,11 +22,13 @@ class IdentityReferenceScreen extends StatefulWidget {
     required this.session,
     required this.repository,
     required this.photos,
+    required this.faceCheck,
     this.customerId,
   });
   final SessionController session;
   final IdentityRepository repository;
   final ReferencePhotoSource photos;
+  final FaceCheck faceCheck;
   final String? customerId;
 
   @override
@@ -48,6 +51,7 @@ class _IdentityReferenceScreenState extends State<IdentityReferenceScreen> {
       session: widget.session,
       repository: widget.repository,
       photos: widget.photos,
+      faceCheck: widget.faceCheck,
       customerId: widget.customerId,
     );
     _flow.addListener(_changed);
@@ -118,7 +122,9 @@ class _IdentityReferenceScreenState extends State<IdentityReferenceScreen> {
                     ),
                     const SizedBox(height: 10),
                     Text(
-                      _flow.capturing
+                      _flow.checkingFace
+                          ? 'Checking the photo for one clear face…'
+                          : _flow.capturing
                           ? 'Complete or cancel the device photo picker.'
                           : 'Please wait…',
                       style: const TextStyle(color: NeneColors.muted),
@@ -208,6 +214,7 @@ class _IdentityReferenceScreenState extends State<IdentityReferenceScreen> {
                         photo == null
                             ? const _EmptyFrame()
                             : _PrivatePhoto(bytes: photo),
+                        ..._faceCheckFeedback(),
                         if (canCapture) ...[
                           const SizedBox(height: 14),
                           const _IconText(
@@ -394,6 +401,51 @@ class _IdentityReferenceScreenState extends State<IdentityReferenceScreen> {
     );
   }
 
+  /// A refused photo is already discarded: say why and how to retake it.
+  /// Without a detector the photo is allowed, and the note names who checks it.
+  List<Widget> _faceCheckFeedback() {
+    final rejection = _flow.faceRejection;
+    if (rejection != null) {
+      final (icon, reason) = switch (rejection) {
+        FaceCheckResult.multipleFaces => (
+          Icons.group_outlined,
+          'More than one face found. Only ${_flow.officer ? 'the customer' : 'you'} should be in the photo.',
+        ),
+        FaceCheckResult.faceTooSmall => (
+          Icons.zoom_in_rounded,
+          'Face too small. Move closer so ${_flow.officer ? "the customer's" : 'your'} face fills more of the photo.',
+        ),
+        _ => (
+          Icons.face_retouching_off_outlined,
+          'No face found. Use good light and face the camera.',
+        ),
+      };
+      return [
+        const SizedBox(height: 14),
+        _Notice(
+          '$reason\nThis photo was not kept. Retake it to continue.',
+          icon: icon,
+          error: true,
+        ),
+      ];
+    }
+    final note = _flow.captured == null
+        ? null
+        : switch (_flow.capturedFaceCheck) {
+            FaceCheckResult.unavailable =>
+              'The face check runs in the Android app. An officer still reviews this photo.',
+            FaceCheckResult.failed =>
+              'The face check could not run on this photo. An officer still reviews it.',
+            _ => null,
+          };
+    return [
+      if (note != null) ...[
+        const SizedBox(height: 14),
+        _IconText(Icons.info_outline_rounded, note, muted: true),
+      ],
+    ];
+  }
+
   List<Widget> _captureActions(
     IdentitySummary value,
     Uint8List? photo,
@@ -401,7 +453,7 @@ class _IdentityReferenceScreenState extends State<IdentityReferenceScreen> {
   ) {
     final captureLabel = kIsWeb
         ? 'Choose photo'
-        : photo == null
+        : photo == null && _flow.faceRejection == null
         ? 'Take photo'
         : 'Retake photo';
     final captureIcon = Icon(
