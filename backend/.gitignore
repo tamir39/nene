@@ -8,3 +8,5 @@ coverage/
 *.tsbuildinfo
 *.pem
 *.crt
+# Public Supabase root CA for verify-full pooler TLS (not a secret).
+!certs/supabase-root-2021.crt
