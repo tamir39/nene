@@ -758,59 +758,84 @@ class _CustomerWorkspaceState extends State<CustomerWorkspace> {
         .toList();
     return WorkspaceContent(
       children: [
-        Text(
-          'Choose your account',
-          style: Theme.of(context).textTheme.headlineMedium,
-        ),
-        const SizedBox(height: 12),
-        Text(
+        const _Heading('Choose your account'),
+        _Lead(
           history
               ? 'Transaction history for ${action.month}'
               : 'Open the normal ${action.activity == AssistantActivity.interbankTransfer ? 'other-bank demo transfer' : action.activity.name} flow. Nothing has been submitted.',
         ),
-        const SizedBox(height: 16),
         if (!available)
-          const Text('This activity is unavailable in this build.'),
+          const _Message('This activity is unavailable in this build.'),
         if (available && _flow.loadingAccounts)
           const _Loading('Loading your accounts'),
         if (available && _flow.accountsError != null) ...[
           _Message(_flow.accountsError!, error: true),
-          TextButton(
+          const SizedBox(height: 8),
+          TextButton.icon(
             onPressed: _flow.loadingAccounts ? null : _flow.loadAccounts,
-            child: const Text('Retry accounts'),
+            icon: const Icon(Icons.refresh_rounded),
+            label: const Text('Retry accounts'),
           ),
         ],
         if (available &&
             !_flow.loadingAccounts &&
             _flow.accountsError == null) ...[
           if (accounts.isEmpty)
-            const Text('No eligible accounts are available for this activity.'),
-          for (final account in accounts)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: OutlinedButton(
-                onPressed: () {
-                  _assistantDestination = true;
-                  if (history) {
-                    _historyAccount = account;
-                    _historyMonth = action.month;
-                    _go(_Page.history);
-                  } else {
-                    _confirmationAccount = account;
-                    _sendDemoMoney = true;
-                    _interbank =
-                        action.activity == AssistantActivity.interbankTransfer;
-                    _cashOperation = switch (action.activity) {
-                      AssistantActivity.deposit => CashOperation.deposit,
-                      AssistantActivity.withdrawal => CashOperation.withdrawal,
-                      _ => null,
-                    };
-                    _go(_Page.confirmation);
-                  }
-                },
-                child: Text('${account.typeLabel} · ${account.accountNumber}'),
-              ),
+            const _EmptyState(
+              icon: Icons.account_balance_wallet_outlined,
+              title: 'No eligible accounts are available for this activity.',
+              body: 'Go back to the assistant to choose another activity.',
             ),
+          for (final account in accounts) ...[
+            _TapCard(
+              leading: _IconBadge(_accountIcon(account.type)),
+              // Width goes to the label so "Type · number" stays on one line.
+              chevron: false,
+              onTap: () {
+                _assistantDestination = true;
+                if (history) {
+                  _historyAccount = account;
+                  _historyMonth = action.month;
+                  _go(_Page.history);
+                } else {
+                  _confirmationAccount = account;
+                  _sendDemoMoney = true;
+                  _interbank =
+                      action.activity == AssistantActivity.interbankTransfer;
+                  _cashOperation = switch (action.activity) {
+                    AssistantActivity.deposit => CashOperation.deposit,
+                    AssistantActivity.withdrawal => CashOperation.withdrawal,
+                    _ => null,
+                  };
+                  _go(_Page.confirmation);
+                }
+              },
+              children: [
+                Text.rich(
+                  TextSpan(
+                    children: [
+                      TextSpan(
+                        text: account.typeLabel,
+                        style: const TextStyle(
+                          fontSize: 14.5,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      TextSpan(
+                        text: ' · ${account.accountNumber}',
+                        style: const TextStyle(
+                          color: NeneColors.muted,
+                          fontSize: 13.5,
+                          fontFeatures: neneTabularFigures,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+          ],
         ],
       ],
     );
@@ -821,59 +846,113 @@ class _CustomerWorkspaceState extends State<CustomerWorkspace> {
     return WorkspaceContent(
       children: [
         const _Heading('Customer details'),
+        const _Lead('Profile, accounts and requested changes.'),
         if (_notice != null) ...[
           _Message(_notice!),
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
         ],
         if (_flow.loadingCustomer) const _Loading('Loading customer'),
         if (_flow.customerError != null) ...[
           _Message(_flow.customerError!, error: true),
-          TextButton(
+          const SizedBox(height: 8),
+          TextButton.icon(
             onPressed: () => _flow.loadCustomer(_customerId!),
-            child: const Text('Retry customer'),
+            icon: const Icon(Icons.refresh_rounded),
+            label: const Text('Retry customer'),
           ),
         ],
         if (customer != null) ...[
-          _Info('Name', customer.displayName),
-          _Info('Sign-in email', customer.email ?? 'Not provided'),
-          _Info('Phone', customer.phone ?? 'Not provided'),
-          _Info('Address', customer.address ?? 'Not provided'),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(18, 18, 18, 0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: [
+                      NeneAvatar(customer.displayName, size: 56),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              customer.displayName,
+                              style: Theme.of(context).textTheme.titleLarge,
+                            ),
+                            const SizedBox(height: 2),
+                            SelectableText(
+                              customer.email ?? 'Not provided',
+                              style: const TextStyle(color: NeneColors.muted),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 16),
+                    child: Divider(),
+                  ),
+                  _Info('Phone', customer.phone ?? 'Not provided'),
+                  _Info('Address', customer.address ?? 'Not provided'),
+                ],
+              ),
+            ),
+          ),
           const SizedBox(height: 12),
           const _Message(
             'Identity is unverified. Creating a customer does not complete eKYC '
             'or enable money movements.',
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 24),
+          const SectionTitle('Accounts'),
           if (customer.accounts.isEmpty)
-            const Text('No linked accounts.')
+            const _EmptyState(
+              icon: Icons.account_balance_wallet_outlined,
+              title: 'No linked accounts.',
+              body: 'Accounts opened for this customer appear here.',
+            )
           else
-            for (final account in customer.accounts) AccountCard(account),
-          if (widget.demoAccounts != null)
-            OutlinedButton.icon(
-              onPressed: () => _go(_Page.demoAccount),
-              icon: const Icon(Icons.add),
-              label: const Text('Add demo account'),
-            ),
-          const SizedBox(height: 20),
-          FilledButton(
-            onPressed: () {
+            for (final account in customer.accounts) ...[
+              AccountCard(account),
+              const SizedBox(height: 12),
+            ],
+          const SizedBox(height: 12),
+          const SectionTitle('Officer actions'),
+          ActionTile(
+            icon: Icons.edit_note_rounded,
+            title: 'Make a requested change',
+            body: 'Update the name, phone or address the customer asked for.',
+            emphasized: true,
+            onTap: () {
               _flow.clearCustomerSaveError();
               _go(_Page.editCustomer);
             },
-            child: const Text('Make a requested change'),
           ),
           if (widget.identity != null) ...[
             const SizedBox(height: 12),
-            OutlinedButton.icon(
-              onPressed: () => _go(_Page.identity),
-              icon: const Icon(Icons.portrait_outlined),
-              label: const Text('Assist / review reference'),
+            ActionTile(
+              icon: Icons.portrait_outlined,
+              title: 'Assist / review reference',
+              body: 'Help capture or review the private reference photo.',
+              onTap: () => _go(_Page.identity),
             ),
           ],
-          const SizedBox(height: 8),
-          TextButton(
+          if (widget.demoAccounts != null) ...[
+            const SizedBox(height: 12),
+            ActionTile(
+              icon: Icons.add_card_outlined,
+              title: 'Add demo account',
+              body: 'Add a synthetic savings or mortgage account for testing.',
+              onTap: () => _go(_Page.demoAccount),
+            ),
+          ],
+          const SizedBox(height: 16),
+          TextButton.icon(
             onPressed: () => _go(_Page.search),
-            child: const Text('Find another customer'),
+            icon: const Icon(Icons.manage_search_rounded),
+            label: const Text('Find another customer'),
           ),
         ],
       ],
@@ -922,23 +1001,33 @@ class _ContactFormState extends State<ContactForm> {
   Widget build(BuildContext context) => WorkspaceContent(
     children: [
       const _Heading('Edit contact details'),
-      const Text(
-        'You can update your phone and address. Leave a field blank to remove it. '
-        'Contact your officer for a name or sign-in email correction.',
+      const _Lead(
+        'You can update your phone and address. Leave a field blank to '
+        'remove it.',
       ),
-      const SizedBox(height: 24),
       Form(
         key: _form,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _ContactFields(
-              phone: _phone,
-              address: _address,
-              enabled: !widget.flow.savingContact,
+            _FormCard(
+              children: [
+                _ContactFields(
+                  phone: _phone,
+                  address: _address,
+                  enabled: !widget.flow.savingContact,
+                ),
+              ],
             ),
-            if (widget.flow.contactError != null)
+            const SizedBox(height: 16),
+            const _Note(
+              Icons.support_agent_outlined,
+              'Contact your officer for a name or sign-in email correction.',
+            ),
+            if (widget.flow.contactError != null) ...[
+              const SizedBox(height: 16),
               _Message(widget.flow.contactError!, error: true),
+            ],
             const SizedBox(height: 24),
             FilledButton(
               onPressed: widget.flow.savingContact ? null : _save,
@@ -1031,26 +1120,67 @@ class _CreateCustomerFormState extends State<CreateCustomerForm> {
       key: ValueKey(reviewing ? 'creation-review' : 'creation-fields'),
       children: [
         _Heading(reviewing ? 'Review customer' : 'Create customer'),
+        _Lead(
+          reviewing
+              ? 'Check the details before you confirm.'
+              : 'Open a profile and a first checking account.',
+        ),
+        _Steps(reviewing ? 1 : 0),
+        const SizedBox(height: 20),
         const _Message(
           'This demo creates one VND checking account with a zero balance. '
           'Identity remains unverified and money movements stay unavailable.',
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: 16),
         if (reviewing) ...[
-          _Info('Name', _name.text.trim()),
-          _Info('Sign-in email', _email.text.trim().toLowerCase()),
-          _Info('Phone', _nullable(_phone.text) ?? 'Not provided'),
-          _Info('Address', _nullable(_address.text) ?? 'Not provided'),
-          const _Info('Initial password', 'Set · hidden'),
-          const SizedBox(height: 12),
-          const Text(
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 4),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _SummaryRow('Name', _name.text.trim()),
+                  const Divider(),
+                  _SummaryRow(
+                    'Sign-in email',
+                    _email.text.trim().toLowerCase(),
+                  ),
+                  const Divider(),
+                  _SummaryRow(
+                    'Phone',
+                    _nullable(_phone.text) ?? 'Not provided',
+                  ),
+                  const Divider(),
+                  _SummaryRow(
+                    'Address',
+                    _nullable(_address.text) ?? 'Not provided',
+                  ),
+                  const Divider(),
+                  const _SummaryRow('Initial password', 'Set · hidden'),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          const _Note(
+            Icons.privacy_tip_outlined,
             'Use synthetic details for this project demo. Share the access '
             'details privately with the customer. There is no invitation email '
             'or password-reset flow in this slice.',
           ),
           if (widget.flow.creationError != null) ...[
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
             _Message(widget.flow.creationError!, error: true),
+          ],
+          if (widget.flow.hasCreationAttempt) ...[
+            const SizedBox(height: 12),
+            const _Note(
+              Icons.warning_amber_rounded,
+              'Do not close or sign out until the outcome is confirmed. Pending '
+              'request details are kept only in memory. If the session ends, '
+              'find the customer by email before attempting another creation.',
+              caution: true,
+            ),
           ],
           const SizedBox(height: 24),
           FilledButton(
@@ -1065,16 +1195,9 @@ class _CreateCustomerFormState extends State<CreateCustomerForm> {
           ),
           if (!widget.flow.creating &&
               (!widget.flow.hasCreationAttempt ||
-                  widget.flow.canCorrectCreation))
+                  widget.flow.canCorrectCreation)) ...[
+            const SizedBox(height: 8),
             TextButton(onPressed: _edit, child: const Text('Edit details')),
-          if (widget.flow.hasCreationAttempt) ...[
-            const SizedBox(height: 12),
-            const Text(
-              'Do not close or sign out until the outcome is confirmed. Pending '
-              'request details are kept only in memory. If the session ends, '
-              'find the customer by email before attempting another creation.',
-              style: TextStyle(color: NeneColors.muted),
-            ),
           ],
         ] else
           Form(
@@ -1082,56 +1205,78 @@ class _CreateCustomerFormState extends State<CreateCustomerForm> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                _NameField(controller: _name),
-                const SizedBox(height: 20),
-                TextFormField(
-                  controller: _email,
-                  decoration: const InputDecoration(labelText: 'Sign-in email'),
-                  keyboardType: TextInputType.emailAddress,
-                  textInputAction: TextInputAction.next,
-                  autocorrect: false,
-                  enableSuggestions: false,
-                  maxLength: 254,
-                  validator: (value) =>
-                      value != null &&
-                          RegExp(
-                            r'^[^\s@]+@[^\s@]+\.[^\s@]+$',
-                          ).hasMatch(value.trim()) &&
-                          !_hasControl(value)
-                      ? null
-                      : 'Enter a valid email address.',
-                ),
-                const SizedBox(height: 20),
-                _ContactFields(phone: _phone, address: _address),
-                TextFormField(
-                  controller: _password,
-                  obscureText: _hidePassword,
-                  autocorrect: false,
-                  enableSuggestions: false,
-                  keyboardType: TextInputType.visiblePassword,
-                  textInputAction: TextInputAction.done,
-                  maxLength: 128,
-                  decoration: InputDecoration(
-                    labelText: 'Initial password',
-                    helperText: 'Use 12–128 characters.',
-                    suffixIcon: IconButton(
-                      tooltip: _hidePassword
-                          ? 'Show password'
-                          : 'Hide password',
-                      onPressed: () =>
-                          setState(() => _hidePassword = !_hidePassword),
-                      icon: Icon(
-                        _hidePassword ? Icons.visibility : Icons.visibility_off,
+                _FormCard(
+                  title: 'Personal details',
+                  children: [
+                    _NameField(controller: _name),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _email,
+                      decoration: const InputDecoration(
+                        labelText: 'Sign-in email',
+                        helperText: 'The customer signs in with this email.',
+                        prefixIcon: Icon(Icons.alternate_email_rounded),
+                        counterText: '',
                       ),
+                      keyboardType: TextInputType.emailAddress,
+                      textInputAction: TextInputAction.next,
+                      autocorrect: false,
+                      enableSuggestions: false,
+                      maxLength: 254,
+                      validator: (value) =>
+                          value != null &&
+                              RegExp(
+                                r'^[^\s@]+@[^\s@]+\.[^\s@]+$',
+                              ).hasMatch(value.trim()) &&
+                              !_hasControl(value)
+                          ? null
+                          : 'Enter a valid email address.',
                     ),
-                  ),
-                  validator: (value) =>
-                      value != null &&
-                          value.length >= 12 &&
-                          value.length <= 128 &&
-                          !_hasControl(value)
-                      ? null
-                      : 'Enter 12–128 characters without control characters.',
+                  ],
+                ),
+                const SizedBox(height: 16),
+                _FormCard(
+                  title: 'Contact',
+                  children: [_ContactFields(phone: _phone, address: _address)],
+                ),
+                const SizedBox(height: 16),
+                _FormCard(
+                  title: 'Sign-in',
+                  children: [
+                    TextFormField(
+                      controller: _password,
+                      obscureText: _hidePassword,
+                      autocorrect: false,
+                      enableSuggestions: false,
+                      keyboardType: TextInputType.visiblePassword,
+                      textInputAction: TextInputAction.done,
+                      maxLength: 128,
+                      decoration: InputDecoration(
+                        labelText: 'Initial password',
+                        helperText: 'Use 12–128 characters.',
+                        prefixIcon: const Icon(Icons.lock_outline_rounded),
+                        suffixIcon: IconButton(
+                          tooltip: _hidePassword
+                              ? 'Show password'
+                              : 'Hide password',
+                          onPressed: () =>
+                              setState(() => _hidePassword = !_hidePassword),
+                          icon: Icon(
+                            _hidePassword
+                                ? Icons.visibility
+                                : Icons.visibility_off,
+                          ),
+                        ),
+                      ),
+                      validator: (value) =>
+                          value != null &&
+                              value.length >= 12 &&
+                              value.length <= 128 &&
+                              !_hasControl(value)
+                          ? null
+                          : 'Enter 12–128 characters without control characters.',
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 24),
                 FilledButton(
@@ -1170,60 +1315,88 @@ class _SearchCustomersState extends State<_SearchCustomers> {
   }
 
   @override
-  Widget build(BuildContext context) => WorkspaceContent(
-    children: [
-      const _Heading('Find a customer'),
-      TextField(
-        controller: _query,
-        decoration: const InputDecoration(labelText: 'Name or email'),
-        textInputAction: TextInputAction.search,
-        maxLength: 100,
-        onSubmitted: (_) => _search(),
-      ),
-      const SizedBox(height: 12),
-      FilledButton(
-        onPressed: widget.flow.searching ? null : _search,
-        child: const Text('Search customers'),
-      ),
-      const SizedBox(height: 24),
-      if (widget.flow.searching)
-        const _Loading('Searching customers')
-      else if (widget.flow.searchError != null)
-        _Message(widget.flow.searchError!, error: true)
-      else if (widget.flow.customers == null)
-        const Text('Enter a name or email to find a customer.')
-      else if (widget.flow.customers!.isEmpty)
-        const Text('No customers found. Check the name or email and try again.')
-      else ...[
-        const Text(
-          'Showing up to 20 matches. Use a more specific name or email if needed.',
-          style: TextStyle(color: NeneColors.muted),
+  Widget build(BuildContext context) {
+    final customers = widget.flow.customers;
+    return WorkspaceContent(
+      children: [
+        const _Heading('Find a customer'),
+        const _Lead('Search by name or sign-in email.'),
+        TextField(
+          controller: _query,
+          decoration: const InputDecoration(
+            labelText: 'Name or email',
+            prefixIcon: Icon(Icons.search_rounded),
+            counterText: '',
+          ),
+          textInputAction: TextInputAction.search,
+          maxLength: 100,
+          onSubmitted: (_) => _search(),
         ),
         const SizedBox(height: 12),
-        for (final customer in widget.flow.customers!)
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Text(
-                    customer.displayName,
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(customer.email ?? 'No email available'),
-                  TextButton(
-                    onPressed: () => widget.onOpen(customer.id),
-                    child: const Text('View customer'),
-                  ),
-                ],
-              ),
-            ),
+        FilledButton(
+          onPressed: widget.flow.searching ? null : _search,
+          child: const Text('Search customers'),
+        ),
+        const SizedBox(height: 24),
+        if (widget.flow.searching)
+          const _Loading('Searching customers')
+        else if (widget.flow.searchError != null)
+          _Message(widget.flow.searchError!, error: true)
+        else if (customers == null)
+          const _EmptyState(
+            icon: Icons.manage_search_rounded,
+            title: 'Search to get started',
+            body: 'Enter a name or email to find a customer.',
+          )
+        else if (customers.isEmpty)
+          const _EmptyState(
+            icon: Icons.person_search_outlined,
+            title: 'No customers found',
+            body: 'Check the name or email and try again.',
+          )
+        else ...[
+          SectionTitle(
+            customers.length == 1
+                ? '1 customer'
+                : '${customers.length} customers',
           ),
+          for (final customer in customers) ...[
+            _TapCard(
+              leading: NeneAvatar(customer.displayName),
+              onTap: () => widget.onOpen(customer.id),
+              children: [
+                Text(
+                  customer.displayName,
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  customer.email ?? 'No email available',
+                  style: const TextStyle(color: NeneColors.muted, fontSize: 13),
+                ),
+                const SizedBox(height: 6),
+                const Text(
+                  'View customer',
+                  style: TextStyle(
+                    color: NeneColors.action,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+          ],
+          const SizedBox(height: 4),
+          const _Note(
+            Icons.info_outline_rounded,
+            'Showing up to 20 matches. Use a more specific name or email if '
+            'needed.',
+          ),
+        ],
       ],
-    ],
-  );
+    );
+  }
 }
 
 class _OfficerEditForm extends StatefulWidget {
@@ -1272,43 +1445,92 @@ class _OfficerEditFormState extends State<_OfficerEditForm> {
   Widget build(BuildContext context) => WorkspaceContent(
     children: [
       const _Heading('Requested profile change'),
-      const Text(
-        'Make only the changes the customer requested. Sign-in email changes '
-        'are not supported in this demo.',
+      const _Lead('Make only the changes the customer requested.'),
+      Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: NeneColors.pale,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const _IconBadge(Icons.lock_outline_rounded, light: true),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Sign-in email',
+                    style: TextStyle(color: NeneColors.muted, fontSize: 13),
+                  ),
+                  const SizedBox(height: 2),
+                  SelectableText(
+                    widget.customer.email ?? 'Not provided',
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 6),
+                  const Text(
+                    'Sign-in email changes are not supported in this demo.',
+                    style: TextStyle(color: NeneColors.muted, fontSize: 13),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
-      const SizedBox(height: 20),
-      _Info('Sign-in email', widget.customer.email ?? 'Not provided'),
+      const SizedBox(height: 16),
       Form(
         key: _form,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _NameField(controller: _name, enabled: !widget.flow.savingCustomer),
-            const SizedBox(height: 20),
-            _ContactFields(
-              phone: _phone,
-              address: _address,
-              enabled: !widget.flow.savingCustomer,
+            _FormCard(
+              title: 'Requested details',
+              children: [
+                _NameField(
+                  controller: _name,
+                  enabled: !widget.flow.savingCustomer,
+                ),
+                const SizedBox(height: 16),
+                _ContactFields(
+                  phone: _phone,
+                  address: _address,
+                  enabled: !widget.flow.savingCustomer,
+                ),
+              ],
             ),
-            TextFormField(
-              controller: _reason,
-              enabled: !widget.flow.savingCustomer,
-              maxLength: 500,
-              decoration: const InputDecoration(
-                labelText: 'Customer request / reason',
-                helperText: 'Describe the requested change (5–500 characters).',
-                helperMaxLines: 4,
-              ),
-              validator: (value) =>
-                  value != null &&
-                      value.trim().length >= 5 &&
-                      value.trim().length <= 500 &&
-                      !_hasControl(value)
-                  ? null
-                  : 'Enter a reason of 5–500 characters.',
+            const SizedBox(height: 16),
+            _FormCard(
+              title: 'Customer request',
+              children: [
+                TextFormField(
+                  controller: _reason,
+                  enabled: !widget.flow.savingCustomer,
+                  maxLength: 500,
+                  decoration: const InputDecoration(
+                    labelText: 'Customer request / reason',
+                    helperText:
+                        'Describe the requested change (5–500 characters).',
+                    helperMaxLines: 4,
+                    prefixIcon: Icon(Icons.notes_rounded),
+                  ),
+                  validator: (value) =>
+                      value != null &&
+                          value.trim().length >= 5 &&
+                          value.trim().length <= 500 &&
+                          !_hasControl(value)
+                      ? null
+                      : 'Enter a reason of 5–500 characters.',
+                ),
+              ],
             ),
-            if (widget.flow.customerSaveError != null)
+            if (widget.flow.customerSaveError != null) ...[
+              const SizedBox(height: 16),
               _Message(widget.flow.customerSaveError!, error: true),
+            ],
             const SizedBox(height: 24),
             FilledButton(
               onPressed: widget.flow.savingCustomer ? null : _save,
@@ -1337,11 +1559,17 @@ class _ContactFields extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
       TextFormField(
         controller: phone,
         enabled: enabled,
-        decoration: const InputDecoration(labelText: 'Phone (optional)'),
+        decoration: const InputDecoration(
+          labelText: 'Phone (optional)',
+          helperText: 'Digits, spaces, +, (, ) or -.',
+          prefixIcon: Icon(Icons.phone_outlined),
+          counterText: '',
+        ),
         keyboardType: TextInputType.phone,
         textInputAction: TextInputAction.next,
         maxLength: 32,
@@ -1356,11 +1584,14 @@ class _ContactFields extends StatelessWidget {
               : 'Use 5–32 characters: digits, spaces, +, (, ) or -.';
         },
       ),
-      const SizedBox(height: 20),
+      const SizedBox(height: 16),
       TextFormField(
         controller: address,
         enabled: enabled,
-        decoration: const InputDecoration(labelText: 'Address (optional)'),
+        decoration: const InputDecoration(
+          labelText: 'Address (optional)',
+          prefixIcon: Icon(Icons.home_outlined),
+        ),
         textInputAction: TextInputAction.next,
         maxLength: 300,
         validator: (value) =>
@@ -1368,7 +1599,6 @@ class _ContactFields extends StatelessWidget {
             ? null
             : 'Use up to 300 characters without control characters.',
       ),
-      const SizedBox(height: 20),
     ],
   );
 }
@@ -1382,7 +1612,11 @@ class _NameField extends StatelessWidget {
   Widget build(BuildContext context) => TextFormField(
     controller: controller,
     enabled: enabled,
-    decoration: const InputDecoration(labelText: 'Full name'),
+    decoration: const InputDecoration(
+      labelText: 'Full name',
+      prefixIcon: Icon(Icons.person_outline_rounded),
+      counterText: '',
+    ),
     textInputAction: TextInputAction.next,
     maxLength: 120,
     validator: (value) =>
@@ -1616,33 +1850,63 @@ class _Heading extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(bottom: 20),
+    padding: const EdgeInsets.only(bottom: 6),
     child: Text(text, style: Theme.of(context).textTheme.headlineSmall),
   );
 }
 
+/// One-line explanation under a page [_Heading].
+class _Lead extends StatelessWidget {
+  const _Lead(this.text);
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(bottom: 20),
+    child: Text(text, style: const TextStyle(color: NeneColors.muted)),
+  );
+}
+
+/// Tinted banner: pale teal with an info icon, or soft red for errors.
 class _Message extends StatelessWidget {
   const _Message(this.text, {this.error = false});
   final String text;
   final bool error;
 
   @override
-  Widget build(BuildContext context) => Semantics(
-    liveRegion: true,
-    child: Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: NeneColors.pale,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Text(
-        text,
-        style: TextStyle(
-          color: error ? Theme.of(context).colorScheme.error : NeneColors.ink,
+  Widget build(BuildContext context) {
+    final errorColor = Theme.of(context).colorScheme.error;
+    return Semantics(
+      liveRegion: true,
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(14, 14, 16, 14),
+        decoration: BoxDecoration(
+          color: error ? const Color(0xFFFBEDEC) : NeneColors.pale,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(
+              error ? Icons.error_outline_rounded : Icons.info_outline_rounded,
+              size: 20,
+              color: error ? errorColor : NeneColors.action,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                text,
+                style: TextStyle(
+                  color: error ? errorColor : NeneColors.ink,
+                  fontSize: 13.5,
+                ),
+              ),
+            ),
+          ],
         ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 class _Loading extends StatelessWidget {
@@ -1651,16 +1915,321 @@ class _Loading extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.all(24),
+    padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 16),
     child: Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        CircularProgressIndicator(semanticsLabel: label),
-        const SizedBox(height: 16),
-        Text(label),
+        SizedBox.square(
+          dimension: 32,
+          child: CircularProgressIndicator(
+            strokeWidth: 3,
+            semanticsLabel: label,
+          ),
+        ),
+        const SizedBox(height: 14),
+        Text(
+          label,
+          textAlign: TextAlign.center,
+          style: const TextStyle(color: NeneColors.muted),
+        ),
       ],
     ),
   );
 }
+
+/// White card that groups related form fields under an optional title.
+class _FormCard extends StatelessWidget {
+  const _FormCard({this.title, required this.children});
+  final String? title;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) => Card(
+    child: Padding(
+      padding: const EdgeInsets.fromLTRB(16, 18, 16, 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (title != null) ...[
+            Text(
+              title!,
+              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 16),
+          ],
+          ...children,
+        ],
+      ),
+    ),
+  );
+}
+
+/// Secondary guidance with a leading icon; [caution] tints it apricot.
+class _Note extends StatelessWidget {
+  const _Note(this.icon, this.text, {this.caution = false});
+  final IconData icon;
+  final String text;
+  final bool caution;
+
+  @override
+  Widget build(BuildContext context) {
+    final row = Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(
+          icon,
+          size: caution ? 20 : 18,
+          color: caution ? NeneColors.deep : NeneColors.muted,
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            text,
+            style: TextStyle(
+              color: caution ? NeneColors.ink : NeneColors.muted,
+              fontSize: 13,
+            ),
+          ),
+        ),
+      ],
+    );
+    if (!caution) return row;
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 14, 16, 14),
+      decoration: BoxDecoration(
+        color: NeneColors.apricotSoft,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: row,
+    );
+  }
+}
+
+/// Two-step progress for customer creation: details, then review.
+class _Steps extends StatelessWidget {
+  const _Steps(this.current);
+  final int current;
+
+  static const _labels = ['Details', 'Review'];
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    label: 'Step ${current + 1} of 2: ${_labels[current]}',
+    child: ExcludeSemantics(
+      child: Row(
+        children: [
+          for (var i = 0; i < _labels.length; i++) ...[
+            if (i > 0) const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: i <= current ? NeneColors.action : NeneColors.line,
+                      borderRadius: BorderRadius.circular(99),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    '${i + 1}. ${_labels[i]}',
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w600,
+                      color: i == current
+                          ? NeneColors.action
+                          : NeneColors.muted,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    ),
+  );
+}
+
+/// Label/value line of a review summary. Label and value share one line when
+/// both fit; otherwise the value moves below its label instead of breaking
+/// mid-word (long emails, enlarged text).
+class _SummaryRow extends StatelessWidget {
+  const _SummaryRow(this.label, this.value);
+  final String label;
+  final String value;
+
+  static const _gap = 16.0;
+  static const _labelStyle = TextStyle(color: NeneColors.muted);
+  static const _valueStyle = TextStyle(fontWeight: FontWeight.w600);
+
+  double _width(BuildContext context, String text, TextStyle style) {
+    final painter = TextPainter(
+      text: TextSpan(
+        text: text,
+        style: DefaultTextStyle.of(context).style.merge(style),
+      ),
+      textDirection: Directionality.of(context),
+      textScaler: MediaQuery.textScalerOf(context),
+      maxLines: 1,
+    )..layout();
+    final width = painter.width;
+    painter.dispose();
+    return width;
+  }
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 14),
+    child: LayoutBuilder(
+      builder: (context, constraints) {
+        final inline =
+            _width(context, label, _labelStyle) +
+                _gap +
+                _width(context, value, _valueStyle) <=
+            constraints.maxWidth;
+        if (!inline) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label, style: _labelStyle),
+              const SizedBox(height: 4),
+              Text(value, style: _valueStyle),
+            ],
+          );
+        }
+        return Row(
+          children: [
+            Text(label, style: _labelStyle),
+            const SizedBox(width: _gap),
+            Expanded(
+              child: Text(value, textAlign: TextAlign.end, style: _valueStyle),
+            ),
+          ],
+        );
+      },
+    ),
+  );
+}
+
+/// Centered icon, title and hint for empty or not-yet-started lists.
+class _EmptyState extends StatelessWidget {
+  const _EmptyState({
+    required this.icon,
+    required this.title,
+    required this.body,
+  });
+  final IconData icon;
+  final String title;
+  final String body;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 12),
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 64,
+          height: 64,
+          decoration: BoxDecoration(
+            color: NeneColors.pale,
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Icon(icon, size: 30, color: NeneColors.action),
+        ),
+        const SizedBox(height: 16),
+        Text(
+          title,
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
+        const SizedBox(height: 6),
+        Text(
+          body,
+          textAlign: TextAlign.center,
+          style: const TextStyle(color: NeneColors.muted, fontSize: 13.5),
+        ),
+      ],
+    ),
+  );
+}
+
+/// Tappable white card row with a leading visual and a trailing chevron.
+class _TapCard extends StatelessWidget {
+  const _TapCard({
+    required this.leading,
+    required this.onTap,
+    required this.children,
+    this.chevron = true,
+  });
+  final Widget leading;
+  final VoidCallback onTap;
+  final List<Widget> children;
+  final bool chevron;
+
+  @override
+  Widget build(BuildContext context) => MergeSemantics(
+    child: Semantics(
+      button: true,
+      child: Material(
+        color: Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+          side: const BorderSide(color: NeneColors.line),
+        ),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(20),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                leading,
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: children,
+                  ),
+                ),
+                if (chevron) ...[
+                  const SizedBox(width: 8),
+                  const Icon(Icons.chevron_right, color: NeneColors.muted),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
+/// Tinted rounded-square icon container used across the workspace.
+class _IconBadge extends StatelessWidget {
+  const _IconBadge(this.icon, {this.light = false});
+  final IconData icon;
+  final bool light;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: 44,
+    height: 44,
+    decoration: BoxDecoration(
+      color: light ? Colors.white : NeneColors.pale,
+      borderRadius: BorderRadius.circular(14),
+    ),
+    child: Icon(icon, color: NeneColors.action),
+  );
+}
+
+IconData _accountIcon(String type) => switch (type) {
+  'saving' => Icons.savings_outlined,
+  'mortgage' => Icons.home_work_outlined,
+  _ => Icons.account_balance_wallet_outlined,
+};
 
 String? _nullable(String text) => text.trim().isEmpty ? null : text.trim();
 bool _hasControl(String text) => RegExp(r'[\x00-\x1f\x7f]').hasMatch(text);
