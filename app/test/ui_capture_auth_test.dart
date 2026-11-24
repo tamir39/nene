@@ -139,13 +139,19 @@ Future<void> _view(
   WidgetTester tester, {
   double width = 390,
   double height = 844,
+  double statusBar = 0,
 }) async {
   tester.view.physicalSize = Size(width, height);
   tester.view.devicePixelRatio = 1;
+  tester.view.padding = FakeViewPadding(top: statusBar);
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
+  addTearDown(tester.view.resetPadding);
   await _fonts(tester);
 }
+
+/// Status-bar height simulated for full-bleed session screens.
+const _statusBar = 32.0;
 
 /// Mounts the app on its session screens (signed out, loading, failure).
 Future<FakeAuth> _mountSession(
@@ -155,7 +161,7 @@ Future<FakeAuth> _mountSession(
   double height = 844,
   bool settle = true,
 }) async {
-  await _view(tester, height: height);
+  await _view(tester, height: height, statusBar: _statusBar);
   final fake = auth ?? FakeAuth();
   await tester.pumpWidget(
     RepaintBoundary(
@@ -264,7 +270,7 @@ void main() {
 
   testWidgets('capture sign-in validation', (tester) async {
     if (!_capture) return;
-    await _mountSession(tester, height: 1000);
+    await _mountSession(tester);
     await _tap(tester, 'Sign in');
     await _top(tester);
     await _shoot(tester, 'auth-sign-in-validation');
@@ -273,7 +279,7 @@ void main() {
   testWidgets('capture sign-in failure', (tester) async {
     if (!_capture) return;
     final auth = FakeAuth()..signInError = StateError('Unavailable');
-    await _mountSession(tester, auth: auth, height: 1000);
+    await _mountSession(tester, auth: auth);
     await tester.enterText(find.byType(TextFormField).at(0), 'an@example.test');
     await tester.enterText(find.byType(TextFormField).at(1), 'synthetic');
     await _tap(tester, 'Sign in');
@@ -283,9 +289,10 @@ void main() {
 
   testWidgets('capture sign-in at large text on a small phone', (tester) async {
     if (!_capture) return;
-    tester.platformDispatcher.textScaleFactorTestValue = 1.6;
+    // Mirrors widget_test.dart's 2x text check on a 320x640 phone.
+    tester.platformDispatcher.textScaleFactorTestValue = 2;
     addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
-    await _view(tester, width: 320, height: 1500);
+    await _view(tester, width: 320, height: 640, statusBar: _statusBar);
     await tester.pumpWidget(
       RepaintBoundary(
         key: _key,
@@ -299,6 +306,9 @@ void main() {
       ),
     );
     await _shoot(tester, 'auth-sign-in-large-text');
+    final scroll = tester.state<ScrollableState>(find.byType(Scrollable).first);
+    scroll.position.jumpTo(scroll.position.maxScrollExtent);
+    await _shoot(tester, 'auth-sign-in-large-text-end');
   });
 
   testWidgets('capture session loading', (tester) async {
