@@ -6,6 +6,8 @@ export interface UserProfileRow {
   display_name: string;
   role: 'customer' | 'officer';
   status: 'active' | 'disabled';
+  phone: string | null;
+  address: string | null;
 }
 
 @Injectable()
@@ -14,7 +16,7 @@ export class ProfilesRepository {
 
   async findById(id: string): Promise<UserProfileRow | undefined> {
     const rows = await this.database.query<UserProfileRow>(
-      'SELECT id, display_name, role, status FROM bank.user_profiles WHERE id = $1',
+      'SELECT id, display_name, role, status, phone, address FROM bank.user_profiles WHERE id = $1',
       [id],
     );
     return rows[0];

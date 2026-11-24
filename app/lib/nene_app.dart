@@ -1,14 +1,46 @@
+import 'data/assistant_api.dart';
+import 'data/branches_api.dart';
+import 'data/savings_policy_api.dart';
+import 'data/demo_accounts_api.dart';
+import 'data/account_history_api.dart';
+import 'data/security_api.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import 'data/user_profile.dart';
+import 'data/banking_repository.dart';
+import 'data/identity_repository.dart';
+import 'data/reference_photo_source.dart';
 import 'session_controller.dart';
+import 'ui/customer_workspace.dart';
+import 'ui/nene_brand.dart';
 
 class NeneApp extends StatefulWidget {
-  const NeneApp({super.key, this.controller, this.onDispose});
+  const NeneApp({
+    super.key,
+    this.controller,
+    this.banking,
+    this.identity,
+    this.photos,
+    this.security,
+    this.savingsPolicy,
+    this.demoAccounts,
+    this.history,
+    this.branches,
+    this.assistant,
+    this.onDispose,
+  }) : assert((controller == null) == (banking == null));
 
   final SessionController? controller;
+  final BankingRepository? banking;
+  final IdentityRepository? identity;
+  final ReferencePhotoSource? photos;
+  final SecurityApi? security;
+  final SavingsPolicyApi? savingsPolicy;
+  final DemoAccountsApi? demoAccounts;
+  final AccountHistoryApi? history;
+  final BranchesApi? branches;
+  final AssistantApi? assistant;
   final VoidCallback? onDispose;
 
   @override
@@ -27,7 +59,7 @@ class _NeneAppState extends State<NeneApp> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed &&
         widget.controller?.status == SessionStatus.ready) {
-      unawaited(widget.controller?.loadProfile());
+      unawaited(widget.controller?.revalidateProfile());
     }
   }
 
@@ -45,13 +77,7 @@ class _NeneAppState extends State<NeneApp> with WidgetsBindingObserver {
     return MaterialApp(
       title: 'Nene',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF164E63)),
-        useMaterial3: true,
-        inputDecorationTheme: const InputDecorationTheme(
-          border: OutlineInputBorder(),
-        ),
-      ),
+      theme: neneTheme(),
       home: controller == null
           ? const _SetupUnavailable()
           : ListenableBuilder(
@@ -59,15 +85,32 @@ class _NeneAppState extends State<NeneApp> with WidgetsBindingObserver {
               builder: (context, _) => switch (controller.status) {
                 SessionStatus.signedOut => SignInScreen(controller: controller),
                 SessionStatus.loading => const Scaffold(
-                  body: Center(
-                    child: CircularProgressIndicator(
-                      semanticsLabel: 'Please wait',
-                    ),
+                  body: _Content(
+                    children: [
+                      NeneLogo(),
+                      SizedBox(height: 32),
+                      Center(
+                        child: CircularProgressIndicator(
+                          semanticsLabel: 'Please wait',
+                        ),
+                      ),
+                      SizedBox(height: 20),
+                      Text('Please wait…', textAlign: TextAlign.center),
+                    ],
                   ),
                 ),
-                SessionStatus.ready => _ProfileScreen(
-                  profile: controller.profile!,
-                  onSignOut: controller.signOut,
+                SessionStatus.ready => CustomerWorkspace(
+                  key: ValueKey(controller.generation),
+                  session: controller,
+                  repository: widget.banking!,
+                  identity: widget.identity,
+                  photos: widget.photos,
+                  security: widget.security,
+                  savingsPolicy: widget.savingsPolicy,
+                  demoAccounts: widget.demoAccounts,
+                  history: widget.history,
+                  branches: widget.branches,
+                  assistant: widget.assistant,
                 ),
                 SessionStatus.unavailable => _ProfileUnavailable(
                   controller: controller,
@@ -85,7 +128,7 @@ class _SetupUnavailable extends StatelessWidget {
   Widget build(BuildContext context) => const Scaffold(
     body: _Content(
       children: [
-        Icon(Icons.account_balance_outlined, size: 48),
+        NeneLogo(),
         SizedBox(height: 24),
         Text('Nene is unavailable', style: TextStyle(fontSize: 24)),
         SizedBox(height: 12),
@@ -127,16 +170,51 @@ class _SignInScreenState extends State<SignInScreen> {
   @override
   Widget build(BuildContext context) => Scaffold(
     body: _Content(
+      topAligned: true,
       children: [
-        const Icon(Icons.account_balance_outlined, size: 48),
-        const SizedBox(height: 24),
-        Text(
-          'Welcome to Nene',
-          style: Theme.of(context).textTheme.headlineMedium,
+        Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: NeneColors.pale,
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const NeneLogo(),
+              const SizedBox(height: 28),
+              const Text(
+                'A little clarity, every day',
+                style: TextStyle(color: NeneColors.muted, fontSize: 13),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Your money.\nWithin reach.',
+                style: Theme.of(context).textTheme.headlineLarge?.copyWith(
+                  color: NeneColors.action,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 20),
+              Container(
+                width: 48,
+                height: 5,
+                decoration: BoxDecoration(
+                  color: NeneColors.apricot,
+                  borderRadius: BorderRadius.circular(3),
+                ),
+              ),
+            ],
+          ),
         ),
+        const SizedBox(height: 28),
+        Text('Welcome back', style: Theme.of(context).textTheme.headlineSmall),
         const SizedBox(height: 8),
-        const Text('Sign in with your existing account.'),
-        const SizedBox(height: 32),
+        const Text(
+          'Sign in with the details provided by your bank officer.',
+          style: TextStyle(color: NeneColors.muted),
+        ),
+        const SizedBox(height: 24),
         Form(
           key: _form,
           child: Column(
@@ -185,7 +263,12 @@ class _SignInScreenState extends State<SignInScreen> {
                 const SizedBox(height: 16),
                 Semantics(
                   liveRegion: true,
-                  child: Text(widget.controller.message!),
+                  child: Text(
+                    widget.controller.message!,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.error,
+                    ),
+                  ),
                 ),
               ],
               const SizedBox(height: 24),
@@ -194,64 +277,19 @@ class _SignInScreenState extends State<SignInScreen> {
           ),
         ),
         const SizedBox(height: 20),
-        const Text('Need an account? Please contact your bank officer.'),
+        const Text(
+          'Need access? A bank officer can help you get started.',
+          style: TextStyle(color: NeneColors.muted),
+        ),
+        const SizedBox(height: 24),
+        const Text(
+          'Educational banking project · Demo only',
+          textAlign: TextAlign.center,
+          style: TextStyle(fontSize: 12, color: NeneColors.muted),
+        ),
       ],
     ),
   );
-}
-
-class _ProfileScreen extends StatelessWidget {
-  const _ProfileScreen({required this.profile, required this.onSignOut});
-  final UserProfile profile;
-  final Future<void> Function() onSignOut;
-
-  @override
-  Widget build(BuildContext context) {
-    final isOfficer = profile.role == AppRole.officer;
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(isOfficer ? 'Officer workspace' : 'My profile'),
-        actions: [
-          IconButton(
-            tooltip: 'Sign out',
-            onPressed: onSignOut,
-            icon: const Icon(Icons.logout),
-          ),
-        ],
-      ),
-      body: _Content(
-        children: [
-          Icon(
-            isOfficer ? Icons.badge_outlined : Icons.person_outline,
-            size: 48,
-          ),
-          const SizedBox(height: 24),
-          Text(
-            profile.displayName,
-            style: Theme.of(context).textTheme.headlineMedium,
-          ),
-          const SizedBox(height: 8),
-          Text(isOfficer ? 'Bank officer' : 'Customer'),
-          const SizedBox(height: 24),
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Text('Email', style: Theme.of(context).textTheme.labelLarge),
-                  const SizedBox(height: 8),
-                  Text(profile.email ?? 'No email available'),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 24),
-          const Text('Banking services are not available in this preview.'),
-        ],
-      ),
-    );
-  }
 }
 
 class _ProfileUnavailable extends StatelessWidget {
@@ -260,7 +298,7 @@ class _ProfileUnavailable extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('Nene')),
+    appBar: AppBar(title: const NeneLogo(size: 30)),
     body: _Content(
       children: [
         const Icon(Icons.info_outline, size: 48),
@@ -281,12 +319,14 @@ class _ProfileUnavailable extends StatelessWidget {
 }
 
 class _Content extends StatelessWidget {
-  const _Content({required this.children});
+  const _Content({required this.children, this.topAligned = false});
   final List<Widget> children;
+  final bool topAligned;
 
   @override
   Widget build(BuildContext context) => SafeArea(
-    child: Center(
+    child: Align(
+      alignment: topAligned ? Alignment.topCenter : Alignment.center,
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
         child: ConstrainedBox(

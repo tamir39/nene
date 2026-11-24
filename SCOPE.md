@@ -1,6 +1,6 @@
 # Nene assignment scope
 
-Status: detailed source audit retained; local foundation status updated 2026-10-15. Login and a server-authorized profile are implemented as a base, with no complete business feature group finished. No lecturer-approved exceptions have been supplied.
+Status updated **2026-11-05**: the [implementation scope audit](docs/SCOPE_STATUS_AUDIT.md) maps current routes/screens to all seven PDF groups and distinguishes required features from supporting mechanisms. Face comparison and its provider are deferred; eKYC remains unresolved. The next required integration is BR-10 payment service. Older slice descriptions below retain their original boundaries and do not describe the complete current app. Full assignment acceptance remains open; no lecturer-approved exceptions have been supplied.
 
 ## Scope statement
 
@@ -8,7 +8,11 @@ Deliver one Android mobile banking application covering every business requireme
 
 On 2026-10-13, the user selected **Flutter/Dart + a single NestJS/TypeScript API + Supabase-hosted PostgreSQL, Supabase Auth, and private Supabase Storage**, then authorized the local base on 2026-10-15. The base implements email/password login, server-controlled profile reads, and local database/private storage configuration. It uses Flutter ChangeNotifier and NestJS `pg` access with SQL migrations. These are implementation choices supporting BR-01/BR-03 and TR-03, not additional product requirements or completion of those requirements. Banking data access uses NestJS. API hosting, external providers, eKYC/transaction-2FA mechanisms, financial policies, and integration realism remain open.
 
-The base adds no financial commands or fake completed feature screens. Identity upload/verification, officer provisioning and profile edits, account management, transactions, utilities, walking navigation, chatbot, and submission evidence remain future work. Its generated iOS shell is preparation for future compatibility, not an extra release deliverable. [docs/SETUP.md](docs/SETUP.md) records current checks and limitations.
+The [first customer flow](docs/CUSTOMER_FLOW.md) adds local officer provisioning, one zero-balance checking account and permitted customer/officer profile edits. It adds no financial commands or fake completed feature screens. Identity upload/verification, saving/mortgage management, transactions, utilities, walking navigation, chatbot and submission evidence remain future work. Its generated iOS shell is preparation for future compatibility, not an extra release deliverable. [docs/SETUP.md](docs/SETUP.md) records current checks and limitations.
+
+On 2026-10-27, the user approved simplifying identity work to private reference enrollment with officer assistance/review, followed by actual server-side one-to-one comparison for high-value activity and separate transaction 2FA. [The minimum flow](docs/IDENTITY_VERIFICATION.md) is a design direction, not completed eKYC. AWS remains undecided; an AWS native bridge, advanced liveness, OCR/NFC and commercial KYC are not automatic dependencies. Reference acceptance alone is not BR-03 completion, and ordinary face comparison does not establish live presence. No lecturer-approved exception or reduced feature coverage is implied.
+
+The reference foundation was implemented locally on 2026-10-27; [REFERENCE_FLOW.md](docs/REFERENCE_FLOW.md) supersedes the earlier upload-status note. It adds private photo selection/capture, status and officer acceptance/correction only. The planned actual comparison, high-value authorization and all-transaction 2FA remain open. Web demo testing is preferred; the user starts `run.bat` and Android Studio/emulator launch is excluded unless requested again.
 
 ## Evidence and interpretation
 
@@ -66,6 +70,8 @@ Source: PDF p. 2, Business 2. Register: BR-03 and BR-04.
 The implementation must define which actions create financial transactions. The conservative baseline includes transfers, deposits, withdrawals, bill payments, phone top-ups, and purchase/booking payments. Avoid introducing automatic financial postings that create extra 2FA policy questions when the brief only requests a display or calculation.
 
 Persistent intent/challenge records, failed-attempt metadata, and posted financial transactions are different concepts. The PDF does not spell out their storage lifecycle. Document the interpretation and ensure unverified actions never become completed financial transactions or change balances.
+
+[TRANSACTION_FLOW.md](docs/TRANSACTION_FLOW.md) now records the requested confirmation/2FA plan: shared S02–S05 screens, candidate backend routes, limits and recovery tests. It retains the storage interpretation as unresolved, applies 2FA to every financial operation, and treats Supabase TOTP as a provisional evaluation candidate. No new financial behavior, provider selection or lecturer exception is introduced by the plan.
 
 ### 3. Account management
 

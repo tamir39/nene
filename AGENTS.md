@@ -4,7 +4,7 @@
 
 This repository is starting a Ton Duc Thang University Mobile Apps Development final project: an Android mobile banking application. `Nene` is the current repository name; the bank name and public app name remain open.
 
-The stack was confirmed on 2026-10-13 and local scaffolding authorized on 2026-10-15: Flutter/Dart, one NestJS/TypeScript backend API, and Supabase for PostgreSQL, Auth, and private Storage. The base supports sign-in, server-controlled profiles, and local persistence/access checks. No financial operations, eKYC, transaction 2FA, or external integrations exist yet. Do not describe planned features as implemented.
+The stack was confirmed on 2026-10-13 and local scaffolding authorized on 2026-10-15: Flutter/Dart, one NestJS/TypeScript backend API, and Supabase for PostgreSQL, Auth, and private Storage. The first customer flow extends sign-in with local officer provisioning, an initial zero-balance checking account, customer contact edits and requested officer edits. See `docs/CUSTOMER_FLOW.md` and the verification record for its limits. Private reference-photo capture/status and officer acceptance/correction extend that foundation on 2026-10-27; see `docs/REFERENCE_FLOW.md`. Reference acceptance is not completed eKYC. Update 2026-11-03: authenticator setup/replacement/recovery, account views/history and local synthetic same-bank transfers are implemented. See `docs/LOCAL_TRANSFERS.md`: VND checking only, accepted unexpired sender reference plus bound TOTP, amounts below 5,000,000 VND, explicit one-time local seed and disabled-by-default gates. Direct API balance writes remain prohibited; only the narrow posting function may atomically update balances/history. The confirmation preview cannot send funds. Local checking/saving deposits and withdrawals now use the separately enabled one-time simulated cash source in `docs/LOCAL_CASH.md`, with kind-bound TOTP and atomic account/cash/receipt/history writes. Do not treat simulated cash as an external provider or a wallet product; mortgage repayments stay separate. Actual face comparison, real cash services, external integrations and hosted acceptance remain open; AWS remains undecided. Do not describe planned features as implemented.
 
 ## Read first
 
@@ -13,7 +13,11 @@ The stack was confirmed on 2026-10-13 and local scaffolding authorized on 2026-1
 - [SCOPE.md](SCOPE.md): detailed source audit, required outcomes, unresolved interpretations, and scope boundaries.
 - [REQUIREMENTS.md](REQUIREMENTS.md): assignment requirements, rubric, and open questions.
 - [DESIGN.md](DESIGN.md): confirmed stack, proposed architecture, data model, screen flows, and delivery order.
+- [docs/BRANDING.md](docs/BRANDING.md): selected Open pocket direction, palette, reference artwork, and production limits.
+- [docs/SCREEN_MAP.md](docs/SCREEN_MAP.md) and [docs/UI_DIRECTION.md](docs/UI_DIRECTION.md): PDF-linked screen map and UI study. The lighter palette is approved and applied to the Flutter foundation; the study's banking screens remain planned behavior.
 - [docs/SETUP.md](docs/SETUP.md) and [docs/API.md](docs/API.md): local commands, verification limits, and the implemented API contract.
+- [docs/CUSTOMER_FLOW.md](docs/CUSTOMER_FLOW.md): first-demo rules, customer provisioning/retry boundary and data relationships.
+- [docs/REFERENCE_FLOW.md](docs/REFERENCE_FLOW.md): implemented private reference flow, notice/retention defaults, cleanup and testing limits.
 - `FinalProject_2026_2027.pdf`: authoritative assignment brief.
 - `Marking.xlsx`, worksheet `Marking`: authoritative assessment rubric.
 
@@ -23,7 +27,7 @@ Keep original assessment files intact unless the user explicitly requests change
 
 The user supplied global Twohearts workspace notes. They identify `D:\Data\Downloads\Policies` as the policy bundle to consult for collaboration, branching/releases, testing gates, issue/spec/PR review, product intake, engineering standards, and QA.
 
-The supplied path was checked on 2026-10-12, 2026-10-13, 2026-10-15, and 2026-10-17 and was unavailable. No policy contents were read. When those areas are touched, check for the bundle again and apply relevant available instructions. If it remains unavailable, state the limitation and proceed with work that does not depend on knowing its contents. Do not invent policy gates or claim policy compliance.
+The supplied path was checked on 2026-10-12, 2026-10-13, 2026-10-15, 2026-10-17, 2026-10-19, and 2026-10-20 and was unavailable. No policy contents were read. When those areas are touched, check for the bundle again and apply relevant available instructions. If it remains unavailable, state the limitation and proceed with work that does not depend on knowing its contents. Do not invent policy gates or claim policy compliance.
 
 The notes identify `D:\Projects\TwoheartsMissonControl`, `D:\Projects\TwoheartsDeliveryDashboard`, and `D:\Projects\Whitelable` as a related product/workflow family. Nene's membership in that family has not been established; do not import their product requirements or modify those repositories as part of this assignment.
 
@@ -33,13 +37,15 @@ The notes identify `D:\Projects\TwoheartsMissonControl`, `D:\Projects\TwoheartsD
 - The user selected Flutter/Dart + NestJS/TypeScript + Supabase on 2026-10-13. Use Supabase-hosted PostgreSQL, Supabase Auth, and private Supabase Storage. Follow this confirmed choice; do not reopen framework selection or add Firebase/another backend without a concrete need and a user decision.
 - Keep one mobile app, one backend application, and one application database. Route banking reads and writes through NestJS. Use Supabase Auth for sessions and backend-authorized access to private identity files. Keep domain logic in the backend and provider access out of screen widgets; do not add microservices or a parallel Edge Functions backend by default.
 - The foundation uses Flutter's built-in ChangeNotifier and repositories, the PostgreSQL `pg` driver with parameterized SQL, and locked dependencies. Backend hosting and external providers remain open. Local scaffolding is authorized; cloud provisioning, paid services, and publication are not side effects of that authorization.
-- Keep the base's memory-only mobile sessions until secure persistence is deliberately implemented and checked. Public signup is disabled; do not add self-registration or a client role selector. The current `nene_api` database role is read-only; add narrowly scoped privileges only alongside authorized backend features.
+- Keep memory-only mobile sessions until secure persistence is deliberately implemented and checked. Public signup is disabled; do not add self-registration or a client role selector. `nene_api` now has narrowly scoped customer/account creation and contact/name-edit grants. It cannot update role, status or financial balance; add privileges only alongside authorized backend features.
+- First-demo defaults are one VND checking account at zero, customer phone/address edits, and officer display-name/contact edits with a customer-request reason. These are provisional project decisions, not PDF rules. Keep defaults in backend rules and never relabel existing account currency. Local customer creation requires a backend-only Auth secret and loopback/non-production Auth; hosted activation and email changes remain open.
 - Treat Android, database persistence, eKYC, transaction 2FA, and Google Play delivery as assignment requirements. Cloud database hosting is preferred; Firebase, face-photo verification, OTP, VNPay, and Stripe are examples or proposed mechanisms. Do not turn them into mandatory product choices. See the technology-constraint audit in `REQUIREMENTS.md`.
 - The submission portal shows 1 December 2026 at 12:00 AM, meaning the start of that day. Plan to submit before the end of 30 November; the proposed internal target is 29 November. The screenshot does not state its timezone. See `REQUIREMENTS.md` for the evidence and planning assumption.
 - Preserve all seven business feature groups. Delivery phases are an implementation order, not permission to omit later requirements.
 - Keep work tied to a BR/TR requirement or the minimal engineering support needed to implement it correctly. Use `SCOPE.md` to avoid expanding into extra apps, a full banking/booking platform, or an unrequested iOS release. Future iOS flexibility is a user goal; its release deadline is not established.
 - Use requirement IDs from `REQUIREMENTS.md` in implementation plans and acceptance evidence. Explain each architecture and technology choice so it can support the project report.
 - Keep changes focused and keep documentation aligned when behavior or decisions change. Prefer a simple structure suitable for a team of 2-3 people.
+- Use the user-approved lighter Open pocket palette from `docs/BRANDING.md`: soft teal `#4C929E`, light apricot `#F6C9A5`, ivory `#F8F7F2`, and action teal `#286E78` for readable controls. Flutter sign-in/profile/loading/error screens and Android launcher artwork use this identity. The broader banking mockups remain planned; do not add their fictional balances as real data. The reference is not trademark clearance; final wordmark and iOS launcher artwork remain open.
 - Do not create accounts, incur provider costs, publish to Google Play, or use real customer data as a side effect of local implementation.
 - Record mocks and sandbox integrations explicitly. A simulated service must not be presented as a live banking integration or as satisfying an unresolved lecturer expectation.
 
@@ -52,6 +58,12 @@ The user requested commits and pull requests for completed work on 2026-10-17.
 - Keep dependent changes in separate PRs when that improves review. State the dependency and review order; retarget the later PR to `main` after its dependency is merged.
 - Before publishing, inspect the staged diff and excluded local files, and report relevant verification and remaining limitations in the PR. Reuse valid checks for unchanged code.
 - Do not merge a PR unless the user asks. Attach created PRs to the chat and include their links in the completion report.
+
+## Reference enrollment
+
+- Preserve the distinction between `reference_accepted` and a later actual operation-bound identity check. AWS remains undecided; do not add liveness SDKs, document checks or provider accounts as a side effect.
+- The local demo uses notice `reference-demo-v1`, explicit acknowledgement, an officer association confirmation and seven-day access expiry. Physical deletion of expired/pending files requires the documented maintenance command; do not claim continuous deletion. Use agreed test images only.
+- Prefer the Edge web demo for interactive checks. The user starts `run.bat`; do not launch Android Studio or the emulator unless the user asks again. Automated unit/widget, API and database checks remain appropriate.
 
 ## Banking implementation principles
 
@@ -69,7 +81,7 @@ These engineering constraints are separate from the assignment wording. The base
 
 ## Verification and reporting
 
-Use [docs/SETUP.md](docs/SETUP.md) for exact commands and verification status. Backend checks are `npm --prefix backend run check` and `npm --prefix backend run format:check`; local database checks are `npm run db:test`, and the real local Auth/API/database check is `npm run check:local`. Flutter checks run inside `app/` with `flutter analyze` and `flutter test`. Keep commands aligned with the installed tooling and report platform checks that cannot run on this host.
+Use [docs/SETUP.md](docs/SETUP.md) for exact commands and verification status. Backend checks are `npm --prefix backend run check` and `npm --prefix backend run format:check`; local database checks are `npm run db:test`. Real local Auth/API/database checks are `npm run check:local` and `npm run check:customer-flow`. Flutter checks run inside `app/` with `flutter analyze` and `flutter test`. Keep commands aligned with the installed tooling and report platform checks that cannot run on this host.
 
 As features are added, prioritize meaningful checks for authorization, account ownership, the chosen 2FA mechanism (including OTP expiry/reuse if selected), insufficient funds, concurrent transfers, idempotency, payment callbacks, savings/mortgage calculations, and critical customer/officer flows. Test provider failures and denied camera/location permissions where relevant.
 

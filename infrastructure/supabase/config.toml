@@ -85,8 +85,8 @@ enable_confirmations = false
 
 # Session MFA is not a substitute for the pending transaction-bound 2FA design.
 [auth.mfa.totp]
-enroll_enabled = false
-verify_enabled = false
+enroll_enabled = true
+verify_enabled = true
 
 [auth.mfa.phone]
 enroll_enabled = false

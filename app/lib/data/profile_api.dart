@@ -6,7 +6,16 @@ import 'package:http/http.dart' as http;
 
 import 'user_profile.dart';
 
-enum ApiFailure { unauthorized, forbidden, unavailable, invalidResponse }
+enum ApiFailure {
+  unauthorized,
+  forbidden,
+  invalidInput,
+  notFound,
+  conflict,
+  customerExists,
+  unavailable,
+  invalidResponse,
+}
 
 class ApiException implements Exception {
   const ApiException(this.failure);

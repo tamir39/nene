@@ -6,6 +6,8 @@ class UserProfile {
     required this.email,
     required this.displayName,
     required this.role,
+    this.phone,
+    this.address,
   });
 
   factory UserProfile.fromJson(Map<String, dynamic> json) {
@@ -21,7 +23,9 @@ class UserProfile {
         id.isEmpty ||
         (email != null && (email is! String || email.isEmpty)) ||
         displayName is! String ||
-        displayName.trim().isEmpty) {
+        displayName.trim().isEmpty ||
+        (json['phone'] != null && json['phone'] is! String) ||
+        (json['address'] != null && json['address'] is! String)) {
       throw const FormatException('Incomplete application profile.');
     }
     return UserProfile(
@@ -29,6 +33,8 @@ class UserProfile {
       email: email as String?,
       displayName: displayName,
       role: role,
+      phone: json['phone'] as String?,
+      address: json['address'] as String?,
     );
   }
 
@@ -36,4 +42,6 @@ class UserProfile {
   final String? email;
   final String displayName;
   final AppRole role;
+  final String? phone;
+  final String? address;
 }

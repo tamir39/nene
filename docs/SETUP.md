@@ -1,6 +1,6 @@
 # Local development
 
-The base uses one Flutter app, one NestJS API, and a local Supabase stack. It supports sign-in and a server-authorized profile, providing partial support for BR-01/BR-03 and TR-03. It does not implement banking accounts, financial operations, eKYC, transaction 2FA, or external integrations.
+The project uses one Flutter app, one NestJS API, and a local Supabase stack. The first flow supports officer customer creation, initial checking accounts and permitted customer/officer profile edits alongside sign-in. It does not implement money movements, saving/mortgage flows, eKYC, transaction 2FA or external integrations.
 
 ## Prerequisites
 
@@ -25,17 +25,19 @@ npm run setup:local
 npm run api:dev
 ```
 
-`db:start` applies the initial migration on a fresh local database. After adding new migrations to an existing database, use `npm run db:migrate`. Avoid database reset commands: they delete local development data.
+`db:start` applies migrations on a fresh local database. After adding migrations to an existing database, use `npm run db:migrate`. This workstation's Supabase CLI reports a local PostgreSQL connection timeout; `npm run db:migrate:docker` is an explicit local-only fallback. It verifies the named Nene container and applies each pending migration plus its CLI history entry in one transaction. It does not reset data. Avoid database reset commands: they delete local development data.
 
 `setup:local` uses only the named Nene local stack. It creates a random password for the restricted `nene_api` database login, then writes ignored files:
 
 - `infrastructure/.env.api.local`: restricted local PostgreSQL credential.
-- `backend/.env`: local API/Auth/database configuration.
+- `backend/.env`: local API/Auth/database configuration, including the backend-only `SUPABASE_SECRET_KEY` for local demo provisioning.
 - `app/config/local.json`: public client key and Android-emulator URLs.
 
 It refuses to overwrite existing backend/app configuration. Reuse those files on subsequent starts; update them deliberately if necessary. No cloud project, payment service, or provider account is created.
 
-The API listens on `127.0.0.1:3000`, Supabase on `127.0.0.1:54321`, and local Studio on `127.0.0.1:54323`. The API prefix is `/api/v1`. `GET /api/v1/health` checks process liveness only. See [API.md](API.md) for authentication and profile behavior.
+For an existing foundation configuration, run `npm run setup:local:provisioning` after starting Supabase. This explicitly writes/refreshes only `SUPABASE_SECRET_KEY` in the ignored local backend configuration; it refuses a nonlocal/production target and never adds the secret to Flutter. Without this key, login/read behavior remains available and customer creation returns 503. Creation is deliberately disabled against hosted Auth or in production until hosted activation is designed.
+
+The API defaults to `127.0.0.1:3000`, Supabase to `127.0.0.1:54321`, and local Studio to `127.0.0.1:54323`. This workstation's manual demo uses API port **3001** because another application uses 3000: set `$env:PORT='3001'` before starting the API and use `http://10.0.2.2:3001/api/v1` as `API_BASE_URL` in the ignored app configuration. The API prefix is `/api/v1`. `GET /api/v1/health` checks process liveness only. See [API.md](API.md) for authentication and profile behavior.
 
 Local Supabase includes development administration tools. Keep it on a trusted development machine. `npm run db:status` displays local credentials, so do not paste its output into reports, screenshots, or chat. `npm run db:stop` stops the local stack while retaining its data. Stop the API with Ctrl+C.
 
@@ -56,9 +58,44 @@ This workstation's initial setup used the ignored `.cache/pub/` package cache. T
 
 The app's configuration validator accepts HTTP only for explicitly allowed local hosts in debug mode; release/profile configuration requires HTTPS. Android's native network policy also rejects release cleartext traffic, while Dart HTTP relies on the app's configuration guard. A physical device needs suitable secure service URLs or an explicit development networking setup; it cannot use the emulator's `10.0.2.2` alias. iOS simulator/device builds require macOS and Xcode and have not been validated on this Windows host.
 
-There is no public signup or automatic persistent demo user. The integration check below temporarily provisions and removes a synthetic identity. For manual UI testing, create an email-confirmed synthetic user through **local** Studio's Auth administration, then insert its Auth UUID, a synthetic display name, and `customer` or `officer` into `bank.user_profiles` using the local SQL editor. Do not use real personal data or distribute these development credentials. Officer-driven customer provisioning remains an assignment feature to implement; this manual procedure is not evidence of its completion.
+There is no public signup or automatic persistent demo user in the tracked setup. Bootstrap an initial synthetic **officer** through local Studio's Auth administration, then insert its Auth UUID, synthetic display name and `officer` role into `bank.user_profiles` using the local SQL editor. That trusted setup is separate from the app: sign in as the officer and use **Create customer** to exercise actual customer/account provisioning. Existing foundation demo customers may have no account and correctly show an empty state. Do not use real personal data or commit development credentials.
 
 Sessions currently remain in memory; restarting the app requires signing in again. Secure persistent sessions can be added deliberately later. The app does not store refresh tokens in plaintext preferences.
+
+## Preview the app in Microsoft Edge
+
+The same Flutter app can run as a local browser preview on this Windows PC. Use **Microsoft Edge**. This is a convenient way to exercise the existing customer/officer flow; Android remains the assignment delivery target. A browser check does not replace Android device, camera/location, lifecycle or store-delivery verification.
+
+Start Docker, the existing Nene Supabase stack and the NestJS API as described above. With `backend/.env` and the Android `app/config/local.json` already present, run from the repository root:
+
+```powershell
+npm run setup:browser
+cd app
+..\.tools\flutter\bin\flutter.bat --no-version-check run -d edge --no-pub --dart-define-from-file=config/browser.local.json
+```
+
+If this workstation's package cache is needed, set `$env:PUB_CACHE = Join-Path (Resolve-Path '..').Path '.cache\pub'` from `app/` before running Flutter. On a fresh checkout, run `flutter pub get` first; `--no-pub` above reuses the installed dependencies.
+
+For a server that stays attached to the terminal while you open Edge yourself, use:
+
+```powershell
+..\.tools\flutter\bin\flutter.bat --no-version-check run -d web-server --no-pub --dart-define-from-file=config/browser.local.json
+```
+
+Then open [the local app preview](http://127.0.0.1:4179) in Microsoft Edge. Keep the Flutter terminal running; Ctrl+C stops this preview server. It does not stop the separately running API or Supabase stack.
+
+`setup:browser` deliberately regenerates only these ignored browser files:
+
+- `app/web_dev_config.yaml`: binds Flutter's development server to `127.0.0.1:4179` and proxies `/api/v1/` to the local API host/port from `backend/.env`.
+- `app/config/browser.local.json`: points the app at that same-origin API, the backend's local Supabase URL on port 54321, and the public client key from `app/config/local.json`.
+
+The script rejects production settings, non-loopback backend targets, hosted Supabase URLs and administrative keys. It makes no provider calls, leaves Android/backend configuration unchanged, and prints no keys. The API port must match the running backend: if you override `PORT` only in a terminal, update the local backend configuration deliberately and rerun `setup:browser` before starting the preview. The API cannot use the preview server's port 4179.
+
+The narrow development proxy uses Flutter's [web development configuration](https://docs.flutter.dev/platform-integration/web/web-dev-config-file); it does not enable broad CORS access on NestJS or bypass bearer-session/role checks. Supabase Auth still uses its local service endpoint. The committed [server example](../app/web_dev_config.example.yaml) and [public app example](../app/config/browser.example.json) contain no actual credentials. Do not use this loopback/debug setup for hosting or a release build.
+
+Sessions and unfinished creation retries remain in memory. **Refreshing or closing the browser tab requires signing in again and discards pending creation details.** Confirm a creation outcome before reloading; if interrupted, find the customer by email before attempting another creation, following the recovery limits in [CUSTOMER_FLOW.md](CUSTOMER_FLOW.md). Use synthetic local demo identities only.
+
+Preview setup verified on 20 October 2026: the Flutter web SDK was installed locally, the app compiled for the web development server, and the proxied API health endpoint responded successfully. Configuration checks rejected 14 unsafe inputs and confirmed that source Android/backend files and private credentials were not copied into browser output. Actual Edge sign-in remains a manual check: the user stopped remote UI control and chose to operate Edge themselves. These checks do not establish a browser login result.
 
 ## Checks
 
@@ -69,11 +106,13 @@ npm --prefix backend run check
 npm --prefix backend run format:check
 npm run db:test
 npm run check:local
+npm run check:customer-flow
 ```
 
-- Backend checks: lint, TypeScript build, and 23 tests for session validation, server-owned roles, profile restrictions, parameterized lookup, dependency failures, and connection/TLS settings, including rejection of URL query overrides.
-- Database checks: 24 pgTAP assertions for grants, RLS, profile constraints, and private storage access. The runner executes inside the named local Docker container and rolls back its synthetic fixtures. It avoids a Windows connection failure observed with the CLI's `test db` command.
+- Backend checks: lint, TypeScript build, and 48 tests for session/role boundaries, provisioning reconciliation, field validation, scoped queries, failures and connection/TLS settings.
+- Database checks: 56 pgTAP assertions for column grants, RLS, profile/account constraints, request identity immutability, edit audit protection and private storage access. The runner executes inside the named local Docker container and rolls back its synthetic fixtures. It avoids a Windows connection failure observed with the CLI's `test db` command.
 - Integration check: starts its own temporary API process, signs into local Supabase, and verifies real PostgreSQL-backed customer/officer profiles, metadata isolation, missing/disabled profiles, and invalid-session rejection. Connections are pinned to local services; its temporary identity/profile are removed afterward. Docker and local Supabase must already be running.
+- Customer-flow integration: creates a temporary synthetic officer, races two initial creation requests, checks replay/changed-payload/duplicate-email behavior, signs in the new customer, verifies own accounts/contact edits and denied access, makes an officer-requested edit, then restarts the API and checks persistence. It removes its test accounts, requests, audits, profiles and Auth identities afterward. It does not reset the database or modify persistent manual-demo users.
 
 From `app/`:
 
@@ -83,14 +122,42 @@ From `app/`:
 ..\.tools\flutter\bin\flutter.bat --no-version-check build apk --debug --dart-define-from-file=config/local.json
 ```
 
-Review fixes verified on 2026-10-17: backend lint, build, formatting, and all 23 tests passed. Flutter analysis and formatting passed, and all 24 mobile tests passed, including stalled Auth response and late-login regressions. The Android debug APK was rebuilt successfully at `app/build/app/outputs/flutter-apk/app-debug.apk` (173,197,097 bytes). APK metadata confirms the development application ID, version `0.1.0`, target SDK 36, and debug status. Emulator/device runtime and iOS builds have not been verified.
+Review fixes verified on 2026-10-17: backend lint, build, formatting, and all 23 tests passed. Flutter analysis and formatting passed, and all 24 mobile tests passed, including stalled Auth response and late-login regressions. The Android debug APK was rebuilt successfully at `app/build/app/outputs/flutter-apk/app-debug.apk` (173,197,097 bytes). APK metadata confirms the development application ID, version `0.1.0`, target SDK 36, and debug status. Emulator/device runtime was not verified in that check; see the later preview check below. iOS builds remain unverified.
 
 The 24 database assertions and real local Auth/API/PostgreSQL integration passed on 2026-10-15, and the integration check removed its temporary identity. Public signup was separately rejected with `signup_disabled`. A fresh integration attempt on 2026-10-17 stopped during local service configuration because the Docker engine was unavailable, before creating a fixture; it is not a new passing integration result.
 
+## Lighter Flutter preview verification (19–20 October 2026)
+
+This historical preview check covered the approved lighter palette and scalable Open pocket mark on sign-in, loading/error states, both server-controlled profile variants, and Android launcher/startup resources. That styling change added no dependencies or authentication/backend behavior. The later customer-flow check below supersedes its feature-status notes.
+
+- Flutter analysis passed and all **26 tests** passed. Added checks cover a 320×640 viewport at 200% text size with the keyboard open, reachable sign-in/error feedback, customer profile boundaries and sign-out. Officer display and existing session/API tests also passed.
+- The debug APK built with `--no-pub --dart-define-from-file=config/local.json`, installed successfully with `adb install -r`, and launched on `emulator-5554`. The existing `Medium_Tablet` AVD uses a phone-sized 1080×2400 override at density 420. [Actual emulator sign-in capture](ui/android-signin.png) records the lighter design. Full screen-reader, physical-device and launcher-mask testing remain open.
+- Docker's Nene containers are running. The existing synthetic customer login was verified directly against local Supabase Auth, NestJS on port 3001, and PostgreSQL. This was a targeted manual-demo check, not a rerun of the full integration suite or an on-device sign-in assertion. Backend/database code was unchanged; prior checks above remain the recorded evidence.
+- Existing local demo credentials were retained only in ignored `.tmp/nene-demo-login.json`; no credentials, tokens or local configuration were committed. At that preview checkpoint the app was left at sign-in; officer provisioning and banking accounts had not yet been added.
+
+For cached dependencies, the three Flutter check/build commands above accept `--no-pub`; this avoids an unnecessary package fetch. The SDK and package cache remain local and ignored.
+
+## Customer flow verification (20 October 2026)
+
+- Backend lint/build, all 48 tests and formatting passed.
+- Flutter analysis/formatting and all 54 tests passed, including contact-save recovery, exact creation retries, confirmed duplicate-email correction, ordinary background/resume, session changes and a small phone with enlarged text/keyboard.
+- All 56 database assertions passed with rollback. Both the original Auth/API check and the new real customer-flow check passed; the latter includes concurrent initial creation and persistence after restarting the API. Temporary fixtures were removed.
+- The additive migration was applied through `db:migrate:docker` after the CLI connection timeout. Repeating that command applied zero migrations and retained existing data.
+- The debug APK built successfully, installed on the phone-sized Android emulator, and passed a manual journey: officer sign-in → create/review/confirm customer → requested address correction with a reason → sign out → new customer sign-in → own zero-balance VND account → contact edit and saved feedback. Background/resume retained the customer workspace. Captures show the [officer workspace](ui/android-officer-workspace.png) and [customer account](ui/android-customer-account.png).
+- The emulator is left signed in as the new synthetic customer. Local test access details are in ignored `.tmp/nene-demo-officer.json` and `.tmp/nene-flow-customer.json`; these are development fixtures, never application password storage or committed report evidence.
+
+This is a local synthetic flow. Hosted activation, lost-form recovery after app process death/sign-out, email changes, secure persistent sessions, eKYC, financial 2FA, iOS and physical-device testing remain open. Ordinary background/resume keeps the current retry form; only an explicit session transition or process loss discards it.
+
+## Reference flow verification (27 October 2026)
+
+The private capture/status/review slice and its checks are recorded in [REFERENCE_FLOW.md](REFERENCE_FLOW.md). Run `npm run check:identity-reference` after the additive migration with local Supabase running; it uses generated image fixtures and removes them. `npm --prefix backend run identity:cleanup` physically deletes eligible expired/pending evidence in bounded batches. Photo access expiry is enforced independently of cleanup.
+
+The interactive demo is the same Flutter app in Edge. The user runs the local `run.bat` launcher; Android Studio/emulator launch is excluded at their request. Web compilation and generated widget renders do not establish real camera, physical-phone or iOS behavior.
+
 ## Scope and release boundaries
 
-`com.example.nene_app` is the development Android application ID; the generated iOS bundle ID is `com.example.neneApp`. Final bank/app branding, identifiers, icons, release signing, cloud hosting, and Play configuration remain open. Release signing must use a separately managed release key; no debug signing fallback is provided for publishing.
+`com.example.nene_app` is the development Android application ID; the generated iOS bundle ID is `com.example.neneApp`. The Open pocket direction and lighter palette are approved and Android icons are integrated. Final wordmark/release asset review, iOS icons, identifiers, release signing, cloud hosting, and Play configuration remain open. Release signing must use a separately managed release key; no debug signing fallback is provided for publishing.
 
-The private identity bucket is configured, but no upload API, identity review, or high-value verification exists. Password login is not transaction 2FA. No financial endpoint is exposed before the required authorization flow is designed. All seven assignment feature groups remain in [REQUIREMENTS.md](../REQUIREMENTS.md) and [SCOPE.md](../SCOPE.md).
+Private reference upload/status and officer acceptance/correction are implemented. No actual face comparison, liveness or high-value verification exists; accepting a reference does not complete eKYC. Password login is not transaction 2FA. No financial endpoint is exposed before the required authorization flow is designed. All seven assignment feature groups remain in [REQUIREMENTS.md](../REQUIREMENTS.md) and [SCOPE.md](../SCOPE.md).
 
-The shared policy directory `D:\Data\Downloads\Policies` was unavailable when rechecked on 2026-10-15. No contents were read or policy compliance claimed.
+The shared policy directory `D:\Data\Downloads\Policies` was unavailable when rechecked on 2026-10-20. No contents were read or policy compliance claimed.

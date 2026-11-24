@@ -2,7 +2,7 @@
 
 An Android mobile banking final project for Ton Duc Thang University's Mobile Apps Development course.
 
-Status: local project foundation created on 2026-10-15 using the stack confirmed on 2026-10-13. The app supports sign-in and a server-authorized profile; the complete assignment features remain in progress.
+Status, 3 November 2026: the customer/officer foundation now includes reference enrollment/review, account information/history, authenticator setup/recovery, confirmation preview and [local synthetic same-bank transfers](docs/LOCAL_TRANSFERS.md). The new sending flow requires explicitly prepared demo accounts, accepted reference and transaction-bound TOTP; amounts at or above 5,000,000 VND stay blocked. Reference acceptance is not completed eKYC. [Local deposits and withdrawals](docs/LOCAL_CASH.md) now support checking/saving accounts using a bounded cash simulation and the same security checks. AWS remains undecided; real cash services, external integrations and full assignment acceptance remain open. The foundation notes below retain the limits of those earlier slices.
 
 ## Confirmed technology stack
 
@@ -22,10 +22,15 @@ The submission portal shows **1 December 2026 at 12:00 AM**, the start of Tuesda
 
 - [ROADMAP.md](ROADMAP.md): the ordered checklist of remaining work and the immediate next feature flow.
 - [docs/SETUP.md](docs/SETUP.md): prerequisites, local setup, run commands, and verification.
-- [docs/API.md](docs/API.md): the implemented health and authenticated-profile contract.
+- [docs/API.md](docs/API.md): the implemented profile, customer, initial-account and private-reference contract.
+- [docs/REFERENCE_FLOW.md](docs/REFERENCE_FLOW.md): reference capture/review, notice/retention defaults and web-demo steps.
+- [docs/CUSTOMER_FLOW.md](docs/CUSTOMER_FLOW.md): first-demo decisions, provisioning/retry flow and implemented data relationships.
 - [SCOPE.md](SCOPE.md): detailed PDF/rubric audit, required outcomes, examples, open interpretations, and boundaries against scope expansion.
 - [REQUIREMENTS.md](REQUIREMENTS.md): all assignment requirements, the 10-point rubric, source issues, and open decisions.
 - [DESIGN.md](DESIGN.md): confirmed stack, proposed architecture, roles/screens, transaction flow, conceptual data model, and implementation order.
+- [docs/BRANDING.md](docs/BRANDING.md): selected Open pocket logo direction, palette, reference artwork, and remaining asset work.
+- [docs/SCREEN_MAP.md](docs/SCREEN_MAP.md): proposed customer/officer destinations, PDF traceability, shared financial flows, and recovery states.
+- [docs/UI_DIRECTION.md](docs/UI_DIRECTION.md): sign-in, customer home, and officer workspace previews with a local interactive design study.
 - [AGENTS.md](AGENTS.md): instructions for working in this repository.
 
 ## Assignment sources
@@ -39,13 +44,15 @@ The brief requires Android, permits on-device SQLite, and prefers a cloud databa
 
 ## Current foundation
 
-- `app/`: Flutter sign-in, session state, authenticated profile, and sign-out. Customer/officer roles come from the backend. Android is the delivery target; iOS platform files preserve a future starting point.
-- `backend/`: one NestJS API, server-verified Supabase sessions, and read-only profile access through the PostgreSQL `pg` driver.
-- `infrastructure/`: local Supabase configuration, a restricted database role, profile migration, private identity bucket, and database access tests.
-- `scripts/`: local configuration and an API/Auth/database integration check using a temporary synthetic identity that is removed afterward.
+- `app/`: Flutter sign-in and distinct customer/officer workspaces. Customer profiles/accounts and permitted edits come through the API. Android is the delivery target; iOS platform files preserve a future starting point. A local Microsoft Edge preview runs the same app for development.
+- `backend/`: one NestJS API with server-verified sessions, scoped customer/account reads and writes, local Auth provisioning and safe creation retries.
+- `infrastructure/`: local Supabase configuration, restricted database privileges, profile/account/request/audit migrations, private identity bucket and access tests.
+- `scripts/`: local configuration, an explicit local migration fallback, and API/Auth/database checks that remove their synthetic fixtures afterward.
 
-This is partial support for BR-01/BR-03 and TR-03, not completion of any business feature group. There are no financial operations, eKYC checks, transaction 2FA, officer provisioning, profile editing, external integrations, maps, or chatbot yet. No cloud resources or store release have been provisioned. The identity bucket has no app upload flow yet.
+This demonstrates a local BR-01/BR-02 customer flow and partial BR-03/BR-05/TR-03 support. There are no money movements, saving/mortgage flows, eKYC checks, transaction 2FA, external integrations, maps or chatbot yet. Customer creation uses local-only synthetic activation; hosted onboarding remains open. No cloud resources or store release have been provisioned. The private identity bucket now supports backend-authorized reference upload/preview and officer review. AWS and the later comparison provider remain undecided.
 
 Start Docker, then use the commands in [the setup guide](docs/SETUP.md). Local configuration and SDK files are ignored by Git. Never put database or Supabase administrative credentials in the app.
 
-Team responsibilities, backend hosting, integration expectations/providers, account rules, and UI branding remain open. The foundation does not add an iOS release, a separate officer application, or extra business features to the PDF scope.
+For a browser preview on this Windows PC, use `npm run setup:browser` and the [Microsoft Edge run instructions](docs/SETUP.md#preview-the-app-in-microsoft-edge). This loopback preview uses the existing local backend and database; it adds no hosted web release or separate banking application. Browser refresh drops the memory-only session.
+
+The lighter Open pocket identity is approved and applied to Flutter sign-in/profile/loading/error screens and the Android launcher. The [screen map](docs/SCREEN_MAP.md) and [three-screen UI study](docs/UI_DIRECTION.md) describe the wider planned app; their sample balances and financial controls are not implemented. Final wordmark/release asset review and iOS launcher artwork remain open; see [the branding decision](docs/BRANDING.md). Team responsibilities, backend hosting, integration expectations/providers, and account rules remain open. The foundation does not add an iOS release, a separate officer application, or extra business features to the PDF scope.

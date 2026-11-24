@@ -1,0 +1,152 @@
+# Transaction confirmation and 2FA plan
+
+Cash update, 3 November 2026: [LOCAL_CASH.md](LOCAL_CASH.md) implements local checking/saving deposits and withdrawals with distinct kind-bound proof purposes, shared TOTP replay protection and atomic bank/cash/history posting. The simulated cash source is bounded and seeded once outside bank accounts; real funding, dispensing and lecturer acceptance of simulation remain open.
+
+Local implementation update, 3 November 2026: [LOCAL_TRANSFERS.md](LOCAL_TRANSFERS.md) now consumes a separate transaction-bound proof and atomically posts synthetic same-bank transfers under user-approved rules. The preview remains nonfinancial. Pre-authorization persistence still contains security metadata only; immutable transfer details are written after verification. Actual comparison, deposits/withdrawals, external payments and hosted acceptance remain open.
+
+Confirmation update, 3 November 2026: [TRANSACTION_CONFIRMATION.md](TRANSACTION_CONFIRMATION.md) implements same-bank review and transaction-bound authenticator checking with an explicit not-sent result, as requested. Review details remain in a signed client token; only security metadata is persisted. The proposed durable financial-intent interpretation below remains unresolved. No financial authorization consumer, balance/history write or high-value identity check is enabled.
+
+Implementation update, 3 November 2026: [AUTHENTICATOR_SETUP.md](AUTHENTICATOR_SETUP.md) and [AUTHENTICATOR_MANAGEMENT.md](AUTHENTICATOR_MANAGEMENT.md) record implemented enrollment/status, replacement, backup-code recovery, memory-only session ownership and shared setup/lifecycle replay reservations. The older planning/prototype status below is historical. Next connect operation-bound confirmation to the active factor, restricted state, current security revision and the same proof reservation. Financial authorization/posting and app acceptance remain open; recovery never authorizes a payment. AWS remains undecided.
+
+
+Status: **planning only, 27 October 2026**, requested after the reference-photo slice. No transaction endpoint, balance write, OTP delivery, authenticator enrollment or financial UI is implemented by this plan. Flutter + one NestJS API + Supabase remains the stack. AWS and the face-comparison provider remain undecided.
+
+Subsequent [local TOTP compatibility testing](TOTP_COMPATIBILITY.md) proved provider enrollment/verification, but observed successful-code reuse across challenges and concurrent reuse of one challenge. Supabase MFA alone does not satisfy this plan's transaction rules. No application factor selection or implementation follows automatically from that experiment.
+
+The later [backend authorization prototype](AUTHORIZATION_PROTOTYPE.md) demonstrates PostgreSQL operation binding/replay safeguards, fail-closed recovery and one-time synthetic consumption. It is unregistered and uses disposable records without balance writes. Customer enrollment, session handoff, real policies and the financial flow remain unimplemented.
+
+The subsequent [authenticator lifecycle plan](AUTHENTICATOR_LIFECYCLE.md) maps enrollment, replacement, proposed recovery codes and session handoff. Its [initial experiment](RECOVERY_SESSION_COMPATIBILITY.md) confirms provider recovery capability and reproduces late peer session hazards. The [follow-up coordinator](SESSION_COORDINATION_PROTOTYPE.md) passes isolated browser ownership and real-provider refresh ordering. Backend lifecycle rules and production integration remain open; normal demo MFA remains disabled.
+
+The proposed shared journey is **enter details → review → high-value identity check when required → transaction 2FA → authoritative result**. Reuse it across financial features rather than building a different security flow for each payment category.
+
+## Assignment boundary
+
+The [PDF](../FinalProject_2026_2027.pdf), p. 2 Business 2–5, and [requirement register](../REQUIREMENTS.md) establish the outcomes below. Labels, state names, API shapes and limits in this document are project proposals, not lecturer-approved rules.
+
+| Requirement | Required outcome | Planning consequence |
+| --- | --- | --- |
+| BR-03 | eKYC/officer assistance and the example's high-value identity-check intent. | Preserve the separate actual comparison gate. A reference accepted by an officer is not a passed comparison for an operation. |
+| BR-04 | All transactions pass 2FA before persistence; OTP is an example. | Require a second factor for every financial operation. There is no low-value, deposit, same-bank or previously-verified-session exemption. |
+| BR-08/BR-09 | Deposits, withdrawals, history, and allowed/valid transfers before database persistence. | Validate business rules independently of 2FA; keep authorization, balances and posted records consistent. |
+| BR-10–BR-12 | Payment integration, bills, top-ups and purchase/booking payments. | Reuse the review/authorization steps; provider settlement and fulfillment need their own later integration rules. |
+| BR-01/BR-14 | Role separation and activity-linked chat. | Officers and chat links cannot approve or execute a customer's transaction on their behalf. |
+| TR-03/TR-05/TR-06 | Persistence and explainable data, flows and UI. | Record actual implementation/verification evidence later. This document is design evidence only. |
+
+Coverage includes deposits, withdrawals, same-bank and other-bank transfers, electricity/water payments, phone top-ups and the purchase/booking categories still awaiting lecturer interpretation. Funding/cash-out mechanisms, eligible account types and external-provider access remain unresolved; this plan does not turn a deposit into an unrestricted balance-credit endpoint.
+
+Account reads, contact edits, zero-balance account creation, reference review, rate-policy editing, savings-profit display and mortgage-due calculations are not automatically financial postings. Do not add automatic interest credits, scheduled mortgage debits, a general accounting product or a new officer payment role to exercise 2FA.
+
+**Persistence interpretation remains open:** storing an unposted intent/challenge for recovery is different from persisting a completed financial transaction. The brief does not define that lifecycle. The schema below proposes the distinction; confirm the lecturer's interpretation before implementing durable pre-authorization records. No balance change or posted financial transaction may precede the required checks.
+
+## Customer screen sequence
+
+| Screen | Essential content/actions | Failure and recovery |
+| --- | --- | --- |
+| Input: existing C07/C08/C10–C12 | Select own eligible account, destination/bill/phone/order and amount where applicable. **Review** sends details for backend validation. | Invalid amount, unsupported account/currency, invalid destination or unavailable quote stays here with useful feedback. Do not display another customer's balance or full profile. |
+| S02 Review | Server-returned operation type, relevant debit/credit account(s), funding/destination details appropriate to the operation, confirmed recipient/biller, amount/currency, fee if any, total debit/credit and expiry. **Edit**, **Cancel**, **Continue**. | A changed destination, amount, currency, fee or quote needs a new review and invalidates earlier authorization. Client-calculated totals are not authoritative. |
+| S03 High-value identity check, conditional | Show the same amount/destination and request a new capture for actual comparison against the accepted reference. | Missing/expired reference, failed/unavailable comparison or stale identity revision blocks progress. Route back to reference assistance when appropriate; no officer override or fake pass. Threshold and matching method remain open. |
+| S04 Transaction 2FA, always | Keep the reviewed amount/destination visible; show the selected factor's instructions and one code field if applicable. **Confirm transaction** is the deliberate final instruction. | Wrong/expired code, attempt limit, unavailable factor and changed details never imply success. TOTP has no **Resend code** action; a delivered-code alternative would need one. Preserve non-sensitive review context, never persist entered codes. |
+| S05 Processing/result | Stable operation reference; confirmed success/receipt, explicit rejection, or processing. **Check status**, **Back to accounts**, **View history** when applicable. | Lost replies show **Outcome not confirmed — check status**. Never recommend a new transfer to resolve uncertainty. An external payment may remain processing; payment completion and fulfillment are separate. |
+
+Preserve the approved ivory/teal/apricot theme, existing logo and one-column phone layout. Use readable formatted VND amounts backed by integer minor-unit strings, persistent labels, at least 48-pixel targets, keyboard-safe scrolling and 200% text wrapping. The final button must name the financial action/total clearly; an OTP instruction must not masquerade as ordinary sign-in.
+
+The first financial implementation should be one **same-bank checking-account transfer** with explicit synthetic test funding and no external provider. This is a delivery order, not permission to omit deposits, withdrawals or later feature groups. It remains blocked until the account rules and authorization gates below are resolved; existing zero balances are not silently changed to make a demo work.
+
+```mermaid
+flowchart TD
+    Input[Enter financial details] --> Review[Server-validated review S02]
+    Review --> High{High-value rule requires comparison?}
+    High -->|Yes| Identity[Actual operation-bound identity check S03]
+    High -->|No| Factor[Transaction second factor S04]
+    Identity -->|Passed| Factor
+    Identity -->|Failed or unavailable| Blocked[No posting; retry or seek assistance]
+    Factor --> Confirm[Confirm exact operation]
+    Confirm --> Checks[Recheck permissions, identity, factor and business rules]
+    Checks -->|Valid| Post[Post once or begin authorized provider processing]
+    Checks -->|Invalid| Reject[Reject without posting]
+    Post --> Result[Authoritative status or receipt S05]
+    Confirm -->|Reply lost| Recover[Check same operation]
+    Recover --> Result
+```
+
+## Second-factor recommendation for review
+
+**Keep Supabase authenticator TOTP as a provisional factor-verifier candidate.** The [completed isolated experiment](TOTP_COMPATIBILITY.md) shows that enrollment and verification work, but challenge/code replay controls cannot be delegated to the provider alone. The [backend prototype](AUTHORIZATION_PROTOTYPE.md) now demonstrates application safeguards without balance writes. Review enrollment, recovery, session handoff and real policies before selecting and integrating it. TOTP avoids an SMS/email delivery provider and custom secret storage/algorithm; the normal local configuration still disables TOTP enrollment/verification. Only disposable test Auth enabled it.
+
+| Option | Fit and trade-off |
+| --- | --- |
+| Supabase TOTP | Provider enrollment/verification and the separate backend safeguards prototype worked in isolated tests. Operation binding/replay/recovery come from PostgreSQL controls, not provider code consumption. Customer enrollment/recovery/session handoff and Flutter integration remain open. |
+| Application-issued email OTP | A code can be generated for one operation, but adds delivery, verified-address, abuse and code-verifier responsibilities. Existing local Inbucket is a developer mail sink, not proof of access to a separate customer mailbox. Supabase email login OTP is not a transaction-authorization mechanism. |
+| SMS OTP | Adds phone verification, delivery/provider setup, cost and SIM-related risks. Not required by the PDF and not the proposed first path. |
+
+Supabase's documented MFA API takes factor/challenge identifiers and a code; it does not take Nene's amount or recipient. A verified factor or `aal2` session therefore cannot be treated as reusable permission to post transactions. This is an architectural inference from its documented contract, not a claim that Nene integration has been tested. [Supabase TOTP guide](https://supabase.com/docs/guides/auth/auth-mfa/totp), [challenge](https://supabase.com/docs/reference/javascript/auth-mfa-challenge), [verify](https://supabase.com/docs/reference/javascript/auth-mfa-verify), [Flutter challenge/verify](https://supabase.com/docs/reference/dart/auth-mfa-challengeandverify).
+
+The [backend prototype](AUTHORIZATION_PROTOTYPE.md) associates provider verification with one intent version, rejects code reuse across operations and demonstrates concurrent/uncertain-result handling in disposable PostgreSQL. The earlier SDK, session and IP probes remain in [TOTP_COMPATIBILITY.md](TOTP_COMPATIBILITY.md). Neither record verifies customer-facing NestJS/Flutter integration, real account policies or hosted recovery. Never infer success from a client boolean, a previous login verification or an unexamined JWT claim. Direct Supabase factor calls must not provide a banking bypass. Keep financial execution disabled until these controls and prerequisites are integrated and verified in the actual flow.
+
+The source-review concern about cross-challenge consumption was subsequently tested against the exact local Auth image, with code reuse observed. See the [pinned verification path](https://github.com/supabase/auth/blob/v2.197.0/internal/api/mfa.go) and the bounded [experiment results](TOTP_COMPATIBILITY.md); do not generalize them to every hosted version/configuration. Ordinary TOTP is time/secret based, so it does not intrinsically encode payment details. [RFC 6238](https://www.rfc-editor.org/info/rfc6238/).
+
+### Minimum factor setup, if TOTP is selected
+
+Add one customer **Transaction security** entry under Profile, following [AUTHENTICATOR_LIFECYCLE.md](AUTHENTICATOR_LIFECYCLE.md): fresh password evidence, transient QR/manual key, first-code verification, provider reconciliation and Nene's active-factor binding. Enrollment confirmation is not authorization for a payment. Never write QR secrets or codes to logs, analytics, source control, report screenshots or ordinary app storage. Use request-scoped provider access on the server; do not put one user's mutable Auth session into a shared global client.
+
+Normal replacement requires the existing factor plus fresh password authentication; verify the new factor before retiring the old one. The planned lost-factor alternative is provider-native recovery codes, gated by a compatibility probe and restricted by Nene to replacement. Recovery-produced `aal2` is not transaction permission. Without a proven recovery path, financial confirmation stays blocked; ordinary officer edits, password reset and accepted reference photos cannot bypass it. Factor changes invalidate old authorization/session bindings. Controlled reset of an explicitly synthetic local fixture remains test maintenance, not customer recovery. No SMS/email fallback is selected.
+
+## Backend rules and proposed state
+
+One NestJS transaction module owns orchestration; ordinary Flutter repositories/controllers own presentation. Keep provider access out of widgets and banking tables out of direct client data APIs. No extra backend, queue service or microservice is implied.
+
+The server binds the operation ID/version to the active customer, relevant debit/credit account(s), operation-specific funding/destination/order details, operation kind, amount/currency, fee/total, quote expiry, required identity rule/reference revision and factor challenge. Use a stable authenticated session identifier if session binding is selected; ordinary same-user token rotation must not silently create a new operation. All significant values are canonical server data. These application rules follow the separation between authentication and transaction authorization described by [OWASP's transaction authorization guidance](https://cheatsheetseries.owasp.org/cheatsheets/Transaction_Authorization_Cheat_Sheet.html).
+
+Keep a small intent lifecycle: `awaiting_authorization`, `processing`, then `completed` or `rejected`; `cancelled` and `expired` are terminal before processing. Identity/factor prerequisites are separate statuses on the intent, not additional top-level workflows. **Unknown outcome** is a client's lack of a confirmed reply, not an invented completed/rejected database result.
+
+- Store immutable reviewed details; edit by cancelling/superseding the old unprocessed intent and creating a newly reviewed version. Invalidate its identity/factor proofs. Do not carry authorization onto a changed quote or destination.
+- Authenticate and check ownership on every read/command. Role, account activity, supported operation/account/currency, destination, positive integer amount, applicable fees and available funds are checked before review and again before posting. Successful 2FA does not reserve a balance or guarantee a payment will succeed.
+- Require the accepted, unexpired reference under the current proposed project policy for financial posting. High-value activity additionally requires a real operation-bound comparison. Missing high-value configuration or an unavailable required check fails closed; leave posting disabled until the policy is defined.
+- Issue at most one active challenge per intent version. Bind it to the owner/factor and exact reviewed details; replacements invalidate older attempts. Retry keys must retain command scope and payload identity without storing raw codes. If proof fingerprints are needed, use a protected keyed mechanism with bounded retention, not a plain hash of a low-entropy code. A code passing elsewhere cannot set a global `twoFactorVerified` flag.
+- Reserve attempts atomically before contacting the factor verifier, and serialize completion/cancellation for the same operation. Protect against concurrent code guessing and replay across different operations. A duplicate confirmation returns the original operation result, not a second transfer.
+- Provider verification and PostgreSQL are not one transaction. Persist a server-observed verification result for the specific pending attempt before financial execution; if its outcome cannot be proven after a timeout/crash, do not post. Reconcile the same operation. Before permitting a fresh challenge, supersede/invalidate the unresolved attempt so its late success cannot authorize posting; replay controls still apply. A provider-side success without a durable local result is not permission to guess that payment succeeded.
+- For local transfers, lock the necessary account/intent records in a stable order, recheck preconditions and commit debit, credit, transaction history, authorization consumption and completed result in one PostgreSQL transaction. A unique operation/transaction association prevents duplicate posting. No partial debit or phantom receipt.
+- Once an operation starts processing, a cancel request cannot pretend to reverse it. Before processing, cancellation invalidates outstanding challenges. A cancel/confirm race must have one authoritative winner.
+- External processing later uses a stable provider idempotency/reference and deduplicated authenticated callbacks. Decide fund reservation/settlement/release and timeout reconciliation before enabling it. A checkout redirect alone is not success, and local DB/provider updates are not atomic.
+
+Proposed records are an `OperationIntent`, associated identity/factor attempts, and the eventual posted transaction/history. Keep only the IDs, canonical details, versions, deadlines, attempt counters and minimal audit/recovery metadata needed. Successful comparison records remain a separate future identity feature. Passwords, OTP values, authenticator secrets and biometric images do not belong in transaction records or logs.
+
+## Candidate API, not implemented endpoints
+
+All routes are under `/api/v1`, authenticated, customer-owned and `no-store`. POST commands use scoped UUID idempotency keys. [API.md](API.md) remains the implemented contract; these routes must not be reported as available.
+
+| Route | Intended purpose |
+| --- | --- |
+| `POST /me/operation-intents` | Validate supported financial details and return canonical review, version, expiry and required checks. No posting. |
+| `GET /me/operation-intents/:id` | Authoritative current state and allowed actions; recover a lost response without starting a new payment. |
+| `POST /me/operation-intents/:id/second-factor/challenges` | Create/reconcile a challenge for the reviewed version after applicable identity prerequisites. Never return a usable OTP or authenticator secret. |
+| `POST /me/operation-intents/:id/confirm` | Expected version, recorded challenge ID and factor proof; verify/reconcile it and post or begin provider processing only after all gates pass. Client flags cannot assert a pass. |
+| `POST /me/operation-intents/:id/cancel` | Cancel only an unprocessed version; invalidate its checks. |
+
+Missing/invalid authentication, denied role/ownership, invalid details, stale state, attempt limits and dependency failure need distinct safe responses (`401`, `403`/indistinguishable `404`, `400`, `409`, `429`, `503`). A timeout never silently creates a replacement key. Do not return full provider errors, financial data belonging to another customer or secrets.
+
+## Proposed small limits, still to confirm
+
+| Policy | Starting proposal | Boundary |
+| --- | --- | --- |
+| Review/intent lifetime | 10 minutes, shortened by any earlier quote/reference expiry. | No lifetime extension from repeatedly reopening the screen. |
+| Authorization attempt | At most 5 wrong proofs, then require a new reviewed intent. | Add a customer/factor-wide rolling cap so new intents do not reset brute-force protection; proposed 10 failures in 15 minutes. Concurrent requests share the budget. |
+| Fresh authorization result | At most 2 minutes, also bounded by intent/quote/identity/factor expiry. | Consumed by exactly one operation; no transferable browser or session permission. |
+| TOTP validity | Use the selected provider's actual documented/enforced time step and tolerance. | Do not invent a five-minute lifetime or a resend button for authenticator codes. Prove successful-code replay rejection. |
+| Delivered-code alternative | Only if selected later: propose 6 random digits, 5-minute expiry, 60-second resend delay and at most 3 issues per intent. | A replacement invalidates the old code; attempts/rolling limits cannot be reset by resend. Not a confirmed factor/channel. |
+| High-value threshold | **Open.** Server-owned policy, boundary tested once chosen. | No arbitrary money amount is introduced by this plan. |
+
+These are design proposals. Before implementation, resolve the intent-storage interpretation, factor choice and replay behavior, concrete attempt policy, high-value rule, and first transfer's account/funding rules. More complicated provider or transaction machinery should be added only when a required operation needs it.
+
+## Acceptance evidence and delivery order
+
+1. Review the S02–S05 screen/state contract and resolve the small policy decisions above. A labeled UI fixture can demonstrate layout and recovery, but not a completed transfer or BR-04.
+2. Provider TOTP compatibility was evaluated in [TOTP_COMPATIBILITY.md](TOTP_COMPATIBILITY.md), followed by the [backend safeguards prototype](AUTHORIZATION_PROTOTYPE.md), [authenticator lifecycle plan](AUTHENTICATOR_LIFECYCLE.md), [recovery/session experiment](RECOVERY_SESSION_COMPATIBILITY.md) and passing isolated [session coordinator](SESSION_COORDINATION_PROTOTYPE.md). Next implement backend lifecycle rules, then integrate the customer security flow and session owner; factor selection remains provisional. Keep AWS and the face matcher undecided; do not send messages or create paid accounts as a side effect.
+3. Build the review/intent and confirmation path for a same-bank checking transfer only after its prerequisites are ready. Until the necessary identity/2FA checks exist, keep execution unavailable rather than enabling a bypass. Test-only synthetic balances are fixtures, not customer-accessible funding functionality.
+4. Expand the same reviewed authorization path to the remaining required operations as their policies/integrations are implemented. Record provider simulations and lecturer acceptance limits honestly.
+
+Required future tests: customer isolation and officer denial; malformed/zero/negative/unsupported amounts; wrong recipient/currency; insufficient funds and concurrent debits; changed amount/fee/destination/reference; missing/failed/expired high-value match; wrong/expired/reused/wrong-operation factor; cross-operation TOTP replay; attempt/resend throttles; double confirm; cancel/confirm races; crash/lost reply/provider-verify uncertainty; no partial balances/history; provider callback replay and fulfillment separation; sign-out clearing, status recovery, narrow screens/large text/keyboard and denied capture where relevant.
+
+Use the Edge web demo for interactive review; the user starts `run.bat`. Do not launch Android Studio/emulators. Later Android delivery remains required by the assignment, and native/platform acceptance is still open. This planning task adds no runtime tests or app behavior. The shared policy directory was unavailable; the original PDF/rubric and local-only runner changes remain intact.
+
+Planning review on 2026-10-27 rechecked PDF page 2 visually, cross-checked the requirement register and screen map, and reviewed the linked official MFA contracts and upstream source. Independent scope and factor reviews informed this plan. Subsequent runtime evidence is recorded separately in [TOTP_COMPATIBILITY.md](TOTP_COMPATIBILITY.md) and [AUTHORIZATION_PROTOTYPE.md](AUTHORIZATION_PROTOTYPE.md). Financial execution and customer-facing transaction 2FA remain unimplemented.

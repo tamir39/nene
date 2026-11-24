@@ -8,6 +8,11 @@ import 'data/user_profile.dart';
 
 enum SessionStatus { signedOut, loading, ready, unavailable }
 
+/// A pending screen request belongs to a session that is no longer active.
+class SessionChangedException implements Exception {
+  const SessionChangedException();
+}
+
 class SessionController extends ChangeNotifier {
   SessionController({
     required AuthRepository auth,
@@ -16,7 +21,13 @@ class SessionController extends ChangeNotifier {
        _profiles = profiles {
     _subscription = _auth.changes.listen(
       (_) {
-        if (!_locallySignedOut) unawaited(loadProfile());
+        if (!_locallySignedOut) {
+          unawaited(
+            status == SessionStatus.ready && profile?.id == _auth.userId
+                ? revalidateProfile()
+                : loadProfile(),
+          );
+        }
       },
       onError: (Object error, StackTrace stackTrace) {
         if (_locallySignedOut) return;
@@ -40,6 +51,105 @@ class SessionController extends ChangeNotifier {
   bool _locallySignedOut = false;
   bool _disposed = false;
   int _revision = 0;
+  int _profileRequest = 0;
+  int get generation => _revision;
+
+  /// Capture the session before a request, and discard its result after any
+  /// session transition. The backend still authorizes each operation.
+  Future<T> authorized<T>(
+    Future<T> Function(String token) operation, {
+    required AppRole role,
+  }) async {
+    final revision = _revision;
+    final userId = _auth.userId;
+    final token = _auth.accessToken;
+    if (_disposed ||
+        _locallySignedOut ||
+        status != SessionStatus.ready ||
+        userId == null ||
+        token == null) {
+      throw const SessionChangedException();
+    }
+    if (profile?.role != role) {
+      throw const ApiException(ApiFailure.forbidden);
+    }
+    try {
+      final result = await operation(token);
+      if (!_isCurrent(revision, userId)) {
+        throw const SessionChangedException();
+      }
+      return result;
+    } on ApiException catch (error) {
+      if (!_isCurrent(revision, userId)) {
+        throw const SessionChangedException();
+      }
+      if (error.failure == ApiFailure.unauthorized) {
+        await signOut();
+        if (!_disposed) {
+          message = 'Your session has expired. Please sign in again.';
+          _notify();
+        }
+      }
+      rethrow;
+    }
+  }
+
+  void acceptOwnProfile(UserProfile updated) {
+    if (status != SessionStatus.ready ||
+        updated.id != profile?.id ||
+        updated.role != profile?.role) {
+      throw const ApiException(ApiFailure.invalidResponse);
+    }
+    _profileRequest++;
+    profile = updated;
+    _notify();
+  }
+
+  /// Returning from a keyboard/password manager or refreshing a token for the
+  /// same principal must not destroy an in-memory, idempotent creation attempt.
+  /// Every API write still verifies its bearer token independently on NestJS.
+  Future<void> revalidateProfile() async {
+    if (_disposed || _locallySignedOut || status != SessionStatus.ready) return;
+    final revision = _revision;
+    final request = ++_profileRequest;
+    final token = _auth.accessToken;
+    final userId = _auth.userId;
+    if (token == null || userId == null || userId != profile?.id) {
+      await loadProfile();
+      return;
+    }
+    try {
+      final loaded = await _profiles.getProfile(token);
+      if (!_isCurrent(revision, userId) || request != _profileRequest) return;
+      if (loaded.id != userId) {
+        throw const ApiException(ApiFailure.invalidResponse);
+      }
+      if (loaded.role != profile?.role) _revision++;
+      profile = loaded;
+      _notify();
+    } on ApiException catch (error) {
+      if (!_isCurrent(revision, userId) || request != _profileRequest) return;
+      if (error.failure == ApiFailure.unauthorized) {
+        await signOut();
+        if (!_disposed) {
+          message = 'Your session has expired. Please sign in again.';
+          _notify();
+        }
+      } else if (error.failure == ApiFailure.forbidden ||
+          error.failure == ApiFailure.invalidResponse) {
+        _revision++;
+        profile = null;
+        status = SessionStatus.unavailable;
+        message =
+            'Your profile is not available. Please contact your bank officer.';
+        _notify();
+      }
+      // A transient refresh failure keeps only the already loaded workspace.
+      // It grants no new permission and cannot turn a failed write into success.
+    } catch (_) {
+      // Keep pending work on transient transport failure, as above.
+    }
+  }
 
   Future<void> signIn(String email, String password) async {
     if (_signingIn || _signingOut) return;
@@ -71,6 +181,7 @@ class SessionController extends ChangeNotifier {
   Future<void> loadProfile() async {
     if (_disposed || _locallySignedOut) return;
     final revision = ++_revision;
+    _profileRequest++;
     final token = _auth.accessToken;
     final userId = _auth.userId;
     profile = null;

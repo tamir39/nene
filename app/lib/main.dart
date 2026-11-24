@@ -1,38 +1,70 @@
+import 'data/assistant_api.dart';
+import 'data/branches_api.dart';
+import 'data/savings_policy_api.dart';
+import 'data/demo_accounts_api.dart';
+import 'data/account_history_api.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'data/session_owner.dart';
+import 'data/supabase_auth_port.dart';
+import 'data/security_api.dart';
 
 import 'config/app_config.dart';
 import 'data/auth_repository.dart';
-import 'data/bounded_auth_client.dart';
+import 'data/banking_api.dart';
+import 'data/identity_api.dart';
+import 'data/reference_photo_source.dart';
 import 'data/profile_api.dart';
 import 'nene_app.dart';
 import 'session_controller.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  final authClient = BoundedAuthClient();
+  final authClient = http.Client();
   try {
+    final photos = DeviceReferencePhotoSource();
+    await photos.discardLostCapture();
     final config = AppConfig.fromEnvironment();
-    await Supabase.initialize(
-      url: config.supabaseUrl.toString(),
-      publishableKey: config.supabasePublishableKey,
-      httpClient: authClient,
-      debug: false,
-      authOptions: const FlutterAuthClientOptions(
-        persistSession: false,
-        detectSessionInUri: false,
+    final owner = SessionOwner(
+      SupabaseAuthPort(
+        authOrigin: config.supabaseUrl,
+        client: authClient,
+        publishableKey: config.supabasePublishableKey,
       ),
     );
+    final auth = OwnedAuthRepository(owner);
     final httpClient = http.Client();
     final controller = SessionController(
-      auth: SupabaseAuthRepository(Supabase.instance.client),
+      auth: auth,
       profiles: ProfileApi(baseUrl: config.apiBaseUrl, client: httpClient),
     );
     runApp(
       NeneApp(
         controller: controller,
+        assistant: AssistantApi(baseUrl: config.apiBaseUrl, client: httpClient),
+        branches: BranchesApi(baseUrl: config.apiBaseUrl, client: httpClient),
+        history: AccountHistoryApi(
+          baseUrl: config.apiBaseUrl,
+          client: httpClient,
+        ),
+        demoAccounts: DemoAccountsApi(
+          baseUrl: config.apiBaseUrl,
+          client: httpClient,
+        ),
+        savingsPolicy: SavingsPolicyApi(
+          baseUrl: config.apiBaseUrl,
+          client: httpClient,
+        ),
+        security: SecurityApi(
+          baseUrl: config.apiBaseUrl,
+          client: httpClient,
+          owner: owner,
+        ),
+        banking: BankingApi(baseUrl: config.apiBaseUrl, client: httpClient),
+        identity: IdentityApi(baseUrl: config.apiBaseUrl, client: httpClient),
+        photos: photos,
         onDispose: () {
+          auth.dispose();
           httpClient.close();
           authClient.close();
         },

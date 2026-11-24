@@ -7,6 +7,17 @@ export interface Environment {
   port: number;
   supabaseUrl: string;
   supabasePublishableKey: string;
+  supabaseSecretKey?: string;
+  localTransfersEnabled?: boolean;
+  localCashEnabled?: boolean;
+  localInterbankEnabled?: boolean;
+  /** Explicit opt-in for the hosted course demo; see docs/HOSTED_DEMO.md. */
+  demoDeployment?: 'hosted-sandbox';
+  vnpaySandbox?: {
+    terminalCode: string;
+    hashSecret: string;
+    returnUrl: string;
+  };
   database: PoolConfig;
 }
 
@@ -26,6 +37,22 @@ function parseUrl(value: string, name: string): URL {
 
 function isLoopback(hostname: string): boolean {
   return ['localhost', '127.0.0.1', '[::1]'].includes(hostname);
+}
+
+/**
+ * Synthetic demo provisioning and simulated money movement run only against
+ * non-production loopback Auth, or on a deployment explicitly marked as the
+ * hosted sandbox demo. Hosted mode still uses synthetic data, sandbox
+ * providers and every ordinary authorization check.
+ */
+export function allowsSyntheticDemo(
+  env: Pick<Environment, 'nodeEnv' | 'supabaseUrl' | 'demoDeployment'>,
+): boolean {
+  return (
+    env.demoDeployment === 'hosted-sandbox' ||
+    (env.nodeEnv !== 'production' &&
+      isLoopback(new URL(env.supabaseUrl).hostname))
+  );
 }
 
 export function readEnvironment(env: NodeJS.ProcessEnv): Environment {
@@ -86,6 +113,87 @@ export function readEnvironment(env: NodeJS.ProcessEnv): Environment {
     );
   }
   let ca: string | undefined;
+  const demoDeployment = env.DEMO_DEPLOYMENT?.trim() || undefined;
+  if (demoDeployment !== undefined && demoDeployment !== 'hosted-sandbox')
+    throw new Error('DEMO_DEPLOYMENT must be hosted-sandbox when set.');
+  // Production mode already forces HTTPS Auth and verified PostgreSQL TLS.
+  if (demoDeployment && nodeEnv !== 'production')
+    throw new Error(
+      'DEMO_DEPLOYMENT=hosted-sandbox requires NODE_ENV=production.',
+    );
+  const hostedSandbox = demoDeployment === 'hosted-sandbox';
+  const localServices =
+    nodeEnv !== 'production' &&
+    isLoopback(supabaseUrl.hostname) &&
+    isLoopback(databaseUrl.hostname);
+  if (
+    env.LOCAL_TRANSFERS_ENABLED &&
+    !['true', 'false'].includes(env.LOCAL_TRANSFERS_ENABLED)
+  )
+    throw new Error('LOCAL_TRANSFERS_ENABLED must be true or false.');
+  const localTransfersEnabled = env.LOCAL_TRANSFERS_ENABLED === 'true';
+  if (
+    env.LOCAL_CASH_ENABLED &&
+    !['true', 'false'].includes(env.LOCAL_CASH_ENABLED)
+  )
+    throw new Error('LOCAL_CASH_ENABLED must be true or false.');
+  const localCashEnabled = env.LOCAL_CASH_ENABLED === 'true';
+  if (
+    env.LOCAL_INTERBANK_ENABLED &&
+    !['true', 'false'].includes(env.LOCAL_INTERBANK_ENABLED)
+  )
+    throw new Error('LOCAL_INTERBANK_ENABLED must be true or false.');
+  const localInterbankEnabled = env.LOCAL_INTERBANK_ENABLED === 'true';
+  if (
+    (localTransfersEnabled || localCashEnabled || localInterbankEnabled) &&
+    !localServices &&
+    !hostedSandbox
+  )
+    throw new Error(
+      'Local transfers require non-production loopback Auth and database, or DEMO_DEPLOYMENT=hosted-sandbox.',
+    );
+  if (
+    env.VNPAY_SANDBOX_ENABLED &&
+    !['true', 'false'].includes(env.VNPAY_SANDBOX_ENABLED)
+  )
+    throw new Error('VNPAY_SANDBOX_ENABLED must be true or false.');
+  let vnpaySandbox: Environment['vnpaySandbox'];
+  if (env.VNPAY_SANDBOX_ENABLED === 'true') {
+    if (!localServices && !hostedSandbox)
+      throw new Error(
+        'VNPay sandbox demo requires non-production loopback Auth and database, or DEMO_DEPLOYMENT=hosted-sandbox.',
+      );
+    const terminalCode = required(env, 'VNPAY_TMN_CODE');
+    const hashSecret = required(env, 'VNPAY_HASH_SECRET');
+    if (!/^[A-Za-z0-9]{8}$/.test(terminalCode))
+      throw new Error('VNPAY_TMN_CODE must contain eight letters or digits.');
+    if (!/^[\x21-\x7e]{16,256}$/.test(hashSecret))
+      throw new Error(
+        'VNPAY_HASH_SECRET must contain 16-256 printable characters.',
+      );
+    const returnUrl = parseUrl(
+      required(env, 'VNPAY_RETURN_URL'),
+      'VNPAY_RETURN_URL',
+    );
+    if (
+      returnUrl.protocol !== 'https:' ||
+      returnUrl.username ||
+      returnUrl.password ||
+      returnUrl.port ||
+      returnUrl.search ||
+      returnUrl.hash ||
+      returnUrl.href.length > 255 ||
+      returnUrl.pathname !== '/api/v1/payments/vnpay/return' ||
+      !/^[a-z0-9-]+(?:\.[a-z0-9-]+)*\.[a-z]{2,}$/i.test(returnUrl.hostname) ||
+      /(?:^|\.)(localhost|local|internal|invalid|test)$/i.test(
+        returnUrl.hostname,
+      )
+    )
+      throw new Error(
+        'VNPAY_RETURN_URL must be the public HTTPS /api/v1/payments/vnpay/return endpoint without credentials, query or fragment.',
+      );
+    vnpaySandbox = { terminalCode, hashSecret, returnUrl: returnUrl.href };
+  }
   if (env.DATABASE_SSL_CA_FILE?.trim()) {
     if (sslMode !== 'verify-full')
       throw new Error('A PostgreSQL CA requires verify-full TLS.');
@@ -100,8 +208,16 @@ export function readEnvironment(env: NodeJS.ProcessEnv): Environment {
     nodeEnv: nodeEnv as Environment['nodeEnv'],
     host: env.HOST?.trim() || '127.0.0.1',
     port,
+    localTransfersEnabled,
+    localCashEnabled,
+    localInterbankEnabled,
+    ...(hostedSandbox ? { demoDeployment: 'hosted-sandbox' as const } : {}),
+    ...(vnpaySandbox ? { vnpaySandbox } : {}),
     supabaseUrl: supabaseUrl.toString().replace(/\/$/, ''),
     supabasePublishableKey: required(env, 'SUPABASE_PUBLISHABLE_KEY'),
+    ...(env.SUPABASE_SECRET_KEY?.trim()
+      ? { supabaseSecretKey: env.SUPABASE_SECRET_KEY.trim() }
+      : {}),
     database: {
       connectionString,
       ssl:
