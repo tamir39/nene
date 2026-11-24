@@ -616,6 +616,38 @@ void test('return endpoint records only verified results, never reflects them; u
   assert.equal((await disabled.ipn('fake')).RspCode, '99');
 });
 
+void test('return page shows "received" only when the IPN verifier recorded the result', async () => {
+  const outcome = { code: '00' };
+  let calls = 0;
+  const controller = new VnpayCallbacksController({
+    ipn: () => {
+      calls++;
+      return Promise.resolve({ RspCode: outcome.code, Message: '' });
+    },
+  } as unknown as PaymentsService);
+  const visit = (query?: string) =>
+    controller.returned({
+      originalUrl: `/api/v1/payments/vnpay/return${query ? `?${query}` : ''}`,
+    } as never);
+  const neutral = await visit();
+  assert.equal(calls, 0, 'a plain visit never reaches the verifier');
+  assert.match(neutral, /Return to Nene/);
+  for (const [code, received] of [
+    ['00', true], // verified and recorded now
+    ['02', true], // verified earlier (IPN or reload)
+    ['97', false], // bad signature or notification
+    ['01', false], // unknown order
+    ['04', false], // amount mismatch
+    ['99', false], // configuration or database unavailable
+  ] as const) {
+    outcome.code = code;
+    const html = await visit('vnp_TxnRef=X&vnp_SecureHash=Y');
+    assert.equal(/Payment result received/.test(html), received, code);
+    // Fixed documents only: nothing from the query is ever echoed.
+    assert.doesNotMatch(html, /vnp_|<script/);
+  }
+});
+
 void test('movie preview works without setup and performs no authorization, provider or database work', async () => {
   const f = fixture();
   f.restrict();
