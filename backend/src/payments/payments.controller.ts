@@ -11,6 +11,7 @@ import type { Request } from 'express';
 import type { AuthenticatedRequest } from '../auth/auth.types.js';
 import { Public } from '../auth/public.decorator.js';
 import { PaymentsService } from './payments.service.js';
+import { RETURN_PAGE_DEFAULT, RETURN_PAGE_RECEIVED } from './return-page.js';
 
 @Controller('me/payments')
 export class PaymentsController {
@@ -63,7 +64,11 @@ export class VnpayCallbacksController {
   @Public()
   @Get('return')
   @Header('Cache-Control', 'no-store')
-  @Header('Content-Type', 'text/plain; charset=utf-8')
+  @Header('Content-Type', 'text/html; charset=utf-8')
+  @Header(
+    'Content-Security-Policy',
+    "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+  )
   @Header('X-Content-Type-Options', 'nosniff')
   @Header('Referrer-Policy', 'no-referrer')
   async returned(@Req() req: Request) {
@@ -71,12 +76,15 @@ export class VnpayCallbacksController {
     // Recording them through the IPN verifier keeps sandbox payments working
     // when no IPN URL is registered for the terminal: forged, altered, extra or
     // repeated values fail the same signature, order, amount and state checks.
-    // The page never reflects query values or the outcome.
+    // Both pages are fixed documents; query values are never reflected, and the
+    // "received" page only means a verified result was (or already was) recorded.
     const index = req.originalUrl.indexOf('?');
-    if (index >= 0)
-      await this.service
-        .ipn(req.originalUrl.slice(index + 1))
-        .catch(() => undefined);
-    return 'Return to your Nene tab and check payment status. Nene records a result only after verifying VNPay’s signature. Sign in again if your session has ended. These are sandbox payments; no real bill, phone credit, movie ticket, seat reservation or admission is fulfilled.';
+    if (index < 0) return RETURN_PAGE_DEFAULT;
+    const result = await this.service
+      .ipn(req.originalUrl.slice(index + 1))
+      .catch(() => undefined);
+    return result?.RspCode === '00' || result?.RspCode === '02'
+      ? RETURN_PAGE_RECEIVED
+      : RETURN_PAGE_DEFAULT;
   }
 }

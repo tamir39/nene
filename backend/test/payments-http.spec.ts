@@ -168,9 +168,15 @@ void describe('payment HTTP session and callback boundary (Auth/database fakes)'
       .get('/api/v1/payments/vnpay/return')
       .expect(200)
       .expect('Cache-Control', 'no-store')
-      .expect('Content-Type', /text\/plain/)
+      .expect('Content-Type', /text\/html/)
+      .expect(
+        'Content-Security-Policy',
+        "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+      )
       .expect('X-Content-Type-Options', 'nosniff')
       .expect('Referrer-Policy', 'no-referrer');
+    assert.match(baseline.text, /Return to Nene/);
+    assert.doesNotMatch(baseline.text, /<script|<form|<iframe|https?:\/\//);
     const forged = signedCallback().replace(
       'vnp_Amount=20000000',
       'vnp_Amount=30000000',
