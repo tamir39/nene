@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:nene_app/data/face_check.dart';
 import 'package:nene_app/data/identity_repository.dart';
 import 'package:nene_app/data/profile_api.dart';
 import 'package:nene_app/data/reference_photo_source.dart';
@@ -17,6 +18,7 @@ void main() {
   late FakeProfiles profiles;
   late FakeIdentity repository;
   late FakePhotos photos;
+  late FakeFaceCheck faces;
   late SessionController session;
   IdentityController? flow;
 
@@ -32,6 +34,7 @@ void main() {
       session: session,
       repository: repository,
       photos: photos,
+      faceCheck: faces,
       customerId: officer ? 'customer-id' : null,
     );
     await controller.load();
@@ -43,6 +46,7 @@ void main() {
     profiles = FakeProfiles();
     repository = FakeIdentity();
     photos = FakePhotos();
+    faces = FakeFaceCheck();
     session = SessionController(auth: auth, profiles: profiles);
   });
   tearDown(() async {
@@ -203,6 +207,32 @@ void main() {
       await c.capture();
       expect(c.error, contains('permission denied'));
       expect(c.capturing, isFalse);
+    },
+  );
+
+  test(
+    'a photo refused by the face check is discarded and never uploaded',
+    () async {
+      final c = await start();
+      await c.start(acknowledged: true);
+      await c.capture();
+      expect(c.capturedFaceCheck, FaceCheckResult.oneFace);
+      faces.result = FaceCheckResult.multipleFaces;
+      await c.capture();
+      expect(c.captured, isNull);
+      expect(c.faceRejection, FaceCheckResult.multipleFaces);
+      await c.upload();
+      expect(repository.uploadKeys, isEmpty);
+      photos.pick = () async => null;
+      await c.capture();
+      expect(faces.checked, hasLength(2));
+      photos.pick = () async => ReferencePhoto(referenceFixture, 'image/png');
+      faces.result = FaceCheckResult.unavailable;
+      await c.capture();
+      expect(c.faceRejection, isNull);
+      expect(c.capturedFaceCheck, FaceCheckResult.unavailable);
+      await c.upload();
+      expect(repository.uploadKeys, hasLength(1));
     },
   );
 

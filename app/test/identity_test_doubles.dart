@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:nene_app/data/face_check.dart';
 import 'package:nene_app/data/identity_repository.dart';
 import 'package:nene_app/data/reference_photo_source.dart';
 
@@ -132,6 +133,16 @@ class FakeIdentity implements IdentityRepository {
     String caseId,
     String evidenceId,
   ) async => preview == null ? referenceFixture : preview!();
+}
+
+class FakeFaceCheck implements FaceCheck {
+  FaceCheckResult result = FaceCheckResult.oneFace;
+  final checked = <Uint8List>[];
+  @override
+  Future<FaceCheckResult> check(Uint8List bytes) async {
+    checked.add(bytes);
+    return result;
+  }
 }
 
 class FakePhotos implements ReferencePhotoSource {

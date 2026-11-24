@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 
+import 'data/face_check.dart';
 import 'data/identity_repository.dart';
 import 'data/profile_api.dart';
 import 'data/reference_photo_source.dart';
@@ -13,10 +14,12 @@ class IdentityController extends ChangeNotifier {
     required SessionController session,
     required IdentityRepository repository,
     required ReferencePhotoSource photos,
+    required FaceCheck faceCheck,
     this.customerId,
   }) : _session = session,
        _repository = repository,
        _photos = photos,
+       _faceCheck = faceCheck,
        _generation = session.generation,
        _ownName = session.profile?.displayName {
     _session.addListener(_sessionChanged);
@@ -25,6 +28,7 @@ class IdentityController extends ChangeNotifier {
   final SessionController _session;
   final IdentityRepository _repository;
   final ReferencePhotoSource _photos;
+  final FaceCheck _faceCheck;
   final int _generation;
   String? _ownName;
   final String? customerId;
@@ -33,11 +37,19 @@ class IdentityController extends ChangeNotifier {
   int _request = 0;
   IdentitySummary? summary;
   ReferencePhoto? captured;
+
+  /// Face-check outcome for [captured]; meaningful only while it is set.
+  FaceCheckResult? capturedFaceCheck;
+
+  /// Why the latest photo was refused. A refused photo is discarded, so it
+  /// can never be uploaded.
+  FaceCheckResult? faceRejection;
   Uint8List? evidence;
   String? message;
   String? error;
   bool busy = false;
   bool capturing = false;
+  bool checkingFace = false;
   bool mustCheckStatus = false;
   _Pending? _pending;
 
@@ -60,6 +72,7 @@ class IdentityController extends ChangeNotifier {
     busy = true;
     error = null;
     message = null;
+    faceRejection = null;
     evidence = null;
     _notify();
     try {
@@ -137,10 +150,23 @@ class IdentityController extends ChangeNotifier {
     capturing = true;
     error = null;
     message = null;
+    faceRejection = null;
     _notify();
     try {
       final photo = await _photos.capture();
-      if (_current && request == _request && photo != null) captured = photo;
+      if (!_current || request != _request || photo == null) return;
+      checkingFace = true;
+      _notify();
+      final result = await _faceCheck.check(photo.bytes);
+      if (!_current || request != _request) return;
+      if (result.allowsUpload) {
+        captured = photo;
+        capturedFaceCheck = result;
+      } else {
+        // The refused photo replaces any earlier preview and is not kept.
+        captured = null;
+        faceRejection = result;
+      }
     } on PhotoCaptureException catch (failure) {
       if (_current && request == _request) error = failure.message;
     } catch (_) {
@@ -151,6 +177,7 @@ class IdentityController extends ChangeNotifier {
     } finally {
       if (_current && request == _request) {
         capturing = false;
+        checkingFace = false;
         _notify();
       }
     }
@@ -265,6 +292,7 @@ class IdentityController extends ChangeNotifier {
     busy = true;
     message = null;
     error = null;
+    faceRejection = null;
     _notify();
     try {
       final value = await _authorized(
@@ -352,11 +380,13 @@ class IdentityController extends ChangeNotifier {
   void _clear() {
     _request++;
     captured = null;
+    faceRejection = null;
     evidence = null;
     summary = null;
     _pending = null;
     busy = false;
     capturing = false;
+    checkingFace = false;
   }
 
   void _notify() {

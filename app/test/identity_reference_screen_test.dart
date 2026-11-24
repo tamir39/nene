@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:nene_app/data/face_check.dart';
 import 'package:nene_app/data/identity_repository.dart';
 import 'package:nene_app/nene_app.dart';
 import 'package:nene_app/session_controller.dart';
@@ -104,6 +105,7 @@ void main() {
   late SessionController session;
   late FakeIdentity repository;
   late FakePhotos photos;
+  late FakeFaceCheck faces;
 
   setUp(() {
     auth = FakeAuth();
@@ -111,6 +113,7 @@ void main() {
     session = SessionController(auth: auth, profiles: profiles);
     repository = FakeIdentity();
     photos = FakePhotos();
+    faces = FakeFaceCheck();
   });
 
   Future<void> mount(
@@ -150,6 +153,7 @@ void main() {
               session: session,
               repository: repository,
               photos: photos,
+              faceCheck: faces,
               customerId: officer ? 'customer-id' : null,
             ),
           ),
@@ -197,6 +201,94 @@ void main() {
       await tester.pumpWidget(const SizedBox());
     },
   );
+
+  Future<void> startDraft(WidgetTester tester) async {
+    await mount(tester);
+    await tap(
+      tester,
+      'I understand this notice and agree to submit an agreed test image.',
+    );
+    await tap(tester, 'Start reference');
+  }
+
+  testWidgets('one detected face lets the photo be saved privately', (
+    tester,
+  ) async {
+    await startDraft(tester);
+    await tap(tester, 'Take photo');
+    expect(faces.checked, hasLength(1));
+    expect(find.text('Photo preview · not uploaded'), findsOneWidget);
+    expect(find.textContaining('face check'), findsNothing);
+    await tap(tester, 'Save photo privately');
+    expect(repository.uploadKeys, hasLength(1));
+    expect(find.text('Private reference photo'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  for (final (result, reason) in [
+    (
+      FaceCheckResult.noFace,
+      'No face found. Use good light and face the camera.',
+    ),
+    (
+      FaceCheckResult.multipleFaces,
+      'More than one face found. Only you should be in the photo.',
+    ),
+    (
+      FaceCheckResult.faceTooSmall,
+      'Face too small. Move closer so your face fills more of the photo.',
+    ),
+  ]) {
+    testWidgets('${result.name} blocks that photo and offers a retake', (
+      tester,
+    ) async {
+      faces.result = result;
+      await startDraft(tester);
+      await tap(tester, 'Take photo');
+      expect(find.textContaining(reason), findsOneWidget);
+      expect(find.textContaining('This photo was not kept.'), findsOneWidget);
+      expect(find.text('No photo yet'), findsOneWidget);
+      expect(find.text('Photo preview · not uploaded'), findsNothing);
+      expect(find.text('Save photo privately'), findsNothing);
+      await capture(tester, 'face-${result.name}-390');
+      faces.result = FaceCheckResult.oneFace;
+      await tap(tester, 'Retake photo');
+      expect(find.textContaining(reason), findsNothing);
+      await tap(tester, 'Save photo privately');
+      expect(faces.checked, hasLength(2));
+      expect(repository.uploadKeys, hasLength(1));
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    });
+  }
+
+  for (final (result, note) in [
+    (
+      FaceCheckResult.unavailable,
+      'The face check runs in the Android app. An officer still reviews this photo.',
+    ),
+    (
+      FaceCheckResult.failed,
+      'The face check could not run on this photo. An officer still reviews it.',
+    ),
+  ]) {
+    testWidgets('${result.name} face check allows the photo with a note', (
+      tester,
+    ) async {
+      faces.result = result;
+      await startDraft(tester);
+      await tap(tester, 'Take photo');
+      expect(find.text('Photo preview · not uploaded'), findsOneWidget);
+      expect(find.text(note), findsOneWidget);
+      await capture(tester, 'face-${result.name}-390');
+      await tap(tester, 'Save photo privately');
+      expect(repository.uploadKeys, hasLength(1));
+      expect(find.text(note), findsNothing);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    });
+  }
 
   testWidgets(
     'officer requires confirmation, reviews exact customer and accepts reference only',
@@ -273,6 +365,7 @@ void main() {
           banking: FakeBanking(),
           identity: repository,
           photos: photos,
+          faceCheck: faces,
         ),
       );
       await settlePhoto(tester);
