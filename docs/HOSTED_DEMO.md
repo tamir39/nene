@@ -51,7 +51,7 @@ Never paste passwords or keys into chat, commits or screenshots.
    node scripts/hosted-seed-sql.mjs <source-account> <recipient-account>
    ```
    The source receives a one-time 3,000,000 VND synthetic opening fixture plus a simulated cash source, and the transfer, cash and other-bank settings are enabled. The seed refuses to reset or top up an account.
-8. **VNPay (optional until credentials arrive):** register the sandbox with return URL `https://<render-service>.onrender.com/api/v1/payments/vnpay/return` and IPN URL `https://<render-service>.onrender.com/api/v1/payments/vnpay/ipn`, then set the `VNPAY_*` variables and redeploy.
+8. **VNPay (optional until credentials arrive):** register the sandbox with return URL `https://<render-service>.onrender.com/api/v1/payments/vnpay/return` and IPN URL `https://<render-service>.onrender.com/api/v1/payments/vnpay/ipn`, then set the `VNPAY_*` variables and redeploy. Verified 25 Nov 2026 with terminal registration through the sandbox form: the test-card payment succeeded at VNPay, but no IPN arrived because the form has no IPN field and the portal notification page was unavailable. The signed browser return now records the result through the IPN verifier; ask VNPay support to register the IPN URL as well.
 
 ## Known limits and unverified points
 

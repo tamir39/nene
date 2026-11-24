@@ -162,7 +162,7 @@ void describe('payment HTTP session and callback boundary (Auth/database fakes)'
     assert.equal(transactionAttempts, 0);
   });
 
-  void it('public return ignores attacker query values and never records payment', async () => {
+  void it('public return rejects tampered queries before the database and never reflects them', async () => {
     environment.vnpaySandbox = sandboxConfig;
     const baseline = await request(server)
       .get('/api/v1/payments/vnpay/return')
@@ -171,17 +171,43 @@ void describe('payment HTTP session and callback boundary (Auth/database fakes)'
       .expect('Content-Type', /text\/plain/)
       .expect('X-Content-Type-Options', 'nosniff')
       .expect('Referrer-Policy', 'no-referrer');
-    const attacker = await request(server)
-      .get(
-        `/api/v1/payments/vnpay/return?${signedCallback()}&html=%3Cscript%3Ealert(1)%3C%2Fscript%3E`,
-      )
-      .expect(200);
-    assert.equal(attacker.text, baseline.text);
-    assert.match(attacker.text, /does not confirm payment/);
-    assert.doesNotMatch(attacker.text, /<script>|DEMO123/);
+    const forged = signedCallback().replace(
+      'vnp_Amount=20000000',
+      'vnp_Amount=30000000',
+    );
+    for (const query of [
+      // An extra field breaks the strict notification allowlist.
+      `${signedCallback()}&html=%3Cscript%3Ealert(1)%3C%2Fscript%3E`,
+      // An altered amount breaks VNPay's signature.
+      forged,
+    ]) {
+      const attacker = await request(server)
+        .get(`/api/v1/payments/vnpay/return?${query}`)
+        .expect(200);
+      assert.equal(attacker.text, baseline.text);
+      assert.doesNotMatch(attacker.text, /<script>|DEMO123|30000000/);
+    }
+    assert.match(baseline.text, /only after verifying VNPay/);
     assert.equal(authReads, 0);
     assert.equal(profileReads, 0);
     assert.equal(transactionAttempts, 0);
+  });
+
+  void it('public return records a genuinely signed VNPay result through the IPN verifier', async () => {
+    environment.vnpaySandbox = sandboxConfig;
+    const baseline = await request(server)
+      .get('/api/v1/payments/vnpay/return')
+      .expect(200);
+    // The valid signature reaches the same row-locked transaction as the IPN
+    // positive control; the page text stays identical and never shows a result.
+    const response = await request(server)
+      .get(`/api/v1/payments/vnpay/return?${signedCallback()}`)
+      .expect(200)
+      .expect('Cache-Control', 'no-store');
+    assert.equal(response.text, baseline.text);
+    assert.equal(transactionAttempts, 1);
+    assert.equal(authReads, 0);
+    assert.equal(profileReads, 0);
   });
 
   void it('offers a no-store movie preview while disabled, without payment or MFA work', async () => {

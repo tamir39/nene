@@ -596,10 +596,19 @@ void test('IPN pending does not become failure; cancellation/failure is terminal
   assert.equal((await f.service.ipn(ipn(row))).RspCode, '02');
   assert.equal(row.state, 'failed');
 });
-void test('return endpoint is static and cannot record payment; unavailable callback config requests retry', async () => {
+void test('return endpoint records only verified results, never reflects them; unavailable callback config requests retry', async () => {
   const f = fixture(),
     controller = new VnpayCallbacksController(f.service);
-  assert.match(controller.returned(), /does not confirm payment/);
+  const visit = (originalUrl: string) =>
+    controller.returned({ originalUrl } as never);
+  const plain = await visit('/api/v1/payments/vnpay/return');
+  assert.match(plain, /only after verifying VNPay/);
+  // Unsigned or tampered results are rejected before any write.
+  for (const query of [
+    'vnp_ResponseCode=00&vnp_TransactionStatus=00',
+    'vnp_TxnRef=N1&vnp_SecureHash=forged',
+  ])
+    assert.equal(await visit(`/api/v1/payments/vnpay/return?${query}`), plain);
   assert.deepEqual(f.writes, []);
   const disabled = new PaymentsService(f.db, f.security, {
     nodeEnv: 'test',
