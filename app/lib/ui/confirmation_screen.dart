@@ -4,6 +4,8 @@ import '../data/banking_repository.dart';
 import '../data/confirmation_api.dart';
 import '../data/session_owner.dart';
 import 'customer_workspace.dart' show WorkspaceContent;
+import 'nene_brand.dart';
+import 'nene_components.dart' show SectionTitle;
 
 class ConfirmationScreen extends StatefulWidget {
   const ConfirmationScreen({
@@ -238,276 +240,887 @@ class _ConfirmationScreenState extends State<ConfirmationScreen>
       });
     }
   });
+
+  String get _title => _interbank
+      ? 'Other-bank demo transfer'
+      : _cash
+      ? (_deposit ? 'Deposit demo funds' : 'Withdraw demo funds')
+      : _send
+      ? 'Transfer demo funds'
+      : 'Transfer confirmation';
+
+  String get _intro => _interbank
+      ? 'Local simulation with fictional banks and test recipients. No real bank receives a payment. Confirmation changes your source demo balance and records simulated delivery. Amounts of 5,000,000 VND or more are blocked while face comparison remains undecided.'
+      : _cash
+      ? 'Local cash simulation only. Deposits move your limited simulated cash into this account; withdrawals move it back. No real cash or external payment is involved. Amounts of 5,000,000 VND or more are blocked.'
+      : _send
+      ? 'Synthetic local funds only. Sending changes both demo balances and records a transfer. Amounts of 5,000,000 VND or more are blocked until actual face comparison is available.'
+      : 'Confirmation preview only. No money will be sent. Identity checks and money movement are not available yet.';
+
+  /// Every review and receipt carries an honest label for its kind of money.
+  String get _modeLabel => _interbank
+      ? 'Simulated · fictional bank'
+      : _cash
+      ? 'Simulated cash · demo'
+      : _send
+      ? 'Synthetic demo funds'
+      : 'Preview · not sent';
+
+  /// Groups whole-VND digits for display; anything unexpected is shown as received.
+  String _money(Object? minor) =>
+      minor is String && RegExp(r'^\d+$').hasMatch(minor)
+      ? widget.account.amountLabel(minor)
+      : '$minor VND';
+
+  static String? _postedLabel(Object? value) {
+    final posted = value is String ? DateTime.tryParse(value) : null;
+    if (posted == null) return null;
+    final time = posted.toUtc().add(const Duration(hours: 7));
+    String pad(int part) => part.toString().padLeft(2, '0');
+    return '${time.year}-${pad(time.month)}-${pad(time.day)} '
+        '${pad(time.hour)}:${pad(time.minute)} (UTC+07)';
+  }
+
+  String get _stateMessage => switch (_state) {
+    'posted' =>
+      _interbank
+          ? 'Simulated delivery recorded. Your source demo balance and transaction history were updated. No real bank received a payment.'
+          : _cash
+          ? 'Demo ${_noun.toLowerCase()} completed. Account balance and history were updated. No real cash moved.'
+          : 'Demo transfer sent. Balances and transaction history were updated.',
+    'factor_confirmed' =>
+      'Authenticator checked for these details. Transfer not sent.',
+    'cancelled' =>
+      _cash
+          ? 'Confirmation cancelled. No deposit or withdrawal was posted.'
+          : 'Confirmation cancelled. Transfer not sent.',
+    'rejected' => 'Code not accepted. Start a new review with a fresh code.',
+    'expired' =>
+      _send
+          ? 'Review expired. Check recent operations or history for any submitted transaction.'
+          : 'Review or confirmation expired. Transfer not sent.',
+    'invalidated' =>
+      'Security or sign-in changed. This confirmation is no longer valid.',
+    'checking' =>
+      'Confirmation not yet established. Check status before continuing.',
+    _ =>
+      _send
+          ? _cash
+                ? 'Outcome unconfirmed. Check recent operations/history before trying again.'
+                : 'Transfer outcome unconfirmed. Check recent transfers/history before sending again.'
+          : 'Confirmation uncertain. No money was sent.',
+  };
+
+  ({IconData icon, _Tone tone, String title}) get _stateLook =>
+      switch (_state) {
+        'posted' => (
+          icon: Icons.check_rounded,
+          tone: _Tone.success,
+          title: _interbank
+              ? 'Simulated transfer complete'
+              : _cash
+              ? 'Demo ${_noun.toLowerCase()} complete'
+              : 'Demo transfer successful',
+        ),
+        'factor_confirmed' => (
+          icon: Icons.verified_user_outlined,
+          tone: _Tone.info,
+          title: 'Authenticator verified',
+        ),
+        'cancelled' => (
+          icon: Icons.close_rounded,
+          tone: _Tone.neutral,
+          title: 'Cancelled',
+        ),
+        'rejected' => (
+          icon: Icons.error_outline_rounded,
+          tone: _Tone.error,
+          title: 'Not confirmed',
+        ),
+        'expired' => (
+          icon: Icons.timer_off_outlined,
+          tone: _Tone.warning,
+          title: 'Time limit reached',
+        ),
+        'invalidated' => (
+          icon: Icons.gpp_maybe_outlined,
+          tone: _Tone.warning,
+          title: 'No longer valid',
+        ),
+        'checking' => (
+          icon: Icons.hourglass_top_rounded,
+          tone: _Tone.info,
+          title: 'Status pending',
+        ),
+        _ => (
+          icon: Icons.help_outline_rounded,
+          tone: _Tone.warning,
+          title: 'Status unknown',
+        ),
+      };
+
   @override
   Widget build(BuildContext context) => WorkspaceContent(
     children: [
-      Text(
-        _interbank
-            ? 'Other-bank demo transfer'
-            : _cash
-            ? (_deposit ? 'Deposit demo funds' : 'Withdraw demo funds')
-            : _send
-            ? 'Transfer demo funds'
-            : 'Transfer confirmation',
-        style: Theme.of(context).textTheme.headlineMedium,
+      Text(_title, style: Theme.of(context).textTheme.headlineSmall),
+      const SizedBox(height: 12),
+      _Note(
+        icon: _send ? Icons.science_outlined : Icons.visibility_outlined,
+        text: _intro,
       ),
       const SizedBox(height: 16),
-      Text(
-        _interbank
-            ? 'Local simulation with fictional banks and test recipients. No real bank receives a payment. Confirmation changes your source demo balance and records simulated delivery. Amounts of 5,000,000 VND or more are blocked while face comparison remains undecided.'
-            : _cash
-            ? 'Local cash simulation only. Deposits move your limited simulated cash into this account; withdrawals move it back. No real cash or external payment is involved. Amounts of 5,000,000 VND or more are blocked.'
-            : _send
-            ? 'Synthetic local funds only. Sending changes both demo balances and records a transfer. Amounts of 5,000,000 VND or more are blocked until actual face comparison is available.'
-            : 'Confirmation preview only. No money will be sent. Identity checks and money movement are not available yet.',
+      SizedBox(
+        height: 4,
+        child: _busy
+            ? ClipRRect(
+                borderRadius: BorderRadius.circular(99),
+                child: const LinearProgressIndicator(
+                  semanticsLabel: 'Checking confirmation',
+                ),
+              )
+            : null,
       ),
-      const SizedBox(height: 16),
-      if (_busy)
-        const LinearProgressIndicator(semanticsLabel: 'Checking confirmation'),
-      if (_error != null) Semantics(liveRegion: true, child: Text(_error!)),
-      if (_review == null) ...[
-        if (_send) ...[
-          if (!_enabled && !_busy)
-            Text(
-              _cash
-                  ? 'This local cash demo is not enabled. Ask the project team to prepare the demo account.'
-                  : 'This local transfer demo is not enabled. Ask the project team to prepare the demo accounts.',
-            ),
-          if (_recent.isNotEmpty) ...[
-            Text(
-              _cash
-                  ? 'Recent ${_noun.toLowerCase()} attempts'
-                  : 'Recent transfer attempts',
-            ),
-            for (final item in _recent)
-              ListTile(
-                title: Text(
-                  item['state'] == 'posted'
-                      ? '${_interbank
-                            ? 'Simulated'
-                            : _cash
-                            ? (_deposit ? 'Deposited' : 'Withdrawn')
-                            : 'Sent'} ${(item['receipt'] as Map)['amountMinor']} VND · demo funds'
-                      : '${item['state']} · check before sending again',
-                ),
-                subtitle: Text(
-                  _interbank && item['receipt'] != null
-                      ? '${item['receipt']['destinationBankName']} · ${item['receipt']['destinationRecipientName']}\n${item['receipt']['destinationAccountNumber']}'
-                      : item['requestId'] as String,
-                ),
-                onTap: _interbank && !_busy
-                    ? () => _recover(item['requestId'] as String)
-                    : null,
-              ),
-          ],
-          TextButton(
-            onPressed: _busy ? null : () => _run(_loadRecent),
-            child: Text(
-              _cash ? 'Refresh recent operations' : 'Refresh recent transfers',
-            ),
-          ),
-        ],
-        if (_cash)
-          Text(
-            'Simulated cash outside accounts: ${_cashBalance ?? 'not prepared'}${_cashBalance == null ? '' : ' VND'}',
-          ),
-        Text('${_cash ? 'Account' : 'From'} ${widget.account.accountNumber}'),
-        if (_interbank) ...[
-          DropdownButtonFormField<String>(
-            initialValue: _bankCode,
-            isExpanded: true,
-            decoration: const InputDecoration(labelText: 'Fictional bank'),
-            items: _banks
-                .map(
-                  (bank) => DropdownMenuItem(
-                    value: bank['code'] as String,
-                    child: Text(bank['name'] as String),
-                  ),
-                )
-                .toList(),
-            onChanged: _busy
-                ? null
-                : (value) => setState(() {
-                    _bankCode = value;
-                    _recipient = null;
-                  }),
-          ),
-          const SizedBox(height: 12),
-          DropdownButtonFormField<String>(
-            key: ValueKey(_bankCode),
-            initialValue: _recipient,
-            isExpanded: true,
-            decoration: const InputDecoration(labelText: 'Demo recipient'),
-            items: ((_bank?['recipients'] as List?) ?? [])
-                .map(
-                  (recipient) => DropdownMenuItem(
-                    value: recipient['accountNumber'] as String,
-                    child: Text(
-                      '${recipient['name']} · ${recipient['accountNumber']}',
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                )
-                .toList(),
-            onChanged: _busy || _bank == null
-                ? null
-                : (value) => setState(() => _recipient = value),
-          ),
-          const SizedBox(height: 12),
-        ],
-        if (!_cash && !_interbank)
-          TextField(
-            controller: _destination,
-            enabled: !_busy,
-            keyboardType: TextInputType.number,
-            maxLength: 12,
-            decoration: const InputDecoration(
-              labelText: 'Recipient Nene account number',
-            ),
-          ),
-        TextField(
-          controller: _amount,
-          enabled: !_busy,
-          keyboardType: TextInputType.number,
-          decoration: const InputDecoration(
-            labelText: 'Amount in VND',
-            helperText: 'Whole VND only',
-          ),
-        ),
+      const SizedBox(height: 12),
+      if (_error != null) ...[
+        _Alert(_error!, tone: _Tone.error),
         const SizedBox(height: 16),
-        FilledButton(
-          onPressed: _busy || _hidden || (_send && !_enabled) ? null : _prepare,
-          child: const Text('Review confirmation'),
-        ),
-      ] else ...[
-        if (_interbank) Text('Reference: ${_review!['requestId']}'),
-        if (_cash) ...[
-          Text(
-            _deposit
-                ? 'From simulated cash'
-                : 'From account ${_review!['accountNumber']}',
+      ],
+      if (_review == null) ..._form() else ..._reviewed(),
+    ],
+  );
+
+  List<Widget> _form() => [
+    if (_send && !_enabled && !_busy) ...[
+      _Panel(
+        children: [
+          _StatusHeader(
+            icon: Icons.block_rounded,
+            tone: _Tone.warning,
+            title: 'Demo unavailable',
+            message: _cash
+                ? 'This local cash demo is not enabled. Ask the project team to prepare the demo account.'
+                : 'This local transfer demo is not enabled. Ask the project team to prepare the demo accounts.',
           ),
-          Text(
-            _deposit
-                ? 'To account ${_review!['accountNumber']}'
-                : 'To simulated cash',
+          const SizedBox(height: 8),
+          Center(
+            child: TextButton.icon(
+              onPressed: () => _run(_loadRecent),
+              icon: const Icon(Icons.refresh_rounded, size: 18),
+              label: const Text('Check again'),
+            ),
           ),
-        ] else if (_review!['destinationAccountNumber'] != null) ...[
-          if (_review!['sourceAccountNumber'] != null)
-            Text('From ${_review!['sourceAccountNumber']}'),
-          if (_interbank) ...[
-            Text('Fictional bank: ${_review!['destinationBankName']}'),
-            Text('Demo recipient: ${_review!['destinationRecipientName']}'),
-          ],
-          Text('To ${_review!['destinationAccountNumber']}'),
         ],
-        if (_review!['amountMinor'] != null)
-          Text(
-            '${_review!['amountMinor']} VND',
-            style: Theme.of(context).textTheme.headlineSmall,
-          ),
-        if (_hasReviewToken)
-          Text(
-            _send
-                ? 'Demo ${_noun.toLowerCase()} fee: 0 VND.'
-                : 'Preview fee: 0 VND. This is not a transfer quote.',
-          ),
-        if (_review!['sufficientFunds'] == false)
-          const Text(
-            'Insufficient funds for this amount. You can test the confirmation check, but this transfer cannot be sent.',
-          ),
-        const SizedBox(height: 16),
-        if (_state == 'review' && _hasReviewToken) ...[
-          const Text(
-            'Check the accounts and amount. Enter a fresh code from your registered authenticator. A recovery code cannot confirm this operation.',
-          ),
-          if (!_hidden)
-            TextField(
-              controller: _code,
-              enabled: !_busy,
-              obscureText: true,
-              autocorrect: false,
-              enableSuggestions: false,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: 'Authenticator code',
+      ),
+      const SizedBox(height: 20),
+    ],
+    _SourceCard(
+      label: _cash ? (_deposit ? 'Deposit to' : 'Withdraw from') : 'From',
+      account: widget.account,
+    ),
+    if (_cash) ...[
+      const SizedBox(height: 10),
+      _Note(
+        icon: Icons.payments_outlined,
+        text:
+            'Simulated cash outside accounts: ${_cashBalance == null ? 'not prepared' : _money(_cashBalance)}',
+      ),
+    ],
+    if (_interbank) ...[
+      const SizedBox(height: 20),
+      const SectionTitle('Recipient'),
+      DropdownButtonFormField<String>(
+        initialValue: _bankCode,
+        isExpanded: true,
+        style: Theme.of(context).textTheme.bodyLarge?.copyWith(fontSize: 15),
+        decoration: const InputDecoration(labelText: 'Fictional bank'),
+        items: _banks
+            .map(
+              (bank) => DropdownMenuItem(
+                value: bank['code'] as String,
+                child: Text(bank['name'] as String),
               ),
-            ),
-          FilledButton(
-            onPressed: _busy || _hidden ? null : _confirm,
-            child: Text(
-              _send ? _confirmLabel : 'Check authenticator · do not send',
-            ),
-          ),
-        ] else ...[
-          Semantics(
-            liveRegion: true,
-            child: Text(switch (_state) {
-              'posted' =>
-                _interbank
-                    ? 'Simulated delivery recorded. Your source demo balance and transaction history were updated. No real bank received a payment.'
-                    : _cash
-                    ? 'Demo ${_noun.toLowerCase()} completed. Account balance and history were updated. No real cash moved.'
-                    : 'Demo transfer sent. Balances and transaction history were updated.',
-              'factor_confirmed' =>
-                'Authenticator checked for these details. Transfer not sent.',
-              'cancelled' =>
-                _cash
-                    ? 'Confirmation cancelled. No deposit or withdrawal was posted.'
-                    : 'Confirmation cancelled. Transfer not sent.',
-              'rejected' =>
-                'Code not accepted. Start a new review with a fresh code.',
-              'expired' =>
-                _send
-                    ? 'Review expired. Check recent operations or history for any submitted transaction.'
-                    : 'Review or confirmation expired. Transfer not sent.',
-              'invalidated' =>
-                'Security or sign-in changed. This confirmation is no longer valid.',
-              'checking' =>
-                'Confirmation not yet established. Check status before continuing.',
-              _ =>
-                _send
-                    ? _cash
-                          ? 'Outcome unconfirmed. Check recent operations/history before trying again.'
-                          : 'Transfer outcome unconfirmed. Check recent transfers/history before sending again.'
-                    : 'Confirmation uncertain. No money was sent.',
-            }),
-          ),
-          TextButton(
-            onPressed: _busy ? null : _status,
-            child: const Text('Check confirmation status'),
-          ),
-        ],
-        if (_state != 'posted' && _hasReviewToken)
-          TextButton(
-            onPressed: _busy ? null : _edit,
-            child: const Text('Edit details / new review'),
-          ),
-        if (_state == 'posted' || !_hasReviewToken)
-          TextButton(
-            onPressed: _busy
-                ? null
-                : () => _run(() async {
-                    setState(() {
-                      _review = null;
-                      _state = null;
-                    });
-                    await _loadRecent();
-                  }),
-            child: Text(
-              !_hasReviewToken
-                  ? 'Back to recent transfers'
+            )
+            .toList(),
+        onChanged: _busy
+            ? null
+            : (value) => setState(() {
+                _bankCode = value;
+                _recipient = null;
+              }),
+      ),
+      const SizedBox(height: 12),
+      DropdownButtonFormField<String>(
+        key: ValueKey(_bankCode),
+        initialValue: _recipient,
+        isExpanded: true,
+        style: Theme.of(context).textTheme.bodyLarge?.copyWith(fontSize: 15),
+        decoration: const InputDecoration(labelText: 'Demo recipient'),
+        items: ((_bank?['recipients'] as List?) ?? [])
+            .map(
+              (recipient) => DropdownMenuItem(
+                value: recipient['accountNumber'] as String,
+                child: Text(
+                  '${recipient['name']} · ${recipient['accountNumber']}',
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            )
+            .toList(),
+        onChanged: _busy || _bank == null
+            ? null
+            : (value) => setState(() => _recipient = value),
+      ),
+    ],
+    if (!_cash && !_interbank) ...[
+      const SizedBox(height: 20),
+      const SectionTitle('Recipient'),
+      TextField(
+        controller: _destination,
+        enabled: !_busy,
+        keyboardType: TextInputType.number,
+        maxLength: 12,
+        style: const TextStyle(
+          letterSpacing: .8,
+          fontFeatures: neneTabularFigures,
+        ),
+        decoration: const InputDecoration(
+          labelText: 'Recipient Nene account number',
+          prefixIcon: Icon(Icons.person_outline_rounded),
+        ),
+      ),
+    ],
+    SizedBox(height: !_cash && !_interbank ? 8 : 20),
+    const SectionTitle('Amount'),
+    TextField(
+      controller: _amount,
+      enabled: !_busy,
+      keyboardType: TextInputType.number,
+      style: const TextStyle(
+        fontSize: 26,
+        fontWeight: FontWeight.w700,
+        letterSpacing: -0.3,
+        fontFeatures: neneTabularFigures,
+      ),
+      decoration: InputDecoration(
+        labelText: 'Amount in VND',
+        hintText: '0',
+        suffixText: 'VND',
+        suffixStyle: const TextStyle(
+          fontSize: 16,
+          fontWeight: FontWeight.w600,
+          color: NeneColors.muted,
+        ),
+        helperText: _send
+            ? 'Whole VND only · amounts of 5,000,000 VND or more are blocked'
+            : 'Whole VND only',
+        helperMaxLines: 2,
+      ),
+    ),
+    const SizedBox(height: 24),
+    FilledButton(
+      onPressed: _busy || _hidden || (_send && !_enabled) ? null : _prepare,
+      child: const Text('Review confirmation'),
+    ),
+    if (_send) ..._recentSection(),
+  ];
+
+  List<Widget> _recentSection() => [
+    const SizedBox(height: 28),
+    SectionTitle(
+      _cash
+          ? 'Recent ${_noun.toLowerCase()} attempts'
+          : 'Recent transfer attempts',
+      trailing: IconButton(
+        tooltip: _cash
+            ? 'Refresh recent operations'
+            : 'Refresh recent transfers',
+        visualDensity: VisualDensity.compact,
+        onPressed: _busy ? null : () => _run(_loadRecent),
+        icon: const Icon(Icons.refresh_rounded),
+      ),
+    ),
+    if (_recent.isEmpty)
+      _Note(
+        icon: Icons.history_rounded,
+        text: _cash
+            ? 'No recent ${_noun.toLowerCase()} attempts to show.'
+            : 'No recent transfer attempts to show.',
+      )
+    else
+      Card(
+        clipBehavior: Clip.antiAlias,
+        child: Column(
+          children: [
+            for (final (index, item) in _recent.indexed) ...[
+              if (index > 0) const Divider(),
+              _recentTile(item),
+            ],
+          ],
+        ),
+      ),
+  ];
+
+  Widget _recentTile(Map<String, dynamic> item) {
+    final posted = item['state'] == 'posted';
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      leading: _IconBadge(
+        posted ? Icons.check_rounded : Icons.priority_high_rounded,
+        tone: posted ? _Tone.success : _Tone.warning,
+        size: 40,
+      ),
+      title: Text(
+        posted
+            ? '${_interbank
+                  ? 'Simulated'
                   : _cash
-                  ? 'Start another ${_noun.toLowerCase()}'
-                  : 'Start another transfer',
+                  ? (_deposit ? 'Deposited' : 'Withdrawn')
+                  : 'Sent'} ${_money((item['receipt'] as Map)['amountMinor'])} · demo funds'
+            : '${item['state']} · check before sending again',
+        style: const TextStyle(
+          fontSize: 14.5,
+          fontWeight: FontWeight.w600,
+          fontFeatures: neneTabularFigures,
+        ),
+      ),
+      subtitle: Text(
+        _interbank && item['receipt'] != null
+            ? '${item['receipt']['destinationBankName']} · ${item['receipt']['destinationRecipientName']}\n${item['receipt']['destinationAccountNumber']}'
+            : item['requestId'] as String,
+        style: const TextStyle(
+          color: NeneColors.muted,
+          fontSize: 12,
+          fontFeatures: neneTabularFigures,
+        ),
+      ),
+      trailing: _interbank
+          ? const Icon(Icons.chevron_right_rounded, color: NeneColors.muted)
+          : null,
+      onTap: _interbank && !_busy
+          ? () => _recover(item['requestId'] as String)
+          : null,
+    );
+  }
+
+  List<Widget> _reviewed() {
+    final review = _review!;
+    final awaitingCode = _state == 'review' && _hasReviewToken;
+    final posted = _state == 'posted';
+    final time = _postedLabel(review['postedAt']);
+    final rows = <(String, String)>[
+      if (review['requestId'] is String)
+        ('Reference', review['requestId'] as String),
+      if (time != null) ('Time', time),
+      if (_cash) ...[
+        (
+          'From',
+          _deposit ? 'Simulated cash' : 'Account ${review['accountNumber']}',
+        ),
+        (
+          'To',
+          _deposit ? 'Account ${review['accountNumber']}' : 'Simulated cash',
+        ),
+      ] else if (review['destinationAccountNumber'] != null) ...[
+        if (review['sourceAccountNumber'] != null)
+          ('From', '${review['sourceAccountNumber']}'),
+        if (_interbank) ...[
+          ('Fictional bank', '${review['destinationBankName']}'),
+          ('Demo recipient', '${review['destinationRecipientName']}'),
+        ],
+        ('To', '${review['destinationAccountNumber']}'),
+      ],
+    ];
+    final look = _stateLook;
+    final restartLabel = !_hasReviewToken
+        ? 'Back to recent transfers'
+        : _cash
+        ? 'Start another ${_noun.toLowerCase()}'
+        : 'Start another transfer';
+    final actions = <({String label, VoidCallback? onPressed})>[
+      if (!awaitingCode)
+        (label: 'Check confirmation status', onPressed: _busy ? null : _status),
+      if (!posted && _hasReviewToken)
+        (label: 'Edit details / new review', onPressed: _busy ? null : _edit),
+      if (posted || !_hasReviewToken)
+        (
+          label: restartLabel,
+          onPressed: _busy
+              ? null
+              : () => _run(() async {
+                  setState(() {
+                    _review = null;
+                    _state = null;
+                  });
+                  await _loadRecent();
+                }),
+        ),
+      if (_state != 'cancelled' && !posted && _hasReviewToken)
+        (label: 'Cancel confirmation', onPressed: _busy ? null : _cancel),
+    ];
+    // One emphasized next step per outcome; the others stay quiet.
+    final primary = awaitingCode
+        ? null
+        : posted
+        ? restartLabel
+        : _hasReviewToken &&
+              const {
+                'rejected',
+                'cancelled',
+                'invalidated',
+                'factor_confirmed',
+              }.contains(_state)
+        ? 'Edit details / new review'
+        : 'Check confirmation status';
+    return [
+      _SummaryCard(
+        header: awaitingCode
+            ? null
+            : _StatusHeader(
+                icon: look.icon,
+                tone: look.tone,
+                title: look.title,
+                message: _stateMessage,
+              ),
+        badge: _modeLabel,
+        caption: '$_noun amount',
+        amount: review['amountMinor'] == null
+            ? null
+            : _money(review['amountMinor']),
+        note: _hasReviewToken
+            ? (_send
+                  ? 'Demo ${_noun.toLowerCase()} fee: 0 VND.'
+                  : 'Preview fee: 0 VND. This is not a transfer quote.')
+            : null,
+        rows: rows,
+      ),
+      if (review['sufficientFunds'] == false) ...[
+        const SizedBox(height: 12),
+        const _Alert(
+          'Insufficient funds for this amount. You can test the confirmation check, but this transfer cannot be sent.',
+          tone: _Tone.warning,
+        ),
+      ],
+      const SizedBox(height: 20),
+      if (awaitingCode) ...[
+        _codeCard(),
+        const SizedBox(height: 20),
+        FilledButton(
+          onPressed: _busy || _hidden ? null : _confirm,
+          child: Text(
+            _send ? _confirmLabel : 'Check authenticator · do not send',
+          ),
+        ),
+      ],
+      for (final action in actions)
+        if (action.label == primary)
+          FilledButton(onPressed: action.onPressed, child: Text(action.label)),
+      const SizedBox(height: 8),
+      for (final action in actions)
+        if (action.label != primary)
+          TextButton(onPressed: action.onPressed, child: Text(action.label)),
+    ];
+  }
+
+  Widget _codeCard() => _Panel(
+    children: [
+      const Center(
+        child: _IconBadge(
+          Icons.lock_outline_rounded,
+          tone: _Tone.info,
+          size: 56,
+          circle: true,
+        ),
+      ),
+      const SizedBox(height: 14),
+      Text(
+        'Confirm with your authenticator',
+        textAlign: TextAlign.center,
+        style: Theme.of(context).textTheme.titleMedium,
+      ),
+      const SizedBox(height: 6),
+      const Text(
+        'Check the accounts and amount. Enter a fresh code from your registered authenticator. A recovery code cannot confirm this operation.',
+        textAlign: TextAlign.center,
+        style: TextStyle(color: NeneColors.muted, fontSize: 13.5),
+      ),
+      if (!_hidden) ...[
+        const SizedBox(height: 18),
+        TextField(
+          controller: _code,
+          enabled: !_busy,
+          obscureText: true,
+          autocorrect: false,
+          enableSuggestions: false,
+          keyboardType: TextInputType.number,
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            fontSize: 28,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 10,
+            fontFeatures: neneTabularFigures,
+          ),
+          decoration: const InputDecoration(
+            labelText: 'Authenticator code',
+            floatingLabelBehavior: FloatingLabelBehavior.always,
+            floatingLabelAlignment: FloatingLabelAlignment.center,
+            hintText: '6-digit code',
+            hintStyle: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w400,
+              letterSpacing: 0,
+              color: NeneColors.muted,
             ),
+            filled: true,
+            fillColor: NeneColors.pale,
           ),
-        if (_state != 'cancelled' && _state != 'posted' && _hasReviewToken)
-          TextButton(
-            onPressed: _busy ? null : _cancel,
-            child: const Text('Cancel confirmation'),
-          ),
+        ),
       ],
     ],
+  );
+}
+
+/// Tinted color pairs for icons, pills and callouts on this flow.
+enum _Tone {
+  info(NeneColors.pale, NeneColors.action),
+  success(Color(0xFFE3F3EA), NeneColors.positive),
+  warning(NeneColors.apricotSoft, NeneColors.deep),
+  error(Color(0xFFFBEAEA), Color(0xFF9B3434)),
+  neutral(NeneColors.line, NeneColors.muted);
+
+  const _Tone(this.background, this.foreground);
+  final Color background, foreground;
+}
+
+class _IconBadge extends StatelessWidget {
+  const _IconBadge(
+    this.icon, {
+    required this.tone,
+    this.size = 44,
+    this.circle = false,
+  });
+  final IconData icon;
+  final _Tone tone;
+  final double size;
+  final bool circle;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: size,
+    height: size,
+    decoration: BoxDecoration(
+      color: tone.background,
+      shape: circle ? BoxShape.circle : BoxShape.rectangle,
+      borderRadius: circle ? null : BorderRadius.circular(size * .32),
+    ),
+    child: Icon(icon, color: tone.foreground, size: size * .5),
+  );
+}
+
+class _Pill extends StatelessWidget {
+  const _Pill(this.text);
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+    decoration: BoxDecoration(
+      color: _Tone.warning.background,
+      borderRadius: BorderRadius.circular(99),
+    ),
+    child: Text(
+      text,
+      textAlign: TextAlign.center,
+      style: TextStyle(
+        fontSize: 12,
+        fontWeight: FontWeight.w600,
+        color: _Tone.warning.foreground,
+      ),
+    ),
+  );
+}
+
+/// White bordered surface matching the workspace cards.
+class _Panel extends StatelessWidget {
+  const _Panel({required this.children});
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.all(20),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(20),
+      border: Border.all(color: NeneColors.line),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: children,
+    ),
+  );
+}
+
+class _Note extends StatelessWidget {
+  const _Note({required this.icon, required this.text});
+  final IconData icon;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.all(14),
+    decoration: BoxDecoration(
+      color: NeneColors.pale,
+      borderRadius: BorderRadius.circular(16),
+    ),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 20, color: NeneColors.action),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            text,
+            style: const TextStyle(
+              fontSize: 13,
+              color: NeneColors.muted,
+              fontFeatures: neneTabularFigures,
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+class _Alert extends StatelessWidget {
+  const _Alert(this.text, {required this.tone});
+  final String text;
+  final _Tone tone;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    liveRegion: true,
+    child: Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: tone.background,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            tone == _Tone.error
+                ? Icons.error_outline_rounded
+                : Icons.warning_amber_rounded,
+            size: 20,
+            color: tone.foreground,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              text,
+              style: const TextStyle(fontSize: 13.5, color: NeneColors.ink),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+class _SourceCard extends StatelessWidget {
+  const _SourceCard({required this.label, required this.account});
+  final String label;
+  final BankAccount account;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.all(16),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(20),
+      border: Border.all(color: NeneColors.line),
+    ),
+    child: Row(
+      children: [
+        _IconBadge(
+          account.type == 'saving'
+              ? Icons.savings_outlined
+              : Icons.account_balance_wallet_outlined,
+          tone: _Tone.info,
+        ),
+        const SizedBox(width: 14),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: const TextStyle(color: NeneColors.muted, fontSize: 13),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                account.typeLabel,
+                style: const TextStyle(
+                  fontSize: 15.5,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              Text(
+                account.accountNumber,
+                style: const TextStyle(
+                  color: NeneColors.muted,
+                  fontSize: 13.5,
+                  letterSpacing: .8,
+                  fontFeatures: neneTabularFigures,
+                ),
+              ),
+            ],
+          ),
+        ),
+        if (account.isDemo) const _Pill('Demo'),
+      ],
+    ),
+  );
+}
+
+class _StatusHeader extends StatelessWidget {
+  const _StatusHeader({
+    required this.icon,
+    required this.tone,
+    required this.title,
+    required this.message,
+  });
+  final IconData icon;
+  final _Tone tone;
+  final String title;
+  final String message;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      Center(child: _IconBadge(icon, tone: tone, size: 64, circle: true)),
+      const SizedBox(height: 14),
+      Text(
+        title,
+        textAlign: TextAlign.center,
+        style: Theme.of(context).textTheme.titleLarge?.copyWith(fontSize: 20),
+      ),
+      const SizedBox(height: 6),
+      Semantics(
+        liveRegion: true,
+        child: Text(
+          message,
+          textAlign: TextAlign.center,
+          style: const TextStyle(color: NeneColors.muted, fontSize: 14),
+        ),
+      ),
+    ],
+  );
+}
+
+/// Review summary or receipt: optional outcome header, emphasized amount and
+/// label/value detail rows.
+class _SummaryCard extends StatelessWidget {
+  const _SummaryCard({
+    this.header,
+    required this.badge,
+    required this.caption,
+    this.amount,
+    this.note,
+    required this.rows,
+  });
+  final Widget? header;
+  final String badge;
+  final String caption;
+  final String? amount;
+  final String? note;
+  final List<(String, String)> rows;
+
+  @override
+  Widget build(BuildContext context) {
+    final receipt = header != null;
+    final align = receipt ? TextAlign.center : TextAlign.start;
+    const muted = TextStyle(color: NeneColors.muted, fontSize: 13);
+    return _Panel(
+      children: [
+        if (receipt) ...[header!, const SizedBox(height: 20)],
+        if (!receipt)
+          // Wraps the label under the caption at narrow widths or large text.
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 8,
+            runSpacing: 6,
+            children: [
+              Text(caption, style: muted),
+              _Pill(badge),
+            ],
+          )
+        else if (amount != null)
+          Text(caption, textAlign: align, style: muted),
+        if (amount != null) ...[
+          const SizedBox(height: 4),
+          Text(
+            amount!,
+            textAlign: align,
+            style: const TextStyle(
+              fontSize: 32,
+              fontWeight: FontWeight.w700,
+              letterSpacing: -0.6,
+              color: NeneColors.ink,
+              fontFeatures: neneTabularFigures,
+            ),
+          ),
+        ],
+        if (note != null) ...[
+          const SizedBox(height: 2),
+          Text(note!, textAlign: align, style: muted),
+        ],
+        if (receipt) ...[
+          const SizedBox(height: 12),
+          Center(child: _Pill(badge)),
+        ],
+        if (rows.isNotEmpty) ...[
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 16),
+            child: Divider(),
+          ),
+          for (final (label, value) in rows) _DetailRow(label, value),
+        ],
+      ],
+    );
+  }
+}
+
+class _DetailRow extends StatelessWidget {
+  const _DetailRow(this.label, this.value);
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 6),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 130),
+          child: Text(label, style: const TextStyle(color: NeneColors.muted)),
+        ),
+        const SizedBox(width: 16),
+        Expanded(
+          child: Text(
+            value,
+            textAlign: TextAlign.end,
+            style: const TextStyle(
+              fontWeight: FontWeight.w600,
+              fontFeatures: neneTabularFigures,
+            ),
+          ),
+        ),
+      ],
+    ),
   );
 }
