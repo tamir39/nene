@@ -66,7 +66,17 @@ export class VnpayCallbacksController {
   @Header('Content-Type', 'text/plain; charset=utf-8')
   @Header('X-Content-Type-Options', 'nosniff')
   @Header('Referrer-Policy', 'no-referrer')
-  returned() {
-    return 'Return to your Nene tab and check payment status. This redirect does not confirm payment. Sign in again if your session has ended. These are sandbox payments; no real bill, phone credit, movie ticket, seat reservation or admission is fulfilled.';
+  async returned(@Req() req: Request) {
+    // VNPay signs the same result fields on the browser return as in the IPN.
+    // Recording them through the IPN verifier keeps sandbox payments working
+    // when no IPN URL is registered for the terminal: forged, altered, extra or
+    // repeated values fail the same signature, order, amount and state checks.
+    // The page never reflects query values or the outcome.
+    const index = req.originalUrl.indexOf('?');
+    if (index >= 0)
+      await this.service
+        .ipn(req.originalUrl.slice(index + 1))
+        .catch(() => undefined);
+    return 'Return to your Nene tab and check payment status. Nene records a result only after verifying VNPay’s signature. Sign in again if your session has ended. These are sandbox payments; no real bill, phone credit, movie ticket, seat reservation or admission is fulfilled.';
   }
 }
