@@ -26,6 +26,7 @@ import '../data/reference_photo_source.dart';
 import '../data/user_profile.dart';
 import '../session_controller.dart';
 import 'nene_brand.dart';
+import 'nene_components.dart';
 import 'identity_reference_screen.dart';
 
 enum _Page {
@@ -45,6 +46,7 @@ enum _Page {
   history,
   confirmation,
   payments,
+  profile,
 }
 
 /// All protected pages live below the session branch, so signing out/expiring
@@ -95,6 +97,8 @@ class _CustomerWorkspaceState extends State<CustomerWorkspace> {
   String? _historyMonth;
   String? _paymentService;
   bool _moviePayments = false;
+  bool _hideBalance = false;
+  _Page _tabOrigin = _Page.home;
 
   @override
   void initState() {
@@ -121,9 +125,18 @@ class _CustomerWorkspaceState extends State<CustomerWorkspace> {
     super.dispose();
   }
 
+  static const _tabPages = {
+    _Page.home,
+    _Page.assistant,
+    _Page.branches,
+    _Page.profile,
+  };
+
   void _go(_Page page, {String? notice}) {
     FocusScope.of(context).unfocus();
     setState(() {
+      // Sub-pages return to the tab they were opened from.
+      if (_tabPages.contains(page)) _tabOrigin = page;
       _page = page;
       _notice = notice;
     });
@@ -157,7 +170,8 @@ class _CustomerWorkspaceState extends State<CustomerWorkspace> {
     } else if (_page == _Page.detail) {
       _go(_Page.search);
     } else {
-      _go(_Page.home);
+      // A tab page goes Home; a sub-page returns to its originating tab.
+      _go(_tabPages.contains(_page) ? _Page.home : _tabOrigin);
     }
   }
 
@@ -173,15 +187,56 @@ class _CustomerWorkspaceState extends State<CustomerWorkspace> {
           _page != _Page.home &&
           !busy &&
           !(_page == _Page.create && _flow.hasCreationAttempt);
+      final customer = profile.role == AppRole.customer;
+      final tabs = customer
+          ? [
+              _Page.home,
+              if (_assistant != null) _Page.assistant,
+              if (widget.branches != null) _Page.branches,
+              _Page.profile,
+            ]
+          : const <_Page>[];
+      final tabIndex = tabs.indexOf(_page);
       return PopScope(
         canPop: _page == _Page.home,
         onPopInvokedWithResult: (didPop, _) {
           if (!didPop && canBack) _back();
         },
         child: Scaffold(
+          bottomNavigationBar: tabIndex < 0
+              ? null
+              : NavigationBar(
+                  selectedIndex: tabIndex,
+                  onDestinationSelected: (index) => _go(tabs[index]),
+                  destinations: [
+                    for (final tab in tabs)
+                      switch (tab) {
+                        _Page.assistant => const NavigationDestination(
+                          icon: Icon(Icons.chat_bubble_outline),
+                          selectedIcon: Icon(Icons.chat_bubble),
+                          label: 'Assistant',
+                        ),
+                        _Page.branches => const NavigationDestination(
+                          icon: Icon(Icons.map_outlined),
+                          selectedIcon: Icon(Icons.map),
+                          label: 'Offices',
+                        ),
+                        _Page.profile => const NavigationDestination(
+                          icon: Icon(Icons.person_outline),
+                          selectedIcon: Icon(Icons.person),
+                          label: 'Profile',
+                        ),
+                        _ => const NavigationDestination(
+                          icon: Icon(Icons.home_outlined),
+                          selectedIcon: Icon(Icons.home),
+                          label: 'Home',
+                        ),
+                      },
+                  ],
+                ),
           appBar: AppBar(
             automaticallyImplyLeading: false,
-            leading: canBack
+            leading: canBack && tabIndex < 0
                 ? IconButton(
                     tooltip: 'Back',
                     onPressed: _back,
@@ -198,7 +253,9 @@ class _CustomerWorkspaceState extends State<CustomerWorkspace> {
             ],
           ),
           body: switch (_page) {
-            _Page.home => _home(profile),
+            _Page.home =>
+              customer ? _customerHome(profile) : _officerHome(profile),
+            _Page.profile => _profilePage(profile),
             _Page.assistant => AssistantScreen(
               controller: _assistant!,
               onAction: _openAssistantAction,
@@ -224,7 +281,8 @@ class _CustomerWorkspaceState extends State<CustomerWorkspace> {
               key: const ValueKey('own-contact'),
               profile: profile,
               flow: _flow,
-              onSaved: () => _go(_Page.home, notice: 'Contact details saved.'),
+              onSaved: () =>
+                  _go(_Page.profile, notice: 'Contact details saved.'),
             ),
             _Page.create => CreateCustomerForm(
               flow: _flow,
@@ -293,240 +351,371 @@ class _CustomerWorkspaceState extends State<CustomerWorkspace> {
     },
   );
 
-  Widget _home(UserProfile profile) {
-    final officer = profile.role == AppRole.officer;
+  /// The customer's main everyday account: the first active VND checking one.
+  BankAccount? get _primaryAccount {
+    for (final account in _flow.accounts ?? const <BankAccount>[]) {
+      if (account.type == 'checking' &&
+          account.currency == 'VND' &&
+          account.status == 'active') {
+        return account;
+      }
+    }
+    return null;
+  }
+
+  bool _canMoveMoney(BankAccount account) =>
+      widget.security != null &&
+      account.currency == 'VND' &&
+      account.status == 'active';
+
+  void _openConfirmation(
+    BankAccount account, {
+    bool interbank = false,
+    CashOperation? cash,
+  }) {
+    _confirmationAccount = account;
+    _sendDemoMoney = true;
+    _interbank = interbank;
+    _cashOperation = cash;
+    _go(_Page.confirmation);
+  }
+
+  void _openHistory(BankAccount account) {
+    _historyAccount = account;
+    _historyMonth = null;
+    _go(_Page.history);
+  }
+
+  void _openPayments({String? service, bool movies = false}) {
+    _paymentService = service;
+    _moviePayments = movies;
+    _assistantDestination = false;
+    _go(_Page.payments);
+  }
+
+  String get _greeting {
+    final hour = DateTime.now().hour;
+    if (hour < 12) return 'Good morning';
+    if (hour < 18) return 'Good afternoon';
+    return 'Good evening';
+  }
+
+  Widget _header(UserProfile profile, String subtitle, {Widget? trailing}) =>
+      Row(
+        children: [
+          NeneAvatar(profile.displayName),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(subtitle, style: const TextStyle(color: NeneColors.muted)),
+                const SizedBox(height: 2),
+                Text(
+                  profile.displayName,
+                  style: Theme.of(context).textTheme.titleLarge,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+          ?trailing,
+        ],
+      );
+
+  Widget _customerHome(UserProfile profile) {
+    final accounts = _flow.accounts;
+    final primary = _primaryAccount;
+    final others = [
+      for (final account in accounts ?? const <BankAccount>[])
+        if (account.id != primary?.id) account,
+    ];
+    final send = primary != null && _canMoveMoney(primary);
     return WorkspaceContent(
       children: [
-        Text(
-          officer ? 'Officer workspace' : 'My accounts',
-          style: const TextStyle(color: NeneColors.muted),
-        ),
-        const SizedBox(height: 12),
-        Text(
-          profile.displayName,
-          style: Theme.of(context).textTheme.headlineMedium,
-        ),
-        const SizedBox(height: 8),
-        Align(
-          alignment: Alignment.centerLeft,
-          child: Chip(
-            avatar: Icon(
-              officer ? Icons.badge_outlined : Icons.person_outline,
-              size: 20,
-            ),
-            label: Text(officer ? 'Bank officer' : 'Customer'),
-            backgroundColor: const Color(0xFFF9E7D8),
-            side: BorderSide.none,
+        _header(
+          profile,
+          _greeting,
+          trailing: IconButton(
+            tooltip: 'Refresh accounts',
+            onPressed: _flow.loadingAccounts ? null : _flow.loadAccounts,
+            icon: const Icon(Icons.refresh_rounded),
           ),
         ),
         if (_notice != null) ...[
           const SizedBox(height: 16),
           _Message(_notice!),
         ],
-        const SizedBox(height: 24),
-        if (officer) ...[
-          if (widget.savingsPolicy != null)
-            OutlinedButton(
-              onPressed: () => _go(_Page.savingsPolicy),
-              child: const Text('Manage savings rate'),
-            ),
-          const Text(
-            'Help a customer get started',
-            style: TextStyle(fontSize: 22, fontWeight: FontWeight.w600),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            'Create a customer and their first checking account, or find a '
-            'customer to handle a requested profile change.',
-            style: TextStyle(color: NeneColors.muted),
-          ),
-          const SizedBox(height: 20),
-          FilledButton.icon(
-            onPressed: () => _go(_Page.create),
-            icon: const Icon(Icons.person_add_alt),
-            label: const Text('Create customer'),
-          ),
-          const SizedBox(height: 12),
-          OutlinedButton.icon(
-            onPressed: () => _go(_Page.search),
-            icon: const Icon(Icons.search),
-            label: const Text('Find a customer'),
-          ),
-          const SizedBox(height: 28),
-        ] else ...[
-          if (_assistant != null) ...[
-            OutlinedButton.icon(
-              onPressed: () => _go(_Page.assistant),
-              icon: const Icon(Icons.chat_bubble_outline),
-              label: const Text('Ask Nene'),
-            ),
-            const SizedBox(height: 12),
-          ],
-          if (widget.branches != null) ...[
-            OutlinedButton.icon(
-              onPressed: () => _go(_Page.branches),
-              icon: const Icon(Icons.map_outlined),
-              label: const Text('Find a Nene office'),
-            ),
-            const SizedBox(height: 12),
-          ],
-          if (widget.security != null) ...[
-            OutlinedButton.icon(
-              onPressed: () {
-                _paymentService = null;
-                _moviePayments = false;
-                _assistantDestination = false;
-                _go(_Page.payments);
-              },
-              icon: const Icon(Icons.receipt_long_outlined),
-              label: const Text('Bills & phone demo'),
-            ),
-            const SizedBox(height: 12),
-            OutlinedButton.icon(
-              onPressed: () {
-                _paymentService = null;
-                _moviePayments = true;
-                _assistantDestination = false;
-                _go(_Page.payments);
-              },
-              icon: const Icon(Icons.movie_outlined),
-              label: const Text('Movie tickets demo'),
-            ),
-            const SizedBox(height: 12),
-          ],
+        const SizedBox(height: 20),
+        if (_flow.loadingAccounts && accounts == null)
+          const _Loading('Loading your accounts'),
+        if (_flow.accountsError != null) ...[
+          _Message(_flow.accountsError!, error: true),
           TextButton(
-            onPressed: _flow.loadingAccounts ? null : _flow.loadAccounts,
-            child: const Text('Refresh accounts'),
+            onPressed: _flow.loadAccounts,
+            child: const Text('Retry accounts'),
           ),
-          if (_flow.loadingAccounts) const _Loading('Loading your accounts'),
-          if (_flow.accountsError != null) ...[
-            _Message(_flow.accountsError!, error: true),
-            TextButton(
-              onPressed: _flow.loadAccounts,
-              child: const Text('Retry accounts'),
-            ),
-          ] else if (_flow.accounts != null) ...[
-            if (_flow.accounts!.isEmpty)
-              const _Message(
-                'No accounts are linked yet. Your bank officer can help.',
-              )
-            else
-              for (final account in _flow.accounts!) ...[
-                AccountCard(account),
-                if (widget.security != null &&
-                    account.type == 'checking' &&
-                    account.currency == 'VND' &&
-                    account.status == 'active')
-                  OutlinedButton(
-                    onPressed: () {
-                      _confirmationAccount = account;
-                      _sendDemoMoney = false;
-                      _interbank = false;
-                      _cashOperation = null;
-                      _go(_Page.confirmation);
-                    },
-                    child: const Text(
-                      'Try transfer confirmation · no money sent',
-                    ),
-                  ),
-                if (widget.security != null &&
-                    account.type == 'checking' &&
-                    account.currency == 'VND')
-                  OutlinedButton(
-                    onPressed: () {
-                      _confirmationAccount = account;
-                      _sendDemoMoney = true;
-                      _interbank = false;
-                      _cashOperation = null;
-                      _go(_Page.confirmation);
-                    },
-                    child: const Text('Transfer demo funds'),
-                  ),
-                if (widget.security != null &&
-                    account.type == 'checking' &&
-                    account.currency == 'VND' &&
-                    account.status == 'active')
-                  OutlinedButton(
-                    onPressed: () {
-                      _confirmationAccount = account;
-                      _sendDemoMoney = true;
-                      _interbank = true;
-                      _cashOperation = null;
-                      _go(_Page.confirmation);
-                    },
-                    child: const Text('Other-bank demo transfer'),
-                  ),
-                if (widget.security != null &&
-                    ['checking', 'saving'].contains(account.type) &&
-                    account.currency == 'VND' &&
-                    account.status == 'active')
-                  for (final operation in CashOperation.values)
-                    OutlinedButton(
-                      onPressed: () {
-                        _confirmationAccount = account;
-                        _sendDemoMoney = true;
-                        _interbank = false;
-                        _cashOperation = operation;
-                        _go(_Page.confirmation);
-                      },
-                      child: Text(
-                        operation == CashOperation.deposit
-                            ? 'Deposit demo funds'
-                            : 'Withdraw demo funds',
-                      ),
-                    ),
-                if (widget.history != null)
-                  OutlinedButton(
-                    onPressed: () {
-                      _historyAccount = account;
-                      _historyMonth = null;
-                      _go(_Page.history);
-                    },
-                    child: Text('View history · ${account.accountNumber}'),
-                  ),
-                const SizedBox(height: 12),
-              ],
-          ],
-          const SizedBox(height: 20),
+        ] else if (accounts != null && accounts.isEmpty)
           const _Message(
-            'Identity verification is not completed in this demo. '
-            'Only explicitly enabled local demo transfers, deposits and withdrawals are supported. '
-            'Real cash services and live payments are unavailable. '
-            'Bills & phone demo uses separate VNPay sandbox checkout when configured; it does not settle real bills or change Nene balances.',
-          ),
-          const SizedBox(height: 28),
-        ],
-        Text('My profile', style: Theme.of(context).textTheme.titleLarge),
-        const SizedBox(height: 12),
-        _Info('Email', profile.email ?? 'Not provided'),
-        if (!officer) ...[
-          if (widget.security != null)
-            OutlinedButton(
-              onPressed: () => _go(_Page.security),
-              child: const Text('Transaction security'),
+            'No accounts are linked yet. Your bank officer can help.',
+          )
+        else if (accounts != null) ...[
+          if (primary != null) ...[
+            BalanceCard(
+              account: primary,
+              hidden: _hideBalance,
+              onToggleHidden: () =>
+                  setState(() => _hideBalance = !_hideBalance),
             ),
-          _Info('Phone', profile.phone ?? 'Not provided'),
-          _Info('Address', profile.address ?? 'Not provided'),
-          const SizedBox(height: 12),
-          OutlinedButton(
-            onPressed: () {
-              _flow.clearContactError();
-              _go(_Page.contact);
-            },
-            child: const Text('Edit contact details'),
+            const SizedBox(height: 20),
+          ],
+          const SectionTitle('Quick actions'),
+          QuickActionGrid(
+            actions: [
+              if (widget.security != null) ...[
+                QuickAction(
+                  icon: Icons.send_rounded,
+                  label: 'Transfer',
+                  onTap: send ? () => _openConfirmation(primary) : null,
+                ),
+                QuickAction(
+                  icon: Icons.account_balance_outlined,
+                  label: 'Other bank',
+                  onTap: send
+                      ? () => _openConfirmation(primary, interbank: true)
+                      : null,
+                ),
+                QuickAction(
+                  icon: Icons.add_card_outlined,
+                  label: 'Deposit',
+                  onTap: send
+                      ? () => _openConfirmation(
+                          primary,
+                          cash: CashOperation.deposit,
+                        )
+                      : null,
+                ),
+                QuickAction(
+                  icon: Icons.payments_outlined,
+                  label: 'Withdraw',
+                  onTap: send
+                      ? () => _openConfirmation(
+                          primary,
+                          cash: CashOperation.withdrawal,
+                        )
+                      : null,
+                ),
+                QuickAction(
+                  icon: Icons.receipt_long_outlined,
+                  label: 'Bills',
+                  onTap: () => _openPayments(),
+                ),
+                QuickAction(
+                  icon: Icons.phone_iphone_rounded,
+                  label: 'Top-up',
+                  onTap: () => _openPayments(service: 'phone'),
+                ),
+                QuickAction(
+                  icon: Icons.local_movies_outlined,
+                  label: 'Movies',
+                  onTap: () => _openPayments(movies: true),
+                ),
+              ],
+              if (widget.history != null)
+                QuickAction(
+                  icon: Icons.history_rounded,
+                  label: 'History',
+                  onTap: primary == null ? null : () => _openHistory(primary),
+                ),
+            ],
           ),
-          if (widget.identity != null) ...[
-            const SizedBox(height: 12),
-            OutlinedButton.icon(
-              onPressed: () => _go(_Page.identity),
-              icon: const Icon(Icons.portrait_outlined),
-              label: const Text('Identity reference'),
-            ),
+          if (others.isNotEmpty) ...[
+            const SizedBox(height: 24),
+            SectionTitle(primary == null ? 'Your accounts' : 'Other accounts'),
+            for (final account in others) ...[
+              AccountCard(
+                account,
+                actions: [
+                  if (widget.history != null)
+                    TextButton.icon(
+                      onPressed: () => _openHistory(account),
+                      icon: const Icon(Icons.history_rounded, size: 18),
+                      label: const Text('History'),
+                    ),
+                  if (account.type == 'saving' && _canMoveMoney(account)) ...[
+                    TextButton.icon(
+                      onPressed: () => _openConfirmation(
+                        account,
+                        cash: CashOperation.deposit,
+                      ),
+                      icon: const Icon(Icons.add_rounded, size: 18),
+                      label: const Text('Deposit'),
+                    ),
+                    TextButton.icon(
+                      onPressed: () => _openConfirmation(
+                        account,
+                        cash: CashOperation.withdrawal,
+                      ),
+                      icon: const Icon(Icons.remove_rounded, size: 18),
+                      label: const Text('Withdraw'),
+                    ),
+                  ],
+                ],
+              ),
+              const SizedBox(height: 12),
+            ],
           ],
         ],
+        if (widget.security != null) ...[
+          const SizedBox(height: 12),
+          NeneBanner(
+            icon: Icons.verified_user_outlined,
+            title: 'Transaction security',
+            body: 'Your authenticator approves every transfer and payment.',
+            onTap: () => _go(_Page.security),
+          ),
+        ],
+        const SizedBox(height: 20),
+        const Text(
+          'Educational banking project · synthetic money only. Identity '
+          'verification (eKYC) is not completed in this demo. Bills, top-ups '
+          'and tickets use the VNPay sandbox and never settle real services.',
+          textAlign: TextAlign.center,
+          style: TextStyle(color: NeneColors.muted, fontSize: 12),
+        ),
       ],
     );
   }
+
+  Widget _officerHome(UserProfile profile) => WorkspaceContent(
+    children: [
+      _header(profile, 'Officer workspace'),
+      if (_notice != null) ...[const SizedBox(height: 16), _Message(_notice!)],
+      const SizedBox(height: 24),
+      const SectionTitle('Help a customer'),
+      ActionTile(
+        icon: Icons.person_add_alt_1_outlined,
+        title: 'Create customer',
+        body: 'Open a customer profile and their first checking account.',
+        emphasized: true,
+        onTap: () => _go(_Page.create),
+      ),
+      const SizedBox(height: 12),
+      ActionTile(
+        icon: Icons.manage_search_rounded,
+        title: 'Find a customer',
+        body: 'Edit requested details, review a photo or add demo accounts.',
+        onTap: () => _go(_Page.search),
+      ),
+      if (widget.savingsPolicy != null) ...[
+        const SizedBox(height: 24),
+        const SectionTitle('Bank policy'),
+        ActionTile(
+          icon: Icons.percent_rounded,
+          title: 'Manage savings rate',
+          body: 'Change the annual savings rate under the bank policy.',
+          onTap: () => _go(_Page.savingsPolicy),
+        ),
+      ],
+      const SizedBox(height: 24),
+      const SectionTitle('My profile'),
+      Card(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(18, 18, 18, 0),
+          child: _Info('Email', profile.email ?? 'Not provided'),
+        ),
+      ),
+    ],
+  );
+
+  Widget _profilePage(UserProfile profile) => WorkspaceContent(
+    children: [
+      if (_notice != null) ...[_Message(_notice!), const SizedBox(height: 16)],
+      Card(
+        child: Padding(
+          padding: const EdgeInsets.all(18),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  NeneAvatar(profile.displayName, size: 56),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          profile.displayName,
+                          style: Theme.of(context).textTheme.titleLarge,
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          profile.email ?? 'Not provided',
+                          style: const TextStyle(color: NeneColors.muted),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 16),
+                child: Divider(),
+              ),
+              _Info('Phone', profile.phone ?? 'Not provided'),
+              _Info('Address', profile.address ?? 'Not provided'),
+            ],
+          ),
+        ),
+      ),
+      const SizedBox(height: 16),
+      Card(
+        clipBehavior: Clip.antiAlias,
+        child: Column(
+          children: [
+            ListTile(
+              leading: const Icon(Icons.edit_outlined),
+              title: const Text('Edit contact details'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () {
+                _flow.clearContactError();
+                _go(_Page.contact);
+              },
+            ),
+            if (widget.security != null) ...[
+              const Divider(),
+              ListTile(
+                leading: const Icon(Icons.verified_user_outlined),
+                title: const Text('Transaction security'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => _go(_Page.security),
+              ),
+            ],
+            if (widget.identity != null) ...[
+              const Divider(),
+              ListTile(
+                leading: const Icon(Icons.portrait_outlined),
+                title: const Text('Identity reference'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => _go(_Page.identity),
+              ),
+            ],
+          ],
+        ),
+      ),
+      const SizedBox(height: 16),
+      OutlinedButton.icon(
+        onPressed: widget.session.signOut,
+        style: OutlinedButton.styleFrom(
+          foregroundColor: Theme.of(context).colorScheme.error,
+        ),
+        icon: const Icon(Icons.logout),
+        label: const Text('Sign out of Nene'),
+      ),
+    ],
+  );
 
   void _openAssistantAction(AssistantAction action) {
     if (action.activity == AssistantActivity.bills ||
@@ -1207,77 +1396,177 @@ class _NameField extends StatelessWidget {
 }
 
 class AccountCard extends StatelessWidget {
-  const AccountCard(this.account, {super.key});
+  const AccountCard(this.account, {super.key, this.actions = const []});
   final BankAccount account;
+  final List<Widget> actions;
+
+  IconData get _icon => switch (account.type) {
+    'saving' => Icons.savings_outlined,
+    'mortgage' => Icons.home_work_outlined,
+    _ => Icons.account_balance_wallet_outlined,
+  };
 
   @override
-  Widget build(BuildContext context) => Card(
-    child: Padding(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(
-            account.typeLabel,
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
-          const SizedBox(height: 12),
-          Text(
-            account.type == 'mortgage'
-                ? 'Monthly repayment'
-                : account.balanceLabel,
-            style: Theme.of(context).textTheme.headlineMedium,
-          ),
-          if (account.isDemo)
-            Text(
-              account.type == 'mortgage'
-                  ? 'Synthetic demo · 0% sample schedule · no loan issued'
-                  : 'Synthetic demo account · no money deposited',
+  Widget build(BuildContext context) {
+    const muted = TextStyle(color: NeneColors.muted, fontSize: 13);
+    const amount = TextStyle(
+      fontSize: 24,
+      fontWeight: FontWeight.w700,
+      letterSpacing: -0.4,
+      fontFeatures: neneTabularFigures,
+    );
+    final mortgage = account.type == 'mortgage';
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(18, 18, 18, 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: NeneColors.pale,
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Icon(_icon, color: NeneColors.action),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        account.typeLabel,
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      SelectableText(
+                        account.accountNumber,
+                        style: muted.copyWith(
+                          letterSpacing: 0.8,
+                          fontFeatures: neneTabularFigures,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                _AccountStatus(account.status),
+              ],
             ),
-          if (account.type == 'saving') ...[
-            const SizedBox(height: 12),
-            Text(
-              account.annualRateBps == null
-                  ? 'Savings rate unavailable'
-                  : 'Annual rate: ${(account.annualRateBps! / 100).toStringAsFixed(2)}%',
-            ),
-            Text(
-              account.monthlyProfitMinor == null
-                  ? 'Monthly estimate unavailable'
-                  : 'Estimated monthly profit: ${account.amountLabel(account.monthlyProfitMinor!)}',
-            ),
-            const Text(
-              'Estimate at the current balance and rate. No interest has been credited.',
-            ),
-          ],
-          if (account.type == 'mortgage') ...[
-            Text(
-              account.monthlyDueMinor == null
-                  ? 'Repayment schedule unavailable'
-                  : account.amountLabel(account.monthlyDueMinor!),
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            if (account.nextDueOn != null)
-              Text('Next due: ${account.nextDueOn}'),
-            if (account.principalRemainingMinor != null)
+            const SizedBox(height: 16),
+            if (mortgage) ...[
+              const Text('Monthly repayment', style: muted),
+              const SizedBox(height: 2),
               Text(
-                'Principal remaining: ${account.amountLabel(account.principalRemainingMinor!)}',
+                account.monthlyDueMinor == null
+                    ? 'Repayment schedule unavailable'
+                    : account.amountLabel(account.monthlyDueMinor!),
+                style: amount,
               ),
-            const Text('Monthly schedule. Repayment is not available yet.'),
+              const SizedBox(height: 8),
+              if (account.nextDueOn != null)
+                Text('Next due: ${account.nextDueOn}'),
+              if (account.principalRemainingMinor != null)
+                Text(
+                  'Principal remaining: ${account.amountLabel(account.principalRemainingMinor!)}',
+                  style: muted,
+                ),
+              const Text(
+                'Monthly schedule. Repayment is not available yet.',
+                style: muted,
+              ),
+            ] else ...[
+              const Text('Balance', style: muted),
+              const SizedBox(height: 2),
+              Text(account.balanceLabel, style: amount),
+            ],
+            if (account.type == 'saving') ...[
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: NeneColors.pale,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      account.annualRateBps == null
+                          ? 'Savings rate unavailable'
+                          : 'Annual rate: ${(account.annualRateBps! / 100).toStringAsFixed(2)}%',
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      account.monthlyProfitMinor == null
+                          ? 'Monthly estimate unavailable'
+                          : 'Estimated monthly profit: ${account.amountLabel(account.monthlyProfitMinor!)}',
+                    ),
+                    const SizedBox(height: 4),
+                    const Text(
+                      'Estimate at the current balance and rate. No interest has been credited.',
+                      style: muted,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+            if (account.isDemo) ...[
+              const SizedBox(height: 10),
+              Text(
+                mortgage
+                    ? 'Synthetic demo · 0% sample schedule · no loan issued'
+                    : 'Synthetic demo account · no money deposited',
+                style: muted,
+              ),
+            ],
+            if (actions.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              const Divider(),
+              TextButtonTheme(
+                data: TextButtonThemeData(
+                  style: TextButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                  ),
+                ),
+                child: Wrap(children: actions),
+              ),
+            ] else
+              const SizedBox(height: 10),
           ],
-          const SizedBox(height: 16),
-          const Text(
-            'Account number',
-            style: TextStyle(color: NeneColors.muted),
-          ),
-          const SizedBox(height: 4),
-          SelectableText(account.accountNumber),
-          const SizedBox(height: 12),
-          Text('Account status: ${account.status}'),
-        ],
+        ),
       ),
-    ),
-  );
+    );
+  }
+}
+
+class _AccountStatus extends StatelessWidget {
+  const _AccountStatus(this.status);
+  final String status;
+
+  @override
+  Widget build(BuildContext context) {
+    final active = status == 'active';
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: active ? const Color(0xFFE3F3EA) : NeneColors.line,
+        borderRadius: BorderRadius.circular(99),
+      ),
+      child: Text(
+        active ? 'Active' : status,
+        style: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+          color: active ? NeneColors.positive : NeneColors.muted,
+        ),
+      ),
+    );
+  }
 }
 
 class WorkspaceContent extends StatelessWidget {

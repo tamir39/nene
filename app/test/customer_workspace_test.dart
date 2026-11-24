@@ -54,6 +54,7 @@ void main() {
     expect(find.text('100000000001'), findsOneWidget);
     expect(find.text('Create customer'), findsNothing);
     expect(find.text('Find a customer'), findsNothing);
+    await tapText(tester, 'Profile');
     await tapText(tester, 'Edit contact details');
     final fields = find.byType(TextFormField);
     expect(fields, findsNWidgets(2));

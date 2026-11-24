@@ -272,14 +272,14 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await chat.tap(tester, 'Movie tickets demo');
+      await chat.tap(tester, 'Movies');
       expect(
         tester.widget<PaymentsScreen>(find.byType(PaymentsScreen)).movies,
         isTrue,
       );
       await tester.tap(find.byTooltip('Back'));
       await tester.pumpAndSettle();
-      await chat.tap(tester, 'Bills & phone demo');
+      await chat.tap(tester, 'Bills');
       expect(
         tester.widget<PaymentsScreen>(find.byType(PaymentsScreen)).movies,
         isFalse,

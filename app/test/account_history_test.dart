@@ -199,12 +199,12 @@ void main() {
       NeneApp(controller: owner, banking: FakeBanking(), history: history),
     );
     await tester.pumpAndSettle();
-    await tap(tester, 'View history · 100000000001');
+    await tap(tester, 'History');
     expect(find.text('Transaction history'), findsOneWidget);
     expect(find.textContaining('No posted transactions'), findsOneWidget);
     await tester.tap(find.byTooltip('Back'));
     await tester.pumpAndSettle();
-    expect(find.text('Refresh accounts'), findsOneWidget);
+    expect(find.byTooltip('Refresh accounts'), findsOneWidget);
     await tester.pumpWidget(const SizedBox());
     await auth.events.close();
   });

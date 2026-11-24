@@ -127,7 +127,7 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
-        await tap(tester, 'Ask Nene');
+        await tap(tester, 'Assistant');
         await tap(tester, 'Pay my bills');
         await tap(tester, AssistantAction(activity).label);
         expect(find.byType(PaymentsScreen), findsOneWidget);
@@ -224,7 +224,7 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
-        await tap(tester, 'Ask Nene');
+        await tap(tester, 'Assistant');
         await tap(tester, 'Transfer money');
         await tap(tester, AssistantAction(activity).label);
         expect(paths, isEmpty);
@@ -401,7 +401,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tap(tester, 'Ask Nene');
+      await tap(tester, 'Assistant');
       await tester.enterText(find.byType(TextField), 'history October 2026');
       await tester.tap(find.byTooltip('Send message'));
       await tester.pumpAndSettle();
@@ -448,7 +448,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tap(tester, 'Ask Nene');
+      await tap(tester, 'Assistant');
       await tap(tester, 'History last month');
       await tap(tester, 'View history · 2026-10');
       expect(

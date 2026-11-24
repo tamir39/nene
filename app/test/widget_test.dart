@@ -124,14 +124,14 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.text('Demo Student'), findsOneWidget);
-    expect(find.text('Customer'), findsOneWidget);
+    // Customer-only navigation is shown; the officer workspace is not.
+    expect(find.text('Profile'), findsOneWidget);
     expect(find.text('Officer workspace'), findsNothing);
     expect(
       find.text(
-        'Identity verification is not completed in this demo. '
-        'Only explicitly enabled local demo transfers, deposits and withdrawals are supported. '
-        'Real cash services and live payments are unavailable. '
-        'Bills & phone demo uses separate VNPay sandbox checkout when configured; it does not settle real bills or change Nene balances.',
+        'Educational banking project · synthetic money only. Identity '
+        'verification (eKYC) is not completed in this demo. Bills, top-ups '
+        'and tickets use the VNPay sandbox and never settle real services.',
       ),
       findsOneWidget,
     );
