@@ -62,7 +62,7 @@ The user requested commits and pull requests for completed work on 2026-10-17.
 ## Reference enrollment
 
 - Preserve the distinction between `reference_accepted` and a later actual operation-bound identity check. AWS remains undecided; do not add liveness SDKs, document checks or provider accounts as a side effect.
-- The local demo uses notice `reference-demo-v1`, explicit acknowledgement, an officer association confirmation and seven-day access expiry. Physical deletion of expired/pending files requires the documented maintenance command; do not claim continuous deletion. Use agreed test images only.
+- The local demo uses notice `reference-demo-v2`, explicit acknowledgement, an officer association confirmation and 60-day access expiry. Physical deletion of expired/pending files requires the documented maintenance command; do not claim continuous deletion. Use agreed test images only.
 - Prefer the Edge web demo for interactive checks. The user starts `run.bat`; do not launch Android Studio or the emulator unless the user asks again. Automated unit/widget, API and database checks remain appropriate.
 
 ## Banking implementation principles

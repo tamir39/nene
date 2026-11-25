@@ -70,7 +70,7 @@ These routes implement reference collection and human review only. They do not p
 | --- | --- |
 | `GET /me/identity` | Active customer's own status, including absence of a case. |
 | `GET /officer/customers/:id/identity` | Active officer, selected active customer. |
-| `POST /me/identity/cases` | Own start/resume; `{ noticeVersion: "reference-demo-v1", acknowledged: true }`. |
+| `POST /me/identity/cases` | Own start/resume; `{ noticeVersion: "reference-demo-v2", acknowledged: true }`. |
 | `POST /officer/customers/:id/identity/cases` | Assisted start/resume; same body, acknowledgement attributed to the officer. |
 | `GET /identity/cases/:caseId` | Owner or officer; current summary for recovery. |
 | `POST /identity/cases/:caseId/evidence` | Owner or officer; draft only. `{ expectedVersion, contentType, dataBase64 }`. JPEG/PNG, at most 10 MiB decoded input and 4096×4096 pixels; server decodes/re-encodes and strips metadata. |
@@ -82,7 +82,7 @@ The summary contains `customerId`, `customerName`, `status`, nullable `caseId`/`
 
 Reference commands cannot set arbitrary state, object keys, match outcomes or customer roles. Evidence access requires backend-only Storage credentials; mobile-facing Supabase roles remain denied. Missing Storage configuration returns `503`; unavailable/unauthorized case IDs use `404`, disallowed route roles use `403`, invalid input uses `400`, oversized uploads use `413`, and state/version/retry conflicts use `409`. The upload route alone accepts a 14 MiB JSON envelope; this does not raise ordinary endpoint limits.
 
-Reference acceptance expires with the case's seven-day demo lifetime. Requested display-name edits invalidate the reference atomically; phone/address changes do not. The maintenance command in [REFERENCE_FLOW.md](REFERENCE_FLOW.md) physically removes expired/abandoned files; no public cleanup route exists.
+Reference acceptance expires with the case's 60-day demo lifetime. Requested display-name edits invalidate the reference atomically; phone/address changes do not. The maintenance command in [REFERENCE_FLOW.md](REFERENCE_FLOW.md) physically removes expired/abandoned files; no public cleanup route exists.
 
 The gated local transfer and cash routes above can post synthetic transfers, deposits and withdrawals. The VNPay routes below implement sandbox checkout code; real provider acceptance and actual face comparison remain open. No endpoint may allow a client to set its financial balance, officer role or identity-verification result. AWS remains undecided.
 
