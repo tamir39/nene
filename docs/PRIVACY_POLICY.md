@@ -45,7 +45,7 @@ Nene has **no advertising, no analytics and no tracking**, and never sells or sh
 
 - Uploading a photo, setting up an authenticator, sharing location and using the assistant are all optional.
 - You can ask for your demo data to be deleted through the contact options above.
-- Nene is not directed at children under 13.
+- Nene is intended for users aged 18 and older and is not directed at anyone under 18.
 
 ## Changes
 
