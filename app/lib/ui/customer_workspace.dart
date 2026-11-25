@@ -1157,7 +1157,8 @@ class _CreateCustomerFormState extends State<CreateCustomerForm> {
         const SizedBox(height: 20),
         const _Message(
           'This demo creates one VND checking account with a zero balance. '
-          'Identity remains unverified and money movements stay unavailable.',
+          'Money movements stay locked until a reference photo is accepted '
+          'and the customer sets up an authenticator.',
         ),
         const SizedBox(height: 16),
         if (reviewing) ...[

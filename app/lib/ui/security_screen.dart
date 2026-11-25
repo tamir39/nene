@@ -112,7 +112,7 @@ class _SecurityScreenState extends State<SecurityScreen>
         tone: SecurityTone.positive,
         title: 'Authenticator ready',
         body:
-            'Save recovery codes before you lose your authenticator. Payments remain unavailable.',
+            'Each payment and transfer now asks for a code from this app. Save recovery codes in case you lose it.',
       );
     }
     if (_state == 'not_set_up') {
