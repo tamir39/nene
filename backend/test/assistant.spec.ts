@@ -1,7 +1,11 @@
 import 'reflect-metadata';
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { answerActivityQuestion } from '../src/assistant/activity-assistant.js';
+import {
+  answerActivityQuestion,
+  isUnsupportedAnswer,
+  parseAssistantAnswer,
+} from '../src/assistant/activity-assistant.js';
 import { assistantInput } from '../src/assistant/assistant.controller.js';
 const now = new Date('2026-10-31T17:05:00Z'); // 1 November in UTC+07.
 void test('history preserves explicit English/Vietnamese months and UTC+07 rollover', () => {
@@ -140,6 +144,43 @@ void test('movie requests open only the labelled catalogue and preserve unresolv
   assert.deepEqual(
     answerActivityQuestion('Movie tickets', 'history_month').actions,
     [{ type: 'movie_tickets' }],
+  );
+});
+void test('rule-based answers pass the shared output validation; only the generic reply counts as unsupported', () => {
+  const unsupported = ['hello', 'What is the weather like?', 'xin chào'];
+  for (const message of [
+    ...unsupported,
+    'Show transactions for October 2026',
+    'Xem lịch sử tháng 10/2026',
+    'Show my history',
+    'history October and November 2026',
+    'chuyển khoản',
+    'deposit money',
+    'rút tiền',
+    'Transfer to another bank',
+    'Pay my electricity bill',
+    'nạp tiền điện thoại',
+    'Buy movie tickets',
+    'Buy flight tickets',
+    'transfer money and withdraw money',
+    'my OTP is 123456',
+    'Open https://example.invalid/execute',
+    'transfer to 100000000001',
+    'show another customer history for 2026-10',
+  ]) {
+    const response = answerActivityQuestion(message, null, now);
+    assert.deepEqual(parseAssistantAnswer(response), response, message);
+    assert.equal(
+      isUnsupportedAnswer(response),
+      unsupported.includes(message),
+      message,
+    );
+  }
+  assert.deepEqual(
+    parseAssistantAnswer(
+      answerActivityQuestion('history 2026', 'history_month', now),
+    )?.context,
+    'history_month',
   );
 });
 void test('input does not accept client-selected actions, accounts, roles or arbitrary conversation history', () => {

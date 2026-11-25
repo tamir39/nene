@@ -18,6 +18,8 @@ export interface Environment {
     hashSecret: string;
     returnUrl: string;
   };
+  /** Optional AI fallback for unrecognised assistant messages; see docs/ASSISTANT.md. */
+  assistantAi?: { apiKey: string };
   database: PoolConfig;
 }
 
@@ -194,6 +196,20 @@ export function readEnvironment(env: NodeJS.ProcessEnv): Environment {
       );
     vnpaySandbox = { terminalCode, hashSecret, returnUrl: returnUrl.href };
   }
+  if (
+    env.ASSISTANT_AI_ENABLED &&
+    !['true', 'false'].includes(env.ASSISTANT_AI_ENABLED)
+  )
+    throw new Error('ASSISTANT_AI_ENABLED must be true or false.');
+  let assistantAi: Environment['assistantAi'];
+  if (env.ASSISTANT_AI_ENABLED === 'true') {
+    const apiKey = required(env, 'ANTHROPIC_API_KEY');
+    if (!/^[\x21-\x7e]{20,512}$/.test(apiKey))
+      throw new Error(
+        'ANTHROPIC_API_KEY must contain 20-512 printable characters without spaces.',
+      );
+    assistantAi = { apiKey };
+  }
   if (env.DATABASE_SSL_CA_FILE?.trim()) {
     if (sslMode !== 'verify-full')
       throw new Error('A PostgreSQL CA requires verify-full TLS.');
@@ -213,6 +229,7 @@ export function readEnvironment(env: NodeJS.ProcessEnv): Environment {
     localInterbankEnabled,
     ...(hostedSandbox ? { demoDeployment: 'hosted-sandbox' as const } : {}),
     ...(vnpaySandbox ? { vnpaySandbox } : {}),
+    ...(assistantAi ? { assistantAi } : {}),
     supabaseUrl: supabaseUrl.toString().replace(/\/$/, ''),
     supabasePublishableKey: required(env, 'SUPABASE_PUBLISHABLE_KEY'),
     ...(env.SUPABASE_SECRET_KEY?.trim()

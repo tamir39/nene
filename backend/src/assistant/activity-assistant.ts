@@ -1,12 +1,15 @@
-export type Activity =
-  | 'history'
-  | 'transfer'
-  | 'deposit'
-  | 'withdrawal'
-  | 'bills'
-  | 'phone'
-  | 'movie_tickets'
-  | 'interbank_transfer';
+/** The only activity descriptors any interpreter may return (Flutter applies the same allowlist). */
+export const activities = [
+  'history',
+  'transfer',
+  'deposit',
+  'withdrawal',
+  'bills',
+  'phone',
+  'movie_tickets',
+  'interbank_transfer',
+] as const;
+export type Activity = (typeof activities)[number];
 export type AssistantAction =
   { type: 'history'; month: string } | { type: Exclude<Activity, 'history'> };
 export interface AssistantAnswer {
@@ -47,6 +50,92 @@ const monthNames = [
 const help =
   'I can help you open monthly transaction history, transfers, deposits, withdrawals or demo bill, phone and movie-ticket services. Try “show transactions for October 2026” or “lich su giao dich thang 10 nam 2026”. Ask one activity at a time. Demo services cannot settle real bills, credit a phone or issue a real ticket.';
 
+/** Longest reply any interpreter may return (Flutter accepts up to 1,400 characters). */
+export const maxReplyLength = 600;
+const historyMonth = /^(?:20\d{2}|2100)-(?:0[1-9]|1[0-2])$/;
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === 'object' && !Array.isArray(value);
+}
+function hasExactKeys(value: Record<string, unknown>, keys: string[]) {
+  const actual = Object.keys(value);
+  return actual.length === keys.length && keys.every((k) => actual.includes(k));
+}
+/** Plain text only: no control/invisible formatting characters, markup, links or account-like numbers. */
+function isPlainText(text: string) {
+  return (
+    !Array.from(text).some((character) => {
+      const code = character.codePointAt(0)!;
+      return (
+        (code < 32 && code !== 10) ||
+        (code >= 127 && code <= 159) ||
+        (code >= 0x200b && code <= 0x200f) ||
+        (code >= 0x202a && code <= 0x202e) ||
+        (code >= 0x2060 && code <= 0x2069) ||
+        code === 0xfeff
+      );
+    }) && !/[<>`*#[\]{}\\]|https?:|www\.|\d{9,}/i.test(text)
+  );
+}
+
+/**
+ * Validates interpreter output before it reaches the client and returns a clean
+ * copy, or null. Rule-based and AI-fallback answers pass the same checks.
+ */
+export function parseAssistantAnswer(value: unknown): AssistantAnswer | null {
+  if (!isRecord(value) || !hasExactKeys(value, ['reply', 'actions', 'context']))
+    return null;
+  const { reply, actions, context } = value;
+  if (
+    typeof reply !== 'string' ||
+    !reply.trim() ||
+    reply.length > maxReplyLength ||
+    !isPlainText(reply) ||
+    (context !== null && context !== 'history_month') ||
+    !Array.isArray(actions) ||
+    actions.length > 1 ||
+    (context !== null && actions.length > 0)
+  )
+    return null;
+  const parsed: AssistantAction[] = [];
+  for (const action of actions as unknown[]) {
+    if (!isRecord(action)) return null;
+    if (action.type === 'history') {
+      if (
+        !hasExactKeys(action, ['type', 'month']) ||
+        typeof action.month !== 'string' ||
+        !historyMonth.test(action.month)
+      )
+        return null;
+      parsed.push({ type: 'history', month: action.month });
+    } else {
+      const type = activities.find((activity) => activity === action.type);
+      if (!type || type === 'history' || !hasExactKeys(action, ['type']))
+        return null;
+      parsed.push({ type });
+    }
+  }
+  return { reply: reply.trim(), actions: parsed, context };
+}
+
+/** True only for the generic “not understood” outcome: never clarifications, refusals or supported intents. */
+export function isUnsupportedAnswer(result: AssistantAnswer): boolean {
+  return (
+    result.reply === help &&
+    result.actions.length === 0 &&
+    result.context === null
+  );
+}
+
+function vietnamTime(now: Date) {
+  return new Date(now.getTime() + 7 * 60 * 60 * 1000);
+}
+/** Current month in UTC+07 as YYYY-MM. */
+export function currentMonth(now: Date): string {
+  const local = vietnamTime(now);
+  return `${local.getUTCFullYear()}-${String(local.getUTCMonth() + 1).padStart(2, '0')}`;
+}
+
 export function requestedMonth(text: string, now: Date): string | null {
   const values: string[] = [];
   const names = monthNames
@@ -84,7 +173,7 @@ export function requestedMonth(text: string, now: Date): string | null {
     );
     for (const match of text.matchAll(pattern)) add(Number(match[1]), i + 1);
   }
-  const local = new Date(now.getTime() + 7 * 60 * 60 * 1000);
+  const local = vietnamTime(now);
   if (/\b(this month|current month|thang nay)\b/.test(text))
     add(local.getUTCFullYear(), local.getUTCMonth() + 1);
   if (/\b(last month|previous month|thang truoc)\b/.test(text)) {
