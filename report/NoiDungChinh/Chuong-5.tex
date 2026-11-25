@@ -53,7 +53,7 @@ Các kịch bản dưới đây được nhóm xem là quan trọng nhất đố
 \section{Kết quả kiểm thử}
 \label{sec:ch5-ket-qua}
 
-Bảng~\ref{tab:ch5-ket-qua} tổng hợp kết quả kiểm thử. Các số liệu của bộ kiểm thử tự động được ghi nhận trên nhánh \texttt{main} tại commit \texttt{31148c9}.
+Bảng~\ref{tab:ch5-ket-qua} tổng hợp kết quả kiểm thử. Các số liệu của bộ kiểm thử tự động được ghi nhận trên nhánh \texttt{main} tại commit \texttt{e20d14f}.
 
 \begingroup
 \linespread{1.15}\small
@@ -70,9 +70,9 @@ Bảng~\ref{tab:ch5-ket-qua} tổng hợp kết quả kiểm thử. Các số li
 	\endhead
 	\bottomrule
 	\endfoot
-	Máy chủ NestJS & Kiểm tra mã (lint) và biên dịch đạt; toàn bộ \textbf{170} kiểm thử đơn vị và HTTP đạt. & \texttt{main} @ \texttt{31148c9} \\
+	Máy chủ NestJS & Kiểm tra mã (lint) và biên dịch đạt; toàn bộ \textbf{173} kiểm thử đơn vị và HTTP đạt. & \texttt{main} @ \texttt{e20d14f} \\
 	\midrule
-	Ứng dụng Flutter & \texttt{flutter analyze} không báo lỗi; toàn bộ \textbf{338} kiểm thử đơn vị và widget đạt, bao gồm các kiểm thử ở cỡ chữ 200\% và các kiểm thử bước kiểm tra khuôn mặt với bộ phát hiện giả lập. & \texttt{main} @ \texttt{31148c9} \\
+	Ứng dụng Flutter & \texttt{flutter analyze} không báo lỗi; toàn bộ \textbf{343} kiểm thử đơn vị và widget đạt, bao gồm các kiểm thử ở cỡ chữ 200\% và các kiểm thử bước kiểm tra khuôn mặt với bộ phát hiện giả lập. & \texttt{main} @ \texttt{e20d14f} \\
 	\midrule
 	CSDL trên đám mây & Toàn bộ 16 tệp di trú SQL được áp dụng lên dự án Supabase đám mây; lịch sử di trú cục bộ và trên đám mây khớp nhau. & 24/11/2026 \\
 	\midrule
@@ -124,8 +124,7 @@ Bảng~\ref{tab:ch5-danh-gia} đánh giá mức độ hoàn thành theo từng y
 	\midrule
 	Ba loại tài khoản, số dư; lãi suất và lợi nhuận hằng tháng; nhân viên sửa lãi suất & BR-05, BR-06 & Đã hiện thực & Mỗi loại tài khoản có cách hiển thị riêng; lợi nhuận ước tính hằng tháng tính bằng số nguyên từ số dư và lãi suất năm; nhân viên sửa lãi suất có kiểm tra phiên bản và ghi vết. Tài khoản tiết kiệm và thế chấp là tài khoản trình diễn giả lập do nhân viên tạo; lịch trả nợ thế chấp là lịch mẫu với lãi suất 0\%. \\
 	\midrule
-	Số tiền trả thế chấp mỗi tháng hoặc mỗi hai tuần & BR-07 & Đã hiện thực (hằng tháng) & Hiển thị số tiền phải trả hằng tháng, ngày đến hạn kế tiếp và dư nợ gốc còn lại. \\
-	% UPDATE: biweekly mortgage view
+	Số tiền trả thế chấp mỗi tháng hoặc mỗi hai tuần & BR-07 & Đã hiện thực & Hiển thị số tiền phải trả hằng tháng, ngày đến hạn kế tiếp và dư nợ gốc còn lại; nút chuyển sang số tiền quy đổi mỗi hai tuần (cùng tổng một năm chia cho 26 kỳ, làm tròn lên). Đây là số quy đổi, không phải lịch trả nợ hai tuần riêng. \\
 	\midrule
 	Lịch sử giao dịch, nạp và rút tiền & BR-08 & Đã hiện thực & Lịch sử theo tháng (múi giờ UTC+07), phân trang 25 dòng. Nạp và rút tiền dùng nguồn tiền mặt \textbf{mô phỏng}, có xác thực TOTP. \\
 	\midrule
@@ -188,8 +187,7 @@ Từ các hạn chế trên, nhóm đề xuất các hướng phát triển sau:
 	\item \textbf{Đăng ký địa chỉ IPN với VNPay} để nhận kết quả thanh toán trực tiếp giữa hai máy chủ, không phụ thuộc vào việc khách hàng quay về trang trả về.
 	\item \textbf{Phát hành công khai trên Google Play}: chạy thử nghiệm kín với tối thiểu 12 người thử trong 14 ngày, hoàn thiện trang giới thiệu ứng dụng và biểu mẫu an toàn dữ liệu, sau đó đăng ký phát hành chính thức.
 	\item \textbf{Lưu phiên an toàn và mở khóa sinh trắc học}: lưu phiên trong kho khóa an toàn của thiết bị và cho phép mở khóa ứng dụng bằng vân tay hoặc khuôn mặt; sinh trắc học cục bộ chỉ dùng để mở khóa, không thay thế eKYC hay mã TOTP của giao dịch.
-	\item \textbf{Hoàn thiện lịch trả nợ thế chấp mỗi hai tuần} bên cạnh lịch hằng tháng hiện có.
-	% UPDATE: biweekly mortgage view
+	\item \textbf{Lịch trả nợ thế chấp đầy đủ}: tính lãi, ghi nhận các kỳ trả nợ và lịch trả hai tuần riêng thay cho số tiền quy đổi hiện tại.
 	\item \textbf{Cải thiện trợ lý hội thoại}: bổ sung khả năng hiểu ngôn ngữ tự nhiên rộng hơn và trả lời bằng tiếng Việt, trong khi vẫn giữ nguyên danh sách liên kết được phép và quy tắc trợ lý không được tự thực hiện giao dịch.
 	% UPDATE: assistant AI fallback
 	\item \textbf{Nâng cao chất lượng sản phẩm}: Việt hóa giao diện, thiết lập hệ thống tích hợp liên tục chạy kiểm thử cho mỗi pull request, chạy đầy đủ các kịch bản tích hợp còn thiếu, kiểm thử trên nhiều thiết bị Android thật và chuẩn bị bản dựng iOS.
@@ -200,6 +198,6 @@ Từ các hạn chế trên, nhóm đề xuất các hướng phát triển sau:
 
 Đề tài đã xây dựng Nene, một ứng dụng ngân hàng di động trên Android với một ứng dụng Flutter cho hai vai trò, một máy chủ NestJS duy nhất và nền tảng Supabase trên đám mây. Sản phẩm bao phủ cả bảy nhóm yêu cầu nghiệp vụ của đề bài ở các mức độ khác nhau: hồ sơ người dùng, quản lý tài khoản, chuyển khoản cùng ngân hàng, định vị và trợ lý hội thoại đã được hiện thực; dịch vụ thanh toán được tích hợp với VNPay sandbox và đã được kiểm chứng trực tiếp; chuyển khoản liên ngân hàng và các tiện ích được hiện thực dưới dạng mô phỏng hoặc dịch vụ hư cấu; eKYC và phát hành trên Google Play mới đạt một phần.
 
-Điểm nhóm chú trọng nhất là tính đúng đắn và an toàn của các thao tác tài chính: máy chủ là nơi quyết định duy nhất, mọi giao dịch phải qua mã TOTP gắn với đúng thao tác, số dư chỉ thay đổi qua các hàm ghi sổ nguyên tử và yêu cầu lặp lại không thể tạo giao dịch trùng. Các quy tắc này được kiểm chứng bằng 170 kiểm thử phía máy chủ, 338 kiểm thử của ứng dụng cùng các kiểm thử CSDL và tích hợp.
+Điểm nhóm chú trọng nhất là tính đúng đắn và an toàn của các thao tác tài chính: máy chủ là nơi quyết định duy nhất, mọi giao dịch phải qua mã TOTP gắn với đúng thao tác, số dư chỉ thay đổi qua các hàm ghi sổ nguyên tử và yêu cầu lặp lại không thể tạo giao dịch trùng. Các quy tắc này được kiểm chứng bằng 173 kiểm thử phía máy chủ, 343 kiểm thử của ứng dụng cùng các kiểm thử CSDL và tích hợp.
 
 Qua đề tài, nhóm đã vận dụng kiến thức của môn học vào một bài toán gần với thực tế, rèn luyện cách phân tích yêu cầu thành các lát cắt chức năng có thể kiểm chứng, cách làm việc với Git và pull request, cũng như cách trình bày trung thực giới hạn của sản phẩm. Những hạn chế đã nêu, đặc biệt là so khớp khuôn mặt cho giao dịch giá trị cao và phát hành công khai, là các bước tiếp theo để Nene tiến gần hơn đến một ứng dụng ngân hàng có thể đưa vào sử dụng thực tế.

@@ -1,7 +1,7 @@
 \chapter{Phân tích và thiết kế hệ thống}
 \label{chap:2}
 
-Chương này trình bày kết quả phân tích yêu cầu và thiết kế của ứng dụng ngân hàng di động Nene theo yêu cầu báo cáo TR-05 của đề bài: biểu đồ ca sử dụng, kiến trúc thành phần và hạ tầng, lý do lựa chọn công nghệ, các nguyên tắc và mẫu thiết kế được áp dụng, biểu đồ lớp, thiết kế cơ sở dữ liệu và các luồng xử lý quan trọng. Mọi sơ đồ và mô tả trong chương được đối chiếu trực tiếp với mã nguồn trên nhánh \texttt{main} tại commit \texttt{31148c9}: backend trong \texttt{backend/\allowbreak{}src}, ứng dụng Flutter trong \texttt{app/\allowbreak{}lib} và 16 tệp migration SQL trong \texttt{infrastructure/\allowbreak{}supabase/\allowbreak{}migrations}. Nhóm chỉ mô tả hành vi đã có trong mã; những phần là mô phỏng, dữ liệu hư cấu hoặc môi trường thử nghiệm (sandbox) được ghi nhãn rõ ràng ngay tại chỗ.
+Chương này trình bày kết quả phân tích yêu cầu và thiết kế của ứng dụng ngân hàng di động Nene theo yêu cầu báo cáo TR-05 của đề bài: biểu đồ ca sử dụng, kiến trúc thành phần và hạ tầng, lý do lựa chọn công nghệ, các nguyên tắc và mẫu thiết kế được áp dụng, biểu đồ lớp, thiết kế cơ sở dữ liệu và các luồng xử lý quan trọng. Mọi sơ đồ và mô tả trong chương được đối chiếu trực tiếp với mã nguồn trên nhánh \texttt{main} tại commit \texttt{e20d14f}: backend trong \texttt{backend/\allowbreak{}src}, ứng dụng Flutter trong \texttt{app/\allowbreak{}lib} và 16 tệp migration SQL trong \texttt{infrastructure/\allowbreak{}supabase/\allowbreak{}migrations}. Nhóm chỉ mô tả hành vi đã có trong mã; những phần là mô phỏng, dữ liệu hư cấu hoặc môi trường thử nghiệm (sandbox) được ghi nhãn rõ ràng ngay tại chỗ.
 
 % ======================================================================
 \section{Phân tích yêu cầu}
@@ -28,7 +28,7 @@ BR-03 & Màn hình đăng nhập và định danh điện tử (eKYC); dùng ả
 BR-04 & Mọi giao dịch phải qua xác thực hai lớp (2FA) trước khi lưu & Đã hiện thực bằng mã TOTP 6 chữ số gắn với từng giao dịch, chống phát lại và có hạn dùng \\
 BR-05 & Tài khoản thanh toán, tiết kiệm, vay thế chấp với cách hiển thị khác nhau & Đã hiện thực; tài khoản tiết kiệm và vay là tài khoản demo tổng hợp do nhân viên cấp \\
 BR-06 & Hiển thị lãi suất tiết kiệm và lợi nhuận hằng tháng; nhân viên sửa lãi suất & Đã hiện thực, có nhật ký thay đổi \\
-BR-07 & Khoản phải trả vay thế chấp hằng tháng hoặc mỗi hai tuần & Lịch trả hằng tháng (lịch mẫu lãi suất 0\%) % UPDATE: biweekly mortgage view
+BR-07 & Khoản phải trả vay thế chấp hằng tháng hoặc mỗi hai tuần & Đã hiện thực: lịch trả hằng tháng (lịch mẫu lãi suất 0\%) và số tiền quy đổi mỗi hai tuần do backend tính
 \\
 BR-08 & Lịch sử giao dịch, nạp tiền, rút tiền & Đã hiện thực; nạp và rút dùng nguồn tiền mặt \textbf{mô phỏng} \\
 BR-09 & Kiểm tra giao dịch hợp lệ trước khi lưu; chuyển khoản cùng hoặc khác ngân hàng & Kiểm tra và chuyển trong Nene đã hiện thực; chuyển khác ngân hàng là \textbf{mô phỏng} với ngân hàng hư cấu \\
@@ -689,7 +689,7 @@ Mọi số tiền được lưu bằng số nguyên \texttt{bigint} theo \emph{�
     \text{lợi nhuận tháng} = \left\lfloor \frac{\text{số dư} \times \text{bps} + 60000}{120000} \right\rfloor,
   \]
   tức số dư $\times$ lãi suất năm / 12, làm tròn nửa lên tới đồng. Đây là ước tính hiển thị; hệ thống không tự ghi có tiền lãi.
-  \item \textbf{Lịch trả vay thế chấp} là lịch mẫu hằng tháng với lãi suất 0\%: khoản trả định kỳ bằng phần nguyên của gốc chia số tháng (\texttt{monthly\_\allowbreak{}due\_\allowbreak{}minor = principal\_\allowbreak{}remaining\_\allowbreak{}minor / term\_\allowbreak{}months}), số tháng từ 1 đến 360. Chỉ khoản trả định kỳ, dư nợ gốc ban đầu và ngày đến hạn đầu tiên được lưu và hiển thị; hệ thống chưa xử lý trả nợ hay tự chuyển kỳ. % UPDATE: biweekly mortgage view
+  \item \textbf{Lịch trả vay thế chấp} là lịch mẫu hằng tháng với lãi suất 0\%: khoản trả định kỳ bằng phần nguyên của gốc chia số tháng (\texttt{monthly\_\allowbreak{}due\_\allowbreak{}minor = principal\_\allowbreak{}remaining\_\allowbreak{}minor / term\_\allowbreak{}months}), số tháng từ 1 đến 360. Chỉ khoản trả định kỳ, dư nợ gốc ban đầu và ngày đến hạn đầu tiên được lưu và hiển thị; hệ thống chưa xử lý trả nợ hay tự chuyển kỳ. Số tiền mỗi hai tuần không được lưu mà được backend tính từ khoản trả hằng tháng: cùng tổng số tiền một năm chia cho 26 kỳ, làm tròn lên tới đồng, tức $\lceil \text{khoản tháng} \times 12 / 26 \rceil$, tính bằng số nguyên \texttt{BigInt}. Đây là cách hiển thị quy đổi, không phải một lịch trả nợ hai tuần riêng.
   \item \textbf{Ngưỡng giá trị cao}: mọi giao dịch tiền và thanh toán phải nhỏ hơn 5.000.000 VND (\texttt{CHECK} trong bảng và kiểm tra trong hàm). Đây là quyết định của dự án: đề bài yêu cầu dùng ảnh khuôn mặt để xác minh hoạt động giá trị cao, nhưng Nene chưa có so khớp khuôn mặt tự động, nên thay vì cho phép giao dịch lớn mà không xác minh, hệ thống chặn hẳn. Để tham khảo, Quyết định 2345/QĐ-NHNN của Ngân hàng Nhà nước yêu cầu xác thực sinh trắc học cho giao dịch chuyển tiền trực tuyến trên 10 triệu đồng mỗi lần hoặc tổng trên 20 triệu đồng mỗi ngày \parencite{ch5-sbv2345}; ngưỡng của Nene thấp hơn mức này.
 \end{itemize}
 
