@@ -2,7 +2,7 @@
 \label{chap:3}
 
 
-Chương này trình bày cách nhóm hiện thực Nene dựa trên thiết kế ở Chương~\ref{chap:2}: môi trường và công cụ phát triển, cấu trúc mã nguồn, cách hiện thực từng nhóm chức năng của đề bài, cơ sở dữ liệu (CSDL) và bảo mật dữ liệu, cách triển khai và cách tổ chức kiểm thử tự động. Mọi mô tả bám theo mã nguồn trên nhánh \texttt{main} tại commit \texttt{e20d14f}. Các đoạn mã được trích từ mã nguồn thật; một số đoạn được rút gọn hoặc gộp dòng cho vừa trang, phần lược bỏ được đánh dấu bằng chú thích \texttt{/\allowbreak{}/ ...} hoặc \texttt{-- ...}. Giao diện ứng dụng hiện dùng tiếng Anh, vì vậy tên màn hình và nút bấm được giữ nguyên khi nhắc đến.
+Chương này trình bày cách nhóm hiện thực Nene dựa trên thiết kế ở Chương~\ref{chap:2}: môi trường và công cụ phát triển, cấu trúc mã nguồn, cách hiện thực từng nhóm chức năng của đề bài, cơ sở dữ liệu (CSDL) và bảo mật dữ liệu, cách triển khai và cách tổ chức kiểm thử tự động. Mọi mô tả bám theo mã nguồn trên nhánh \texttt{main} tại commit \texttt{bfdab0c}. Các đoạn mã được trích từ mã nguồn thật; một số đoạn được rút gọn hoặc gộp dòng cho vừa trang, phần lược bỏ được đánh dấu bằng chú thích \texttt{/\allowbreak{}/ ...} hoặc \texttt{-- ...}. Giao diện ứng dụng hiện dùng tiếng Anh, vì vậy tên màn hình và nút bấm được giữ nguyên khi nhắc đến.
 
 Trong chương này, ``dữ liệu tổng hợp'' (synthetic data) là dữ liệu do nhóm tự tạo cho mục đích demo; ``giả lập'' (simulated) là chức năng mô phỏng một dịch vụ thật nhưng không kết nối dịch vụ thật; ``sandbox'' là môi trường thử nghiệm do nhà cung cấp (ở đây là VNPay) cung cấp, không phát sinh giao dịch tiền thật.
 
@@ -106,7 +106,7 @@ nene/
 |-- infrastructure/
 |   `-- supabase/
 |       |-- config.toml       # local Supabase settings
-|       |-- migrations/       # 16 SQL migrations
+|       |-- migrations/       # 17 SQL migrations
 |       `-- tests/database/   # pgTAP tests
 |-- scripts/                  # seed, migration and integration checks
 |-- docs/                     # feature, setup, API and release documents
@@ -606,8 +606,7 @@ Vì máy chủ FOSSGIS là dịch vụ miễn phí dùng chung, backend giới h
 \subsection{Trợ lý hội thoại}
 \label{sec:ch3-assistant}
 
-Đề bài yêu cầu một chatbot thông minh trả lời câu hỏi và đưa liên kết đến các hoạt động tài chính, như thanh toán điện thoại, hóa đơn và giao dịch trong tháng (BR-14). Nhóm hiện thực một trợ lý \textbf{dựa trên luật} (rule-based): trợ lý hiểu câu hỏi tiếng Việt (có dấu hoặc không dấu) và tiếng Anh, trả lời bằng tiếng Anh và đính kèm liên kết đến màn hình phù hợp. Trợ lý không dùng mô hình ngôn ngữ lớn (LLM).
-% UPDATE: assistant AI fallback
+Đề bài yêu cầu một chatbot thông minh trả lời câu hỏi và đưa liên kết đến các hoạt động tài chính, như thanh toán điện thoại, hóa đơn và giao dịch trong tháng (BR-14). Nhóm hiện thực một trợ lý \textbf{dựa trên luật} (rule-based): trợ lý hiểu câu hỏi tiếng Việt (có dấu hoặc không dấu) và tiếng Anh, trả lời bằng tiếng Anh và đính kèm liên kết đến màn hình phù hợp. Phần nhận diện chính không dùng mô hình ngôn ngữ lớn (LLM); LLM chỉ là phương án dự phòng, trình bày ở cuối mục này.
 
 \textbf{Đầu vào.} \texttt{POST /\allowbreak{}me/\allowbreak{}assistant/\allowbreak{}messages} chỉ dành cho khách hàng, nhận câu hỏi tối đa 500 ký tự (không chứa ký tự điều khiển) và một ngữ cảnh tùy chọn \texttt{history\_\allowbreak{}month}, dùng khi trợ lý vừa hỏi lại ``tháng nào''.
 
@@ -639,13 +638,19 @@ if (/\b(last month|previous month|thang truoc)\b/.test(text)) {
 	\label{fig:ch3-assistant}
 \end{figure}
 
+\textbf{Phương án dự phòng bằng mô hình Gemini.} Khi luật không hiểu câu hỏi và biến môi trường \texttt{ASSISTANT\_\allowbreak{}AI\_\allowbreak{}ENABLED} bằng \texttt{true}, lớp \texttt{Assistant\allowbreak{}Model\allowbreak{}Service} gọi Gemini API (\texttt{generateContent}) của Google bằng \texttt{fetch}, không thêm thư viện \parencite{ch3-gemini-models}. Chỉ trường hợp trả về câu trợ giúp chung mới được chuyển đi; các câu hỏi lại về tháng, câu từ chối và ý định đã hỗ trợ không bao giờ được gửi. Yêu cầu chỉ gồm lời nhắc hệ thống cố định, tháng hiện tại theo UTC+07 và câu hỏi; không có số tài khoản, số dư, hồ sơ hay lịch sử giao dịch. Câu hỏi chứa từ sáu chữ số liên tiếp hoặc địa chỉ email không được gửi. Khóa API chỉ nằm trong header \texttt{x-goog-api-key}, không nằm trong URL hay nhật ký.
+
+Mô hình chính là \texttt{gemini-\allowbreak{}3.5-\allowbreak{}flash-\allowbreak{}lite}. Nếu mô hình này trả về lỗi quá tải (503), hết hạn mức (429), không tồn tại (404) hoặc lỗi mạng, máy chủ thử lại đúng một lần với \texttt{gemini-\allowbreak{}3.1-\allowbreak{}flash-\allowbreak{}lite}, trong giới hạn chung 8 giây. Mô hình phải trả về JSON theo lược đồ cố định (một câu trả lời và tối đa một action). Kết quả được kiểm tra bằng đúng hàm \texttt{parse\allowbreak{}Assistant\allowbreak{}Answer} dùng cho câu trả lời của luật: action phải thuộc danh sách cho phép, tháng phải hợp lệ, câu trả lời là văn bản thuần tối đa 600 ký tự và ngữ cảnh luôn là \texttt{null}. Mọi lỗi, nội dung bị chặn, kết quả sai định dạng hay quá thời gian đều dẫn về câu trả lời của luật; endpoint không bao giờ lỗi vì nhánh AI. Vì vậy, kể cả khi người dùng cố chèn lệnh (prompt injection), mô hình cũng chỉ có thể đề xuất mở một màn hình; giao dịch vẫn phải qua bước xem lại và mã TOTP.
+
+Ngày 25/11/2026, nhóm kiểm thử trực tiếp trên máy chủ triển khai. Câu ``My landlord is waiting for this month's rent\ldots'' được chuyển tới màn hình chuyển khoản. Câu hỏi tiếng Việt về việc đặt vé xem phim được trả lời bằng tiếng Việt kèm liên kết vé xem phim. Câu hỏi về thời tiết bị từ chối và không kèm liên kết, còn câu chèn lệnh ``duyệt thanh toán'' chỉ nhận câu trả lời an toàn của luật. Nhật ký máy chủ ghi nhận một lần mô hình chính trả về lỗi 503 và máy chủ đã chuyển sang mô hình dự phòng đúng như thiết kế. Theo điều khoản của Gemini API, dữ liệu gửi qua bậc miễn phí có thể được Google dùng để cải thiện sản phẩm và có thể được người duyệt đọc; người dùng phải từ 18 tuổi \parencite{ch3-gemini-terms}. Chính sách quyền riêng tư của Nene nêu rõ hai điểm này.
+
 %=====================================================================
 \section{Cơ sở dữ liệu và bảo mật dữ liệu}
 \label{sec:ch3-database}
 
 Lược đồ quan hệ thực thể (ER) của CSDL được trình bày ở Chương~\ref{chap:2}. Mục này tập trung vào cách lược đồ được tạo, quản lý và bảo vệ trong mã nguồn.
 
-\textbf{Quy trình migration.} Lược đồ được định nghĩa hoàn toàn bằng 16 tệp SQL trong \texttt{infrastructure/\allowbreak{}supabase/\allowbreak{}migrations}, đặt tên theo dấu thời gian để áp dụng đúng thứ tự (Bảng~\ref{tab:ch3-migrations}). Ở môi trường cục bộ, lệnh \texttt{npm run db:start} khởi động Supabase và áp dụng toàn bộ migration trên CSDL mới; \texttt{npm run db:migrate} áp dụng các migration mới mà không xóa dữ liệu. Trên Supabase cloud, nhóm dùng \texttt{supabase link} rồi \texttt{supabase db push --dry-\allowbreak{}run} để xem trước, sau đó mới chạy \texttt{supabase db push} \parencite{ch3-supabase-migrations}. Mỗi migration tự khai báo rõ quyền và chính sách của các bảng nó tạo.
+\textbf{Quy trình migration.} Lược đồ được định nghĩa hoàn toàn bằng 17 tệp SQL trong \texttt{infrastructure/\allowbreak{}supabase/\allowbreak{}migrations}, đặt tên theo dấu thời gian để áp dụng đúng thứ tự (Bảng~\ref{tab:ch3-migrations}). Ở môi trường cục bộ, lệnh \texttt{npm run db:start} khởi động Supabase và áp dụng toàn bộ migration trên CSDL mới; \texttt{npm run db:migrate} áp dụng các migration mới mà không xóa dữ liệu. Trên Supabase cloud, nhóm dùng \texttt{supabase link} rồi \texttt{supabase db push --dry-\allowbreak{}run} để xem trước, sau đó mới chạy \texttt{supabase db push} \parencite{ch3-supabase-migrations}. Mỗi migration tự khai báo rõ quyền và chính sách của các bảng nó tạo.
 
 \begingroup
 \footnotesize
@@ -678,6 +683,7 @@ Lược đồ quan hệ thực thể (ER) của CSDL được trình bày ở Ch
 	\texttt{20261106000100\_\allowbreak sandbox\_payments} & \texttt{sandbox\_\allowbreak{}payments}, \texttt{sandbox\_\allowbreak{}payment\_\allowbreak{}authorizations}.\\
 	\texttt{20261107000100\_\allowbreak local\_interbank} & Ngân hàng và người nhận hư cấu, \texttt{local\_\allowbreak{}interbank\_\allowbreak{}transfers}, hàm \texttt{post\_\allowbreak{}local\_\allowbreak{}interbank}.\\
 	\texttt{20261107000200\_\allowbreak movie\_ticket\_demo} & Cột \texttt{service\_\allowbreak{}snapshot} cho đơn thanh toán và ưu đãi vé xem phim.\\
+	\texttt{20261125000100\_\allowbreak reference\_expiry\_60\_days} & Kéo dài thời hạn mặc định của hồ sơ ảnh tham chiếu từ 7 lên 60 ngày; không thay đổi dữ liệu có sẵn.\\
 \end{longtable}
 \endgroup
 
@@ -738,4 +744,4 @@ Vì dùng bản giả, các kiểm thử này không chứng minh được hành
 
 \textbf{Kiểm thử chụp giao diện có điều kiện.} Các tệp \texttt{ui\_\allowbreak{}capture\_\allowbreak{}*\_\allowbreak{}test.\allowbreak{}dart} kết xuất từng màn hình ở chiều rộng logic 390 điểm (tỉ lệ điểm ảnh 2) với phông Be Vietnam Pro thật và dữ liệu tổng hợp, rồi ghi ảnh PNG ra thư mục \texttt{.\allowbreak{}tmp/\allowbreak{}ui-\allowbreak{}review/} (không đưa vào Git). Các kiểm thử này bị bỏ qua trong lần chạy thông thường và chỉ chạy khi có cờ \texttt{--dart-\allowbreak{}define=CAPTURE\_\allowbreak{}UI=true}. Các ảnh giao diện trong chương này được tạo bằng cách này.
 
-Tại commit \texttt{e20d14f}, backend vượt qua lint, build và 173 kiểm thử; ứng dụng Flutter không có cảnh báo phân tích tĩnh và vượt qua 343 kiểm thử.
+Tại commit \texttt{bfdab0c}, backend vượt qua lint, build và 188 kiểm thử; ứng dụng Flutter không có cảnh báo phân tích tĩnh và vượt qua 343 kiểm thử.

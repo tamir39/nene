@@ -37,7 +37,7 @@ Nạp và rút tiền & Khách hàng & Đã triển khai với nguồn tiền m�
 Lịch sử giao dịch & Khách hàng & Đã triển khai & \ref{fig:ch4-history}\\
 Hóa đơn điện, nước, nạp tiền điện thoại & Khách hàng & Dịch vụ hư cấu thanh toán qua môi trường thử nghiệm (sandbox) của VNPay; không có hóa đơn thật nào được tất toán & \ref{fig:ch4-bills}\\
 Vé xem phim & Khách hàng & Hai ưu đãi vé hư cấu qua VNPay sandbox & \ref{fig:ch4-movies}\\
-Trợ lý hội thoại & Khách hàng & Bộ phân tích ý định dựa trên luật, có liên kết mở đúng chức năng & \ref{fig:ch4-assistant}\\
+Trợ lý hội thoại & Khách hàng & Bộ phân tích ý định dựa trên luật (Gemini dự phòng), có liên kết mở đúng chức năng & \ref{fig:ch4-assistant}\\
 Bản đồ văn phòng và chỉ đường đi bộ & Khách hàng & Văn phòng hư cấu gần TDTU; chưa thử với hệ thống định vị toàn cầu (GPS) trên điện thoại thật & \ref{fig:ch4-offices}\\
 Hồ sơ cá nhân, sửa điện thoại và địa chỉ & Khách hàng & Đã triển khai & \ref{fig:ch4-profile}\\
 Bảo mật giao dịch: ứng dụng xác thực, mã khôi phục & Khách hàng & Đã triển khai & \ref{fig:ch4-security}\\
@@ -405,8 +405,8 @@ Chức năng vé xem phim (Hình~\ref{fig:ch4-movies}) dùng cùng quy trình v�
 \subsection{Trợ lý hội thoại}
 \label{sec:ch4-assistant}
 
-Tab \textit{Assistant} (Hình~\ref{fig:ch4-assistant}) là một trợ lý hội thoại dựa trên luật (rule-based): máy chủ NestJS nhận diện một tập ý định giới hạn trong câu hỏi tiếng Việt hoặc tiếng Anh và trả lời bằng tiếng Anh, kèm các nút liên kết mở đúng chức năng. Danh sách liên kết được giới hạn sẵn (xem lịch sử theo tháng, chuyển khoản, chuyển liên ngân hàng, nạp, rút, hóa đơn, nạp điện thoại, vé xem phim). Trợ lý không phải mô hình ngôn ngữ sinh, không đọc dữ liệu ngân hàng và không tự tạo hay gửi giao dịch: các câu trả lời về giao dịch đều nhắc rằng chưa có giao dịch nào được tạo hay gửi (ví dụ ``I have not created or sent a transaction''), và người dùng vẫn phải xem lại, xác thực trong luồng bình thường.
-% UPDATE: assistant AI fallback
+Tab \textit{Assistant} (Hình~\ref{fig:ch4-assistant}) là một trợ lý hội thoại dựa trên luật (rule-based): máy chủ NestJS nhận diện một tập ý định giới hạn trong câu hỏi tiếng Việt hoặc tiếng Anh và trả lời bằng tiếng Anh, kèm các nút liên kết mở đúng chức năng. Danh sách liên kết được giới hạn sẵn (xem lịch sử theo tháng, chuyển khoản, chuyển liên ngân hàng, nạp, rút, hóa đơn, nạp điện thoại, vé xem phim). Phần luật không dùng mô hình ngôn ngữ sinh; trợ lý không đọc dữ liệu ngân hàng và không tự tạo hay gửi giao dịch: các câu trả lời về giao dịch đều nhắc rằng chưa có giao dịch nào được tạo hay gửi (ví dụ ``I have not created or sent a transaction''), và người dùng vẫn phải xem lại, xác thực trong luồng bình thường.
+Với câu hỏi mà luật không hiểu, máy chủ nhờ mô hình Gemini của Google đề xuất một màn hình trong cùng danh sách cho phép (Chương~\ref{chap:3}). Khi đó câu trả lời theo ngôn ngữ của câu hỏi, ví dụ trả lời bằng tiếng Việt nếu khách hàng hỏi bằng tiếng Việt, và được hiển thị giống hệt câu trả lời của luật. Ảnh chụp trong chương này là câu trả lời của luật.
 
 Màn hình chào gợi ý bốn câu hỏi mẫu và nhắc không nhập mật khẩu, mã hay thông tin cá nhân vào cuộc trò chuyện. Cuộc trò chuyện chỉ giữ trong bộ nhớ của phiên hiện tại (tối đa 40 tin nhắn), có nút xóa ở đầu màn hình và hàng câu hỏi gợi ý phía trên ô nhập. Khi trợ lý hỏi về tháng, khách hàng có thể trả lời bằng \texttt{YYYY-\allowbreak{}MM}, \texttt{MM/\allowbreak{}YYYY} hoặc ``tháng M năm YYYY''. Nếu thao tác cần chọn tài khoản, ứng dụng mở màn hình ``Choose your account'' trước khi vào biểu mẫu tương ứng. Trạng thái lỗi hiển thị ``Could not get an answer. Try again. No transaction was created by chat.'' kèm nút \textit{Retry answer}; trong lúc chờ có hiệu ứng ``đang gõ''.
 

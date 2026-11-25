@@ -1,7 +1,7 @@
 \chapter{Phân tích và thiết kế hệ thống}
 \label{chap:2}
 
-Chương này trình bày kết quả phân tích yêu cầu và thiết kế của ứng dụng ngân hàng di động Nene theo yêu cầu báo cáo TR-05 của đề bài: biểu đồ ca sử dụng, kiến trúc thành phần và hạ tầng, lý do lựa chọn công nghệ, các nguyên tắc và mẫu thiết kế được áp dụng, biểu đồ lớp, thiết kế cơ sở dữ liệu và các luồng xử lý quan trọng. Mọi sơ đồ và mô tả trong chương được đối chiếu trực tiếp với mã nguồn trên nhánh \texttt{main} tại commit \texttt{e20d14f}: backend trong \texttt{backend/\allowbreak{}src}, ứng dụng Flutter trong \texttt{app/\allowbreak{}lib} và 16 tệp migration SQL trong \texttt{infrastructure/\allowbreak{}supabase/\allowbreak{}migrations}. Nhóm chỉ mô tả hành vi đã có trong mã; những phần là mô phỏng, dữ liệu hư cấu hoặc môi trường thử nghiệm (sandbox) được ghi nhãn rõ ràng ngay tại chỗ.
+Chương này trình bày kết quả phân tích yêu cầu và thiết kế của ứng dụng ngân hàng di động Nene theo yêu cầu báo cáo TR-05 của đề bài: biểu đồ ca sử dụng, kiến trúc thành phần và hạ tầng, lý do lựa chọn công nghệ, các nguyên tắc và mẫu thiết kế được áp dụng, biểu đồ lớp, thiết kế cơ sở dữ liệu và các luồng xử lý quan trọng. Mọi sơ đồ và mô tả trong chương được đối chiếu trực tiếp với mã nguồn trên nhánh \texttt{main} tại commit \texttt{bfdab0c}: backend trong \texttt{backend/\allowbreak{}src}, ứng dụng Flutter trong \texttt{app/\allowbreak{}lib} và 17 tệp migration SQL trong \texttt{infrastructure/\allowbreak{}supabase/\allowbreak{}migrations}. Nhóm chỉ mô tả hành vi đã có trong mã; những phần là mô phỏng, dữ liệu hư cấu hoặc môi trường thử nghiệm (sandbox) được ghi nhãn rõ ràng ngay tại chỗ.
 
 % ======================================================================
 \section{Phân tích yêu cầu}
@@ -36,7 +36,7 @@ BR-10 & Tích hợp dịch vụ thanh toán (ví dụ VNPay, Stripe) & VNPay \te
 BR-11 & Thanh toán điện, nước, nạp tiền điện thoại & Dịch vụ hư cấu thanh toán qua VNPay sandbox; không có hoá đơn thật nào được thanh toán \\
 BR-12 & Mua vé máy bay, vé phim, đặt khách sạn hoặc mua hàng trực tuyến & Chỉ vé xem phim với ưu đãi hư cấu \\
 BR-13 & Định vị người dùng, bản đồ các chi nhánh gần, đường đi bộ ngắn nhất & Đã hiện thực với chi nhánh hư cấu gần TDTU; chưa thử trên điện thoại thật với GPS \\
-BR-14 & Chatbot trả lời kèm liên kết tới hoạt động tài chính & Trợ lý dựa trên luật (rule-based), có liên kết tới màn hình được phép % UPDATE: assistant AI fallback
+BR-14 & Chatbot trả lời kèm liên kết tới hoạt động tài chính & Đã hiện thực: trợ lý dựa trên luật (rule-based), dùng Gemini làm phương án dự phòng; chỉ trả về liên kết tới màn hình được phép
 \\
 TR-02 & Ứng dụng Android đáp ứng mọi yêu cầu nghiệp vụ & Đã có bản Android; kiểm thử đầu-cuối trên thiết bị thật đang tiến hành \\
 TR-03 & Lưu dữ liệu trong cơ sở dữ liệu, ưu tiên trên đám mây & Supabase PostgreSQL (Singapore) \\
@@ -240,7 +240,7 @@ Bảng~\ref{tab:ch2-versions} liệt kê phiên bản các thư viện chính đ
 Bản demo được triển khai như sau (Hình~\ref{fig:ch2-component}):
 \begin{itemize}
   \item \textbf{API}: một Render web service ở Singapore (\texttt{https:/\allowbreak{}/\allowbreak{}nene-\allowbreak{}43ej.\allowbreak{}onrender.\allowbreak{}com}) build từ thư mục \texttt{backend} của nhánh \texttt{main}, kiểm tra sức khoẻ qua \texttt{/\allowbreak{}api/\allowbreak{}v1/\allowbreak{}health} \parencite{ch2-render}. Gói miễn phí ngủ khi không có truy cập nên yêu cầu đầu tiên có thể mất khoảng một phút.
-  \item \textbf{Dữ liệu}: một dự án Supabase cloud ở Singapore. Cả 16 migration đã được áp dụng; Data API của Supabase bị tắt nên các bảng ngân hàng chỉ truy cập được qua NestJS. API kết nối qua session pooler bằng tài khoản \texttt{nene\_\allowbreak{}api} và chứng chỉ gốc của Supabase được đóng gói trong mã nguồn để kiểm tra TLS đầy đủ.
+  \item \textbf{Dữ liệu}: một dự án Supabase cloud ở Singapore. Cả 17 migration đã được áp dụng; Data API của Supabase bị tắt nên các bảng ngân hàng chỉ truy cập được qua NestJS. API kết nối qua session pooler bằng tài khoản \texttt{nene\_\allowbreak{}api} và chứng chỉ gốc của Supabase được đóng gói trong mã nguồn để kiểm tra TLS đầy đủ.
   \item \textbf{Ứng dụng}: gói \texttt{vn.\allowbreak{}nene.\allowbreak{}bank} phiên bản 1.0.1 (AAB ký bằng upload key) trên kênh kiểm thử nội bộ của Google Play.
   \item \textbf{Phát triển cục bộ}: Supabase chạy bằng Docker với các cổng chỉ gắn vào loopback; API NestJS chạy cục bộ.
 \end{itemize}
@@ -487,7 +487,7 @@ Hình~\ref{fig:ch2-class-backend-services} gồm ba nhóm độc lập.
 \begin{itemize}
   \item \textbf{Thanh toán}: \texttt{Payments\allowbreak{}Controller} (sáu route cho khách hàng) và \texttt{Vnpay\allowbreak{}Callbacks\allowbreak{}Controller} (\texttt{@Public}, hai route \texttt{ipn} và \texttt{return}) cùng dùng \texttt{Payments\allowbreak{}Service}. Service này lặp lại mẫu review $\rightarrow$ xác nhận TOTP của giao dịch tiền (dùng \texttt{Security\allowbreak{}Service} và \texttt{reserve\allowbreak{}Security\allowbreak{}Proof}) nhưng kết quả là một đơn chờ thanh toán chứ không thay đổi số dư. Module \texttt{vnpay.\allowbreak{}ts} gồm các hàm thuần \texttt{create\allowbreak{}Sandbox\allowbreak{}Checkout} và \texttt{verify\allowbreak{}Vnpay\allowbreak{}Notification}, tách biệt hoàn toàn khỏi HTTP và cơ sở dữ liệu nên dễ kiểm thử; lỗi xác minh được biểu diễn bằng \texttt{Vnpay\allowbreak{}Validation\allowbreak{}Error} với lý do \texttt{malformed}, \texttt{signature} hoặc \texttt{terminal}. Danh mục dịch vụ \texttt{Offer} là hằng số phía máy chủ, khách hàng không thể tự đặt giá.
   \item \textbf{Chi nhánh}: \texttt{Branches\allowbreak{}Controller} đọc bảng \texttt{bank.\allowbreak{}branches}, dùng các hàm thuần \texttt{distance\allowbreak{}Meters} (công thức haversine), \texttt{nearestBranch} (bán kính 5~km) và \texttt{Walking\allowbreak{}Route\allowbreak{}Service} để gọi Valhalla. Service này giới hạn một yêu cầu tại một thời điểm, cách nhau 1,5 giây, timeout 12 giây, phản hồi tối đa 512~KiB, để tôn trọng giới hạn của máy chủ công cộng.
-  \item \textbf{Trợ lý}: \texttt{Assistant\allowbreak{}Controller} chỉ cho khách hàng, gọi hàm \texttt{answer\allowbreak{}Activity\allowbreak{}Question} trong \texttt{activity-\allowbreak{}assistant.\allowbreak{}ts}. Kết quả \texttt{Assistant\allowbreak{}Answer} gồm câu trả lời và 0..* \texttt{Assistant\allowbreak{}Action}, mỗi action thuộc một trong tám giá trị của enum \texttt{Activity}. Trợ lý không đọc tài khoản và không thực thi giao dịch. % UPDATE: assistant AI fallback
+  \item \textbf{Trợ lý}: \texttt{Assistant\allowbreak{}Controller} chỉ cho khách hàng, gọi hàm \texttt{answer\allowbreak{}Activity\allowbreak{}Question} trong \texttt{activity-\allowbreak{}assistant.\allowbreak{}ts}. Kết quả \texttt{Assistant\allowbreak{}Answer} gồm câu trả lời và 0..* \texttt{Assistant\allowbreak{}Action}, mỗi action thuộc một trong tám giá trị của enum \texttt{Activity}. Trợ lý không đọc tài khoản và không thực thi giao dịch. Khi luật không hiểu câu hỏi và tính năng được bật, \texttt{Assistant\allowbreak{}Model\allowbreak{}Service} (Hình~\ref{fig:ch2-class-backend-services}) gửi riêng câu hỏi và tháng hiện tại tới Gemini API; kết quả phải qua cùng hàm kiểm tra \texttt{parse\allowbreak{}Assistant\allowbreak{}Answer}, nên mô hình cũng chỉ có thể đề xuất các action thuộc enum \texttt{Activity}.
   \item \texttt{Health\allowbreak{}Controller} là route công khai cho kiểm tra sức khoẻ của Render.
 \end{itemize}
 
@@ -536,7 +536,7 @@ Hình~\ref{fig:ch2-class-app-features} cho thấy cùng một khuôn mẫu lặp
 \subsection{Tổ chức schema và tiến trình migration}
 \label{sec:ch2-migrations}
 
-Toàn bộ dữ liệu nghiệp vụ nằm trong schema riêng \texttt{bank} của PostgreSQL, tách khỏi các schema do Supabase quản lý (\texttt{auth} cho người dùng và phiên, \texttt{storage} cho tệp). Mật khẩu không bao giờ được lưu trong schema \texttt{bank}: bảng \texttt{bank.\allowbreak{}user\_\allowbreak{}profiles} chỉ tham chiếu \texttt{auth.\allowbreak{}users(id)}. Schema được xây dựng bởi 16 tệp migration SQL áp dụng theo thứ tự tên tệp (Bảng~\ref{tab:ch2-migrations}); mỗi migration tự khai báo tường minh quyền và chính sách cho các đối tượng nó tạo ra.
+Toàn bộ dữ liệu nghiệp vụ nằm trong schema riêng \texttt{bank} của PostgreSQL, tách khỏi các schema do Supabase quản lý (\texttt{auth} cho người dùng và phiên, \texttt{storage} cho tệp). Mật khẩu không bao giờ được lưu trong schema \texttt{bank}: bảng \texttt{bank.\allowbreak{}user\_\allowbreak{}profiles} chỉ tham chiếu \texttt{auth.\allowbreak{}users(id)}. Schema được xây dựng bởi 17 tệp migration SQL áp dụng theo thứ tự tên tệp (Bảng~\ref{tab:ch2-migrations}); mỗi migration tự khai báo tường minh quyền và chính sách cho các đối tượng nó tạo ra.
 
 {\small
 \begin{longtable}{>{\raggedright\arraybackslash}p{0.06\textwidth}>{\raggedright\arraybackslash}p{0.36\textwidth}>{\raggedright\arraybackslash}p{0.48\textwidth}}
@@ -567,13 +567,14 @@ Toàn bộ dữ liệu nghiệp vụ nằm trong schema riêng \texttt{bank} c�
 14 & \texttt{20261106000100\_\allowbreak sandbox\_\allowbreak payments} & \texttt{sandbox\_\allowbreak{}payment\_\allowbreak{}authorizations}, \texttt{sandbox\_\allowbreak{}payments} \\
 15 & \texttt{20261107000100\_\allowbreak local\_\allowbreak interbank} & \texttt{local\_\allowbreak{}interbank\_\allowbreak{}settings}, \texttt{demo\_\allowbreak{}external\_\allowbreak{}banks}, \texttt{demo\_\allowbreak{}external\_\allowbreak{}recipients}, \texttt{local\_\allowbreak{}interbank\_\allowbreak{}transfers}, hàm \texttt{post\_\allowbreak{}local\_\allowbreak{}interbank} \\
 16 & \texttt{20261107000200\_\allowbreak movie\_\allowbreak ticket\_demo} & Cột \texttt{service\_\allowbreak{}snapshot}, hai suất phim hư cấu trong \texttt{sandbox\_\allowbreak{}payments} \\
+17 & \texttt{20261125000100\_\allowbreak reference\_\allowbreak expiry\_\allowbreak 60\_\allowbreak days} & Đổi mặc định \texttt{expires\_\allowbreak{}at} của \texttt{identity\_\allowbreak{}cases} thành 60 ngày; không đổi dữ liệu \\
 \end{longtable}
 }
 
 \subsection{Sơ đồ thực thể -- liên kết}
 \label{sec:ch2-er}
 
-Sau 16 migration, schema \texttt{bank} có 31 bảng. Để dễ đọc, nhóm chia sơ đồ thực thể -- liên kết (ER) thành ba phần theo miền nghiệp vụ; bảng đã được mô tả ở phần khác được tô màu nhạt và chỉ hiện các cột cần cho liên kết. Ký hiệu chân chim (crow's foot): dấu \texttt{*} là \texttt{NOT NULL}; \texttt{<{}<PK>{}>}, \texttt{<{}<FK>{}>}, \texttt{<{}<UQ>{}>} lần lượt là khoá chính, khoá ngoại, ràng buộc duy nhất; \texttt{\{a|b\}} là tập giá trị bị \texttt{CHECK} giới hạn; đường nét đứt là liên kết logic không có khoá ngoại.
+Sau 17 migration, schema \texttt{bank} có 31 bảng. Để dễ đọc, nhóm chia sơ đồ thực thể -- liên kết (ER) thành ba phần theo miền nghiệp vụ; bảng đã được mô tả ở phần khác được tô màu nhạt và chỉ hiện các cột cần cho liên kết. Ký hiệu chân chim (crow's foot): dấu \texttt{*} là \texttt{NOT NULL}; \texttt{<{}<PK>{}>}, \texttt{<{}<FK>{}>}, \texttt{<{}<UQ>{}>} lần lượt là khoá chính, khoá ngoại, ràng buộc duy nhất; \texttt{\{a|b\}} là tập giá trị bị \texttt{CHECK} giới hạn; đường nét đứt là liên kết logic không có khoá ngoại.
 
 \begin{figure}[H]
 \centering

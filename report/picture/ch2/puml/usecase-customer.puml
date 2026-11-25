@@ -31,7 +31,7 @@ rectangle "Ứng dụng Nene (Flutter app + NestJS API)" {
   usecase "Thiết lập ứng dụng xác thực (TOTP)\nme/security/setup, verify" as UC_Totp
   usecase "Thay / khôi phục ứng dụng xác thực,\ncấp mã khôi phục\nme/security/management/*" as UC_Manage
   usecase "Tìm chi nhánh demo gần nhất\nvà đường đi bộ\nme/branches[/route]" as UC_Branch
-  usecase "Hỏi trợ lý Nene\n(dựa trên luật, không LLM)\nme/assistant/messages" as UC_Assistant
+  usecase "Hỏi trợ lý Nene\n(luật + Gemini dự phòng)\nme/assistant/messages" as UC_Assistant
   usecase "Kiểm tra xác nhận chuyển khoản\n(xem trước, không chuyển tiền)\nme/transfer-confirmations" as UC_Preview
   usecase "Chuyển khoản trong Nene\nme/transfers" as UC_Transfer
   usecase "Chuyển tới ngân hàng\nkhác giả lập [M]\nme/interbank-transfers" as UC_Interbank

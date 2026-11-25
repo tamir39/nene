@@ -115,6 +115,11 @@ package "assistant" {
     type : Activity
     {field} month? : string (history only)
   }
+  class AssistantModelService <<Injectable>> {
+    -models : GEMINI_MODEL hoặc gemini-3.5-flash-lite, rồi gemini-3.1-flash-lite
+    +interpret(message, now) : AssistantAnswer | null
+    -attempt() : thử dự phòng một lần khi 429/5xx/404
+  }
   enum Activity {
     history
     transfer
@@ -142,12 +147,14 @@ package "shared (see diagram 1/4)" {
   class DatabaseService <<Injectable>>
   interface Environment <<ENVIRONMENT token>> {
     vnpaySandbox? : VnpaySandboxConfig
+    assistantAi? : {apiKey, model?}
   }
 }
 
 package "external" {
   class "VNPay PAY sandbox\n(hosted checkout + IPN)" as VnpayExt <<external>>
   class "Valhalla (FOSSGIS)\nvalhalla1.openstreetmap.de/route" as ValhallaExt <<external>>
+  class "Google Gemini API\ngenerateContent" as GeminiExt <<external>>
 }
 
 PaymentsController --> PaymentsService
@@ -171,6 +178,10 @@ WalkingRouteService ..> ValhallaExt : pedestrian route
 WalkingRouteService ..> Point
 
 AssistantController ..> ActivityAssistant
+AssistantController --> AssistantModelService : chỉ khi luật không hiểu
+AssistantModelService ..> ActivityAssistant : parseAssistantAnswer
+AssistantModelService ..> Environment
+AssistantModelService ..> GeminiExt : câu hỏi + tháng\n(khóa trong header)
 ActivityAssistant ..> AssistantAnswer
 AssistantAnswer *-- "0..*" AssistantAction
 AssistantAction ..> Activity
@@ -194,8 +205,9 @@ end note
 
 note right of AssistantController
   Chỉ dành cho khách hàng. Bộ phân tích từ khoá/tháng
-  dựa trên luật: không LLM, không đọc tài khoản, không
-  thực thi. Action là đích đến nằm trong danh sách cho phép.
+  dựa trên luật; câu luật không hiểu mới gửi Gemini (nếu bật).
+  Không đọc tài khoản, không thực thi. Action của cả hai nhánh
+  qua cùng bước kiểm tra danh sách cho phép.
 end note
 
 @enduml
