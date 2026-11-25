@@ -1,4 +1,5 @@
 import { AssistantController } from './assistant/assistant.controller.js';
+import { AssistantModelService } from './assistant/assistant-model.service.js';
 import {
   PaymentsController,
   VnpayCallbacksController,
@@ -56,6 +57,7 @@ import { IdentityStorageService } from './identity/identity-storage.service.js';
     IdentityController,
   ],
   providers: [
+    AssistantModelService,
     PaymentsService,
     WalkingRouteService,
     ConfirmationService,

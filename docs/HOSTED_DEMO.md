@@ -13,6 +13,8 @@ Added 24 November 2026 so the Google Play build (TR-04) can reach a real backend
 | Officer creates demo customers / demo accounts | `SUPABASE_SECRET_KEY` on the API; officer role |
 | Walking route | Public FOSSGIS Valhalla instance, existing per-instance rate limit |
 
+The optional [assistant AI fallback](ASSISTANT.md#optional-ai-fallback) does not depend on the marker: set `ASSISTANT_AI_ENABLED=true` and `GEMINI_API_KEY` (a Google AI Studio key) on the API to turn it on. It stays off otherwise. Check its free-tier data-use, age and region terms first.
+
 Unchanged everywhere: synthetic data only, sandbox provider only, transaction-bound TOTP on every money movement, the 5,000,000 VND limit, no public signup and no client-selected roles. Without the marker, hosted enablement still fails closed (see `environment.spec.ts`).
 
 ## Shape

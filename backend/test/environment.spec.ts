@@ -99,6 +99,46 @@ void describe('environment boundaries', () => {
     ])
       assert.throws(() => readEnvironment({ ...configured, ...override }));
   });
+  void it('keeps the assistant AI fallback off unless explicitly enabled with a key', () => {
+    const apiKey = 'test-only-placeholder-key-0123456789';
+    assert.equal(readEnvironment(localEnvironment).assistantAi, undefined);
+    assert.equal(
+      readEnvironment({
+        ...localEnvironment,
+        ASSISTANT_AI_ENABLED: 'false',
+        GEMINI_API_KEY: apiKey,
+      }).assistantAi,
+      undefined,
+    );
+    assert.deepEqual(
+      readEnvironment({
+        ...localEnvironment,
+        ASSISTANT_AI_ENABLED: 'true',
+        GEMINI_API_KEY: ` ${apiKey} `,
+      }).assistantAi,
+      { apiKey },
+    );
+    assert.throws(
+      () =>
+        readEnvironment({ ...localEnvironment, ASSISTANT_AI_ENABLED: 'yes' }),
+      { message: 'ASSISTANT_AI_ENABLED must be true or false.' },
+    );
+    assert.throws(
+      () =>
+        readEnvironment({ ...localEnvironment, ASSISTANT_AI_ENABLED: 'true' }),
+      { message: 'GEMINI_API_KEY is required.' },
+    );
+    for (const invalid of ['short-key', 'test-only has a space-0123456789'])
+      assert.throws(
+        () =>
+          readEnvironment({
+            ...localEnvironment,
+            ASSISTANT_AI_ENABLED: 'true',
+            GEMINI_API_KEY: invalid,
+          }),
+        (error: Error) => !error.message.includes(invalid),
+      );
+  });
   void it('keeps cash simulation off by default and refuses remote or production activation', () => {
     assert.equal(readEnvironment(localEnvironment).localCashEnabled, false);
     assert.equal(

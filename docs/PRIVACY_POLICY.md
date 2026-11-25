@@ -19,7 +19,7 @@ The student project team that published Nene on Google Play. For questions or re
 | Authenticator setup | Only if you set up transaction security | To confirm each transaction with a 6-digit code. Codes are checked when entered and are not stored. |
 | Demo accounts, transactions and payment records | When you use banking features | To show balances, history and payment status. All amounts are synthetic. |
 | Approximate or precise location | Only when you open **Offices** and allow location | To find the nearest (fictional) Nene office and a walking route. Location is **not stored** or logged. |
-| Assistant messages | Only when you use **Assistant** | To suggest the right in-app task. Messages are **not stored** and are not sent to any AI provider. |
+| Assistant messages | Only when you use **Assistant** | To suggest the right in-app task. Messages are **not stored** by Nene. If the optional AI helper is turned on, a message the built-in rules cannot understand is sent to Google's Gemini API to interpret it (see below). |
 
 Nene has **no advertising, no analytics and no tracking**, and never sells or shares personal data for marketing.
 
@@ -32,6 +32,7 @@ Nene has **no advertising, no analytics and no tracking**, and never sells or sh
 | VNPay sandbox | Test payment page for demo bills, top-ups and tickets | Order number and amount. Card details are entered on VNPay's page, never in Nene. |
 | FOSSGIS Valhalla routing service | Walking routes on the Offices map | The start point and the selected office's location |
 | OpenStreetMap tile servers | Map images on the Offices map | Your device's IP address and the map area being viewed |
+| Google (Gemini API) | Only when the optional AI helper is turned on: interprets assistant messages the built-in rules cannot understand | The text of that one message and the current month, sent by the Nene server. No account numbers, balances, profile, history or sign-in details. Messages that contain six or more digits in a row or an email address are not sent. On Gemini's free tier, Google may use the message and the reply to provide, improve and develop its products, and human reviewers may read them after Google disconnects them from Nene's account and key ([Gemini API terms](https://aistudio.google.com/docs/terms)). Do not type personal details into the assistant. |
 
 ## Security and retention
 
@@ -44,7 +45,7 @@ Nene has **no advertising, no analytics and no tracking**, and never sells or sh
 
 - Uploading a photo, setting up an authenticator, sharing location and using the assistant are all optional.
 - You can ask for your demo data to be deleted through the contact options above.
-- Nene is not directed at children under 13.
+- Nene is intended for users aged 18 and older and is not directed at anyone under 18.
 
 ## Changes
 
