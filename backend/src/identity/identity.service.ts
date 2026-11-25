@@ -280,7 +280,7 @@ export class IdentityService {
           await client.query<CaseRow>(
             `UPDATE bank.identity_cases SET state='draft',version=version+1,revision=revision+1,
           profile_name=$2,notice_version=$3,acknowledged_by=$4,acknowledged_role=$5,evidence_id=NULL,
-          correction_reason=NULL,reviewed_by=NULL,reviewed_at=NULL,expires_at=now()+interval '7 days',updated_at=now()
+          correction_reason=NULL,reviewed_by=NULL,reviewed_at=NULL,expires_at=now()+interval '60 days',updated_at=now()
           WHERE id=$1 RETURNING *`,
             [row.id, customer.display_name, notice.version, user.id, user.role],
           )

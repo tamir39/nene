@@ -1719,13 +1719,11 @@ class AccountCard extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             if (mortgage) ...[
-              const Text('Monthly repayment', style: muted),
-              const SizedBox(height: 2),
-              Text(
-                account.monthlyDueMinor == null
-                    ? 'Repayment schedule unavailable'
-                    : account.amountLabel(account.monthlyDueMinor!),
-                style: amount,
+              _MortgageRepayment(
+                account,
+                key: ValueKey(account.id),
+                labelStyle: muted,
+                amountStyle: amount,
               ),
               const SizedBox(height: 8),
               if (account.nextDueOn != null)
@@ -1803,6 +1801,104 @@ class AccountCard extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+/// Switches between the stored monthly amount and the backend-derived two-week
+/// equivalent (same yearly total over 26 payments). The toggle is hidden when
+/// the response has no two-week amount, e.g. from an older API.
+class _MortgageRepayment extends StatefulWidget {
+  const _MortgageRepayment(
+    this.account, {
+    super.key,
+    required this.labelStyle,
+    required this.amountStyle,
+  });
+  final BankAccount account;
+  final TextStyle labelStyle, amountStyle;
+
+  @override
+  State<_MortgageRepayment> createState() => _MortgageRepaymentState();
+}
+
+class _MortgageRepaymentState extends State<_MortgageRepayment> {
+  static const _twoWeekOption = 'Every 2 weeks';
+  var _twoWeeks = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final account = widget.account;
+    final monthly = account.monthlyDueMinor;
+    final twoWeek = monthly == null ? null : account.biweeklyDueMinor;
+    final showTwoWeeks = _twoWeeks && twoWeek != null;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (twoWeek != null) ...[
+          LayoutBuilder(
+            builder: (context, constraints) =>
+                _toggle(context, constraints.maxWidth),
+          ),
+          const SizedBox(height: 12),
+        ],
+        Text(
+          showTwoWeeks ? 'Repayment every 2 weeks' : 'Monthly repayment',
+          style: widget.labelStyle,
+        ),
+        const SizedBox(height: 2),
+        Text(
+          monthly == null
+              ? 'Repayment schedule unavailable'
+              : account.amountLabel(showTwoWeeks ? twoWeek : monthly),
+          style: widget.amountStyle,
+        ),
+        if (showTwoWeeks) ...[
+          const SizedBox(height: 4),
+          Text(
+            'Equivalent of the monthly schedule: the same yearly total '
+            'over 26 payments, rounded up.',
+            style: widget.labelStyle,
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _toggle(BuildContext context, double width) {
+    // Stack the segments when large text would not fit them side by side.
+    final label = TextPainter(
+      text: TextSpan(
+        text: _twoWeekOption,
+        style: Theme.of(context).textTheme.labelLarge,
+      ),
+      textScaler: MediaQuery.textScalerOf(context),
+      textDirection: Directionality.of(context),
+      maxLines: 1,
+    )..layout();
+    final sideBySide = 2 * (label.width + 32) <= width;
+    label.dispose();
+    final toggle = SegmentedButton<bool>(
+      direction: sideBySide ? Axis.horizontal : Axis.vertical,
+      showSelectedIcon: false,
+      style: SegmentedButton.styleFrom(
+        foregroundColor: NeneColors.muted,
+        selectedForegroundColor: NeneColors.action,
+        selectedBackgroundColor: NeneColors.pale,
+        side: const BorderSide(color: NeneColors.border),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      ),
+      segments: const [
+        ButtonSegment(value: false, label: Text('Monthly')),
+        ButtonSegment(value: true, label: Text(_twoWeekOption)),
+      ],
+      selected: {_twoWeeks},
+      onSelectionChanged: (selection) =>
+          setState(() => _twoWeeks = selection.single),
+    );
+    // Stacked segments use the full card width so labels keep clear margins.
+    return sideBySide
+        ? toggle
+        : SizedBox(width: double.infinity, child: toggle);
   }
 }
 

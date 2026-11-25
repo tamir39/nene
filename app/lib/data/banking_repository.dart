@@ -13,6 +13,7 @@ class BankAccount {
     this.monthlyProfitMinor,
     this.principalRemainingMinor,
     this.monthlyDueMinor,
+    this.biweeklyDueMinor,
     this.nextDueOn,
   });
 
@@ -38,6 +39,8 @@ class BankAccount {
       monthlyProfitMinor: _amount(json['monthlyProfitMinor']),
       principalRemainingMinor: _amount(json['principalRemainingMinor']),
       monthlyDueMinor: _amount(json['monthlyDueMinor']),
+      // Backend-derived two-week equivalent; older responses omit it.
+      biweeklyDueMinor: _amount(json['biweeklyDueMinor']),
       nextDueOn: optionalText(json, 'nextDueOn'),
     );
   }
@@ -53,6 +56,7 @@ class BankAccount {
   final String? monthlyProfitMinor,
       principalRemainingMinor,
       monthlyDueMinor,
+      biweeklyDueMinor,
       nextDueOn;
   static int? _rate(Object? value) {
     if (value == null) return null;

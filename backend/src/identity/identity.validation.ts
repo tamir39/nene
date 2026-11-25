@@ -1,8 +1,8 @@
 import { BadRequestException, PayloadTooLargeException } from '@nestjs/common';
 
 export const notice = {
-  version: 'reference-demo-v1',
-  text: 'This coursework demo stores one private reference photo for officer review and later identity-check development. Acceptance is not completed eKYC or proof of live presence. Access expires after 7 days; expired and abandoned files are removed when local maintenance runs. Use only agreed test images; do not submit real customer data.',
+  version: 'reference-demo-v2',
+  text: 'This coursework demo stores one private reference photo for officer review and later identity-check development. Acceptance is not completed eKYC or proof of live presence. Access expires after 60 days; expired and abandoned files are removed when local maintenance runs. Use only agreed test images; do not submit real customer data.',
 };
 export const maxImageBytes = 10 * 1024 * 1024;
 

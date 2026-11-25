@@ -142,7 +142,7 @@ The table spans implemented reference behavior and future comparison/2FA accepta
 
 ## Next tasks and open decisions
 
-**Next: exercise the reference flow in the Edge web demo, then select and prove the later comparison implementation.** The implemented reference foundation uses notice `reference-demo-v1`, explicit acknowledgement/association confirmation, seven-day access expiry and maintenance-driven deletion; see [REFERENCE_FLOW.md](REFERENCE_FLOW.md). Real-person captures still need an explicitly agreed test-data procedure. A synthetic account name does not make a real face synthetic.
+**Next: exercise the reference flow in the Edge web demo, then select and prove the later comparison implementation.** The implemented reference foundation uses notice `reference-demo-v2`, explicit acknowledgement/association confirmation, 60-day access expiry and maintenance-driven deletion; see [REFERENCE_FLOW.md](REFERENCE_FLOW.md). Real-person captures still need an explicitly agreed test-data procedure. A synthetic account name does not make a real face synthetic.
 
 Then select and prove a real comparison implementation, define its quality/threshold/attempt/expiry policy and the high-value amount rule, and connect it to operation-bound checks. Select and implement transaction 2FA before any financial posting. Lecturer expectations for the enrollment procedure, officer-subject coverage and any simulated integration remain unresolved; no waiver is assumed. The remaining account, payment, utility, map, chat and submission work stays in the roadmap.
 

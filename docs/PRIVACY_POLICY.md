@@ -37,7 +37,7 @@ Nene has **no advertising, no analytics and no tracking**, and never sells or sh
 ## Security and retention
 
 - Data is sent over encrypted HTTPS connections. Banking data is only reachable through the Nene server, which checks who you are and what you may access.
-- Reference photos are private: only you and bank officers can view them. Access to a photo expires seven days after its upload step starts; expired files can then be deleted.
+- Reference photos are private: only you and bank officers can view them. Access to a photo expires 60 days after its upload step starts; expired files can then be deleted.
 - Sign-in sessions are kept in memory only and end when the app is closed.
 - Because this is a course demo, the database may be reset or deleted after the course ends.
 

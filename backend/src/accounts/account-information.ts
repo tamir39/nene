@@ -10,6 +10,17 @@ export function monthlyProfit(balance: string, annualBps: number): string {
   return ((BigInt(balance) * BigInt(annualBps) + 60000n) / 120000n).toString();
 }
 
+/**
+ * Two-week equivalent of a monthly repayment: the same yearly total spread
+ * over 26 payments, `ceil(monthly × 12 / 26)` in whole minor units using
+ * BigInt. A display equivalent only, not a separate biweekly schedule.
+ */
+export function biweeklyDue(monthlyDue: string): string {
+  if (!/^\d+$/.test(monthlyDue))
+    throw new Error('Invalid repayment calculation input.');
+  return ((BigInt(monthlyDue) * 12n + 25n) / 26n).toString();
+}
+
 export const informationColumns = `
   case when type='saving' then (select annual_rate_bps from bank.savings_policy where id) end as "annualRateBps",
   case when type='saving' then (select revision from bank.savings_policy where id) end as "rateRevision",
@@ -22,15 +33,24 @@ export function withInformation<
     type: string;
     balanceMinor: string;
     annualRateBps?: number | null;
+    monthlyDueMinor?: string | null;
   },
 >(account: T) {
-  return account.type === 'saving' && account.annualRateBps != null
-    ? {
-        ...account,
-        monthlyProfitMinor: monthlyProfit(
-          account.balanceMinor,
-          account.annualRateBps,
-        ),
-      }
-    : account;
+  if (account.type === 'saving' && account.annualRateBps != null)
+    return {
+      ...account,
+      monthlyProfitMinor: monthlyProfit(
+        account.balanceMinor,
+        account.annualRateBps,
+      ),
+    };
+  if (account.type === 'mortgage')
+    return {
+      ...account,
+      biweeklyDueMinor:
+        account.monthlyDueMinor == null
+          ? null
+          : biweeklyDue(account.monthlyDueMinor),
+    };
+  return account;
 }
