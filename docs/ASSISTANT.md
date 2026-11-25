@@ -52,7 +52,7 @@ Added 25 November 2026 so BR-14's chatbot can answer phrasing the rules do not c
 - more than four concurrent fallback requests;
 - no answer within **8 seconds**.
 
-There are no retries and the endpoint never fails because of the AI path. Failures are logged as a short reason (for example `HTTP 429` or `timeout`). Message text, model output and the API key are never logged or returned.
+**Backup model.** Free-tier models can be overloaded or run out of quota, and quotas are counted per model. If the first model returns HTTP 429, a 5xx error or 404, or the connection fails, the server tries `gemini-3.1-flash-lite` (also stable and on the free tier) once, with the same request. It does this only while at least 2.5 s of the 8 s limit remain. Rejected requests or keys (400, 403), blocks and invalid output are not retried. `GEMINI_MODEL` optionally replaces the first model; when it names the backup itself, only one attempt is made. Nothing is retried on the same model, and the endpoint never fails because of the AI path. Failures are logged as a short reason (for example `HTTP 429` or `timeout`), and a backup try is logged with both model names. Message text, model output and the API key are never logged or returned.
 
 **Configuration.** Backend only: `ASSISTANT_AI_ENABLED` (`true`/`false`, default `false`) and `GEMINI_API_KEY`, a Google AI Studio key required only when enabled (20–512 printable characters). The names are listed in [hosted.env.example](../backend/hosted.env.example). On Render, add both under the service's Environment settings and redeploy. The Flutter app never receives the key. Google recommends restricting the key to the Gemini API. No new npm dependency is added.
 

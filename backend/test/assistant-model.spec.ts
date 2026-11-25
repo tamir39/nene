@@ -8,9 +8,11 @@ import {
 } from '../src/assistant/activity-assistant.js';
 import { AssistantController } from '../src/assistant/assistant.controller.js';
 import {
+  assistantBackupModel,
   assistantModel,
   assistantModelEndpoint,
   assistantModelTimeoutMs,
+  modelEndpoint,
   AssistantModelService,
 } from '../src/assistant/assistant-model.service.js';
 import type { AuthenticatedRequest } from '../src/auth/auth.types.js';
@@ -290,8 +292,85 @@ void describe('assistant AI fallback (Gemini API mocked, no network or key)', ()
     const { fetchMock } = mockModel(t, () => outputs[next]!());
     for (; next < outputs.length; next++)
       assert.deepEqual(await ask(unrecognised), unsupported, `output ${next}`);
-    // No retries: one request per message.
-    assert.equal(fetchMock.mock.callCount(), outputs.length);
+    // No retries on the same model. Only the four overload/quota/network
+    // failures (429, 500, 503, thrown fetch) make one extra backup-model call.
+    assert.equal(fetchMock.mock.callCount(), outputs.length + 4);
+  });
+
+  void it('tries the backup model once when the first is overloaded or over quota', async (t) => {
+    const answer = {
+      reply:
+        'I can open the same-bank transfer form. It only opens the screen; nothing has been created or sent.',
+      actions: [{ type: 'transfer' }],
+    };
+    for (const failure of [
+      () => geminiError(503, 'UNAVAILABLE'),
+      () => geminiError(429, 'RESOURCE_EXHAUSTED'),
+      () => geminiError(404, 'NOT_FOUND'),
+    ]) {
+      let calls = 0;
+      const { sent, fetchMock } = mockModel(t, () =>
+        calls++ === 0 ? failure() : modelMessage(answer),
+      );
+      const response = await new AssistantModelService(enabled).interpret(
+        unrecognised,
+        now,
+      );
+      assert.deepEqual(response, { ...answer, context: null });
+      assert.deepEqual(
+        sent.map((request) => request.url),
+        [assistantModelEndpoint, modelEndpoint(assistantBackupModel)],
+      );
+      for (const request of sent) {
+        assert.equal(new URL(request.url).search, '');
+        assert.equal(request.headers.get('x-goog-api-key'), apiKey);
+      }
+      fetchMock.mock.restore();
+    }
+  });
+
+  void it('never tries the backup for rejected requests or keys, or when both fail', async (t) => {
+    for (const [status, code] of [
+      [400, 'INVALID_ARGUMENT'],
+      [403, 'PERMISSION_DENIED'],
+    ] as const) {
+      const { fetchMock } = mockModel(t, () => geminiError(status, code));
+      assert.deepEqual(await ask(unrecognised), unsupported);
+      assert.equal(fetchMock.mock.callCount(), 1, `HTTP ${status}`);
+      fetchMock.mock.restore();
+    }
+    const { fetchMock } = mockModel(t, () => geminiError(503, 'UNAVAILABLE'));
+    assert.deepEqual(await ask(unrecognised), unsupported);
+    assert.equal(
+      fetchMock.mock.callCount(),
+      2,
+      'one backup try, then fall back',
+    );
+  });
+
+  void it('uses GEMINI_MODEL first and keeps the backup', async (t) => {
+    const configured = readEnvironment({
+      ...baseEnvironment,
+      ASSISTANT_AI_ENABLED: 'true',
+      GEMINI_API_KEY: apiKey,
+      GEMINI_MODEL: 'gemini-3.6-flash',
+    });
+    const { sent } = mockModel(t, () => geminiError(429, 'RESOURCE_EXHAUSTED'));
+    assert.deepEqual(await ask(unrecognised, configured), unsupported);
+    assert.deepEqual(
+      sent.map((request) => request.url),
+      [modelEndpoint('gemini-3.6-flash'), modelEndpoint(assistantBackupModel)],
+    );
+    // Configuring the backup itself means a single model and a single try.
+    const backupOnly = readEnvironment({
+      ...baseEnvironment,
+      ASSISTANT_AI_ENABLED: 'true',
+      GEMINI_API_KEY: apiKey,
+      GEMINI_MODEL: assistantBackupModel,
+    });
+    sent.length = 0;
+    assert.deepEqual(await ask(unrecognised, backupOnly), unsupported);
+    assert.equal(sent.length, 1);
   });
 
   void it('falls back after the request timeout', async (t) => {
@@ -476,12 +555,14 @@ void describe('assistant AI fallback (Gemini API mocked, no network or key)', ()
         }),
     ];
     let next = 0;
-    const { sent } = mockModel(t, () => failures[next++]!());
+    // One scripted outcome per message; a backup try repeats that outcome.
+    const { sent } = mockModel(t, () => failures[next]!());
     const responses: Awaited<ReturnType<typeof ask>>[] = [];
-    for (let i = 0; i < failures.length; i++)
+    for (; next < failures.length; next++)
       responses.push(await ask(unrecognised));
-    assert.equal(lines.length, 5, 'each failure is logged by reason only');
-    assert.equal(sent.length, failures.length);
+    // Each failure is logged by reason only; the network failure also logs its backup try.
+    assert.equal(lines.length, 6);
+    assert.equal(sent.length, failures.length + 1);
     for (const line of [
       ...lines,
       ...sent.map((request) => request.url),
@@ -494,7 +575,7 @@ void describe('assistant AI fallback (Gemini API mocked, no network or key)', ()
       assert.ok(!line.includes(unrecognised), line);
       assert.match(
         line,
-        /Assistant AI unavailable \([^)]+\); using the rule-based reply\./,
+        /Assistant AI (unavailable \([^)]+\); using the rule-based reply|gemini-[a-z0-9.-]+ unavailable \([^)]+\); trying gemini-[a-z0-9.-]+)\./,
       );
     }
   });
