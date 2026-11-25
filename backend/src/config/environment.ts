@@ -19,7 +19,7 @@ export interface Environment {
     returnUrl: string;
   };
   /** Optional AI fallback for unrecognised assistant messages; see docs/ASSISTANT.md. */
-  assistantAi?: { apiKey: string };
+  assistantAi?: { apiKey: string; model?: string };
   database: PoolConfig;
 }
 
@@ -208,7 +208,12 @@ export function readEnvironment(env: NodeJS.ProcessEnv): Environment {
       throw new Error(
         'GEMINI_API_KEY must contain 20-512 printable characters without spaces.',
       );
-    assistantAi = { apiKey };
+    const model = env.GEMINI_MODEL?.trim();
+    if (model && !/^gemini-[a-z0-9][a-z0-9.-]{0,62}$/.test(model))
+      throw new Error(
+        'GEMINI_MODEL must be a Gemini model code such as gemini-3.5-flash-lite.',
+      );
+    assistantAi = model ? { apiKey, model } : { apiKey };
   }
   if (env.DATABASE_SSL_CA_FILE?.trim()) {
     if (sslMode !== 'verify-full')

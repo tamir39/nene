@@ -15,8 +15,21 @@ import {
  * validated like rule-based output.
  */
 export const assistantModel = 'gemini-3.5-flash-lite';
-export const assistantModelEndpoint = `https://generativelanguage.googleapis.com/v1beta/models/${assistantModel}:generateContent`;
+/**
+ * Second stable free-tier model, tried once when the first is overloaded, over
+ * its quota or unavailable. Free-tier quotas are counted per model.
+ */
+export const assistantBackupModel = 'gemini-3.1-flash-lite';
+export function modelEndpoint(model: string): string {
+  return `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
+}
+export const assistantModelEndpoint = modelEndpoint(assistantModel);
 export const assistantModelTimeoutMs = 8000;
+/** The backup is only tried while at least this much of the overall limit remains. */
+const minBackupBudgetMs = 2500;
+/** Failures worth one try on the backup model; bad requests or keys are not. */
+const retryableFailure =
+  /^(HTTP (404|429|5\d\d)|connection or response error)$/;
 const maxOutputTokens = 1024;
 const maxInFlight = 4;
 const maxResponseBytes = 32 * 1024;
@@ -137,10 +150,13 @@ type Outcome = { answer: AssistantAnswer } | { failure: string };
 export class AssistantModelService {
   private readonly logger = new Logger(AssistantModelService.name);
   private readonly apiKey: string | null;
+  private readonly models: string[];
   private inFlight = 0;
 
   constructor(@Inject(ENVIRONMENT) env: Environment) {
     this.apiKey = env.assistantAi?.apiKey ?? null;
+    const primary = env.assistantAi?.model ?? assistantModel;
+    this.models = [...new Set([primary, assistantBackupModel])];
   }
 
   async interpret(
@@ -165,9 +181,7 @@ export class AssistantModelService {
     });
     try {
       const outcome = await Promise.race([
-        this.request(this.apiKey, message, now, controller.signal).catch(
-          (): Outcome => ({ failure: 'connection or response error' }),
-        ),
+        this.attempt(this.apiKey, message, now, controller.signal),
         timedOut,
       ]);
       if ('answer' in outcome) return outcome.answer;
@@ -183,14 +197,46 @@ export class AssistantModelService {
     }
   }
 
-  private async request(
+  /**
+   * Tries the configured model, then the backup once for overload, quota,
+   * missing-model or network failures while enough of the time limit remains.
+   * Both share one abort signal, so the overall limit still applies.
+   */
+  private async attempt(
     apiKey: string,
     message: string,
     now: Date,
     signal: AbortSignal,
   ): Promise<Outcome> {
+    const started = Date.now();
+    let outcome: Outcome = { failure: 'no model attempted' };
+    for (const [index, model] of this.models.entries()) {
+      if (index > 0) {
+        if (!('failure' in outcome) || !retryableFailure.test(outcome.failure))
+          break;
+        if (Date.now() - started > assistantModelTimeoutMs - minBackupBudgetMs)
+          break;
+        this.logger.warn(
+          `Assistant AI ${this.models[index - 1]} unavailable (${outcome.failure}); trying ${model}.`,
+        );
+      }
+      outcome = await this.request(apiKey, model, message, now, signal).catch(
+        (): Outcome => ({ failure: 'connection or response error' }),
+      );
+      if ('answer' in outcome) return outcome;
+    }
+    return outcome;
+  }
+
+  private async request(
+    apiKey: string,
+    model: string,
+    message: string,
+    now: Date,
+    signal: AbortSignal,
+  ): Promise<Outcome> {
     // The key goes only in a header, never in the URL, so it cannot reach URL logs.
-    const response = await fetch(assistantModelEndpoint, {
+    const response = await fetch(modelEndpoint(model), {
       method: 'POST',
       redirect: 'error',
       signal,

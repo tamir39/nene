@@ -118,6 +118,34 @@ void describe('environment boundaries', () => {
       }).assistantAi,
       { apiKey },
     );
+    assert.deepEqual(
+      readEnvironment({
+        ...localEnvironment,
+        ASSISTANT_AI_ENABLED: 'true',
+        GEMINI_API_KEY: apiKey,
+        GEMINI_MODEL: ' gemini-3.6-flash ',
+      }).assistantAi,
+      { apiKey, model: 'gemini-3.6-flash' },
+    );
+    for (const model of [
+      'gpt-4o',
+      'gemini-3.5 flash',
+      'gemini-../x',
+      'Gemini-3',
+    ])
+      assert.throws(
+        () =>
+          readEnvironment({
+            ...localEnvironment,
+            ASSISTANT_AI_ENABLED: 'true',
+            GEMINI_API_KEY: apiKey,
+            GEMINI_MODEL: model,
+          }),
+        {
+          message:
+            'GEMINI_MODEL must be a Gemini model code such as gemini-3.5-flash-lite.',
+        },
+      );
     assert.throws(
       () =>
         readEnvironment({ ...localEnvironment, ASSISTANT_AI_ENABLED: 'yes' }),
