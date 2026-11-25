@@ -41,7 +41,7 @@ No unrelated implemented business product was found in the reviewed routes/scree
 | Item | Classification and action |
 | --- | --- |
 | Authenticator replacement/backup-code recovery and session coordination | Additional support for the chosen 2FA mechanism, previously authorized and implemented. Keep working safeguards; do not build a broader account-recovery platform. |
-| Reference notices, seven-day expiry, officer association and restricted storage | Implementation/privacy choices for the chosen reference flow, not PDF-mandated forms or periods. Keep them proportionate; no new compliance product. |
+| Reference notices, 60-day expiry, officer association and restricted storage | Implementation/privacy choices for the chosen reference flow, not PDF-mandated forms or periods. Keep them proportionate; no new compliance product. |
 | Atomic posting, ownership checks, operation binding, retry protection and small audit records | Engineering support for required validity/permissions/2FA. Retain; "not explicitly named" does not make these unnecessary features. |
 | Standalone **Try transfer confirmation - no money sent** flow and old authorization prototype | Authorized development experiments, not additional PDF outcomes. The preview still appears alongside the sending flow; it is a candidate to hide from the final customer journey after final UI review. No removal in this audit. The old prototype is not registered in AppModule. |
 | Local cash balance, seeded accounts/funds and synthetic mortgage records | Test fixtures for required account/transaction demonstrations. Keep explicitly simulated and local; do not develop them into a wallet, cash-provider or loan product. |

@@ -30,9 +30,9 @@ Map<String, dynamic> identityJson({
   'expiresAt': status == 'not_started' ? null : '2026-11-03T12:00:00Z',
   'expired': expired,
   'notice': {
-    'version': 'reference-demo-v1',
+    'version': 'reference-demo-v2',
     'text':
-        'This coursework demo stores one private reference photo for officer review. Acceptance is not completed eKYC or proof of live presence. Access expires after 7 days; expired and abandoned files are removed when local maintenance runs. Use only agreed test images.',
+        'This coursework demo stores one private reference photo for officer review. Acceptance is not completed eKYC or proof of live presence. Access expires after 60 days; expired and abandoned files are removed when local maintenance runs. Use only agreed test images.',
   },
   'allowedActions':
       expired || status == 'not_started' || status == 'needs_changes'

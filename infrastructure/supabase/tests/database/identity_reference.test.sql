@@ -50,7 +50,7 @@ select lives_ok(
  'Customer acknowledgement creates a draft reference'
 );
 select is((select state from bank.identity_cases where id = 'd7100000-0000-4000-8000-000000000001'), 'draft', 'New reference is draft, not verified');
-select is((select expires_at - created_at from bank.identity_cases where id = 'd7100000-0000-4000-8000-000000000001'), interval '7 days', 'Demo case expiry defaults to seven days');
+select is((select expires_at - created_at from bank.identity_cases where id = 'd7100000-0000-4000-8000-000000000001'), interval '60 days', 'Demo case expiry defaults to sixty days');
 select throws_ok(
  $$insert into bank.identity_cases (id, customer_id, profile_name, notice_version, acknowledged_by, acknowledged_role)
    values ('d7100000-0000-4000-8000-000000000002', 'd7000000-0000-4000-8000-000000000003',
