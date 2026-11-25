@@ -73,6 +73,7 @@ const _accounts = [
     status: 'active',
     isDemo: true,
     monthlyDueMinor: '4250000',
+    biweeklyDueMinor: '1961539',
     nextDueOn: '2026-12-15',
     principalRemainingMinor: '480000000',
   ),

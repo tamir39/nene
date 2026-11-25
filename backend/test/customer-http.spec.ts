@@ -61,6 +61,17 @@ void describe('customer HTTP permission/input boundaries (database/Auth fakes)',
                 balanceMinor: '0',
                 status: 'active',
               },
+              {
+                id: 'b3000000-0000-4000-8000-000000000003',
+                accountNumber: '100000000002',
+                type: 'mortgage',
+                currency: 'VND',
+                balanceMinor: '0',
+                status: 'active',
+                principalRemainingMinor: '51000000',
+                monthlyDueMinor: '4250000',
+                nextDueOn: '2026-12-01',
+              },
             ];
           }
           if (sql.includes('FROM bank.user_profiles')) {
@@ -199,6 +210,9 @@ void describe('customer HTTP permission/input boundaries (database/Auth fakes)',
       .set(auth)
       .expect(200);
     assert.equal(result.body.accounts[0].balanceMinor, '0');
+    assert.equal('biweeklyDueMinor' in result.body.accounts[0], false);
+    assert.equal(result.body.accounts[1].monthlyDueMinor, '4250000');
+    assert.equal(result.body.accounts[1].biweeklyDueMinor, '1961539');
     assert.equal(result.headers['cache-control'], 'no-store');
     profile.role = 'officer';
     await request(server).get('/api/v1/me/accounts').set(auth).expect(403);

@@ -11,6 +11,7 @@ export interface Account {
   monthlyProfitMinor?: string;
   principalRemainingMinor?: string | null;
   monthlyDueMinor?: string | null;
+  biweeklyDueMinor?: string | null;
   nextDueOn?: string | null;
 }
 

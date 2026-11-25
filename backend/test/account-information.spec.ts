@@ -1,7 +1,11 @@
 import 'reflect-metadata';
 import assert from 'node:assert/strict';
 import { it } from 'node:test';
-import { monthlyProfit } from '../src/accounts/account-information.js';
+import {
+  biweeklyDue,
+  monthlyProfit,
+  withInformation,
+} from '../src/accounts/account-information.js';
 import {
   rateInput,
   SavingsPolicyController,
@@ -21,6 +25,57 @@ void it('invalid amounts and rate boundaries are rejected', () => {
   for (const balance of ['-1', '1.5', 'abc'])
     assert.throws(() => monthlyProfit(balance, 100));
   assert.equal(monthlyProfit('100', 0), '0');
+});
+void it('two-week equivalent spreads the yearly total over 26 payments, rounded up', () => {
+  assert.equal(biweeklyDue('4250000'), '1961539');
+  assert.equal(biweeklyDue('1000000'), '461539');
+  assert.equal(biweeklyDue('333333'), '153846');
+  assert.equal(biweeklyDue('13'), '6');
+  assert.equal(biweeklyDue('1'), '1');
+  assert.equal(biweeklyDue('0'), '0');
+  for (let monthly = 0n; monthly <= 2000n; monthly++) {
+    const twoWeek = BigInt(biweeklyDue(monthly.toString()));
+    const shortfall = twoWeek * 26n - monthly * 12n;
+    assert.ok(shortfall >= 0n && shortfall < 26n);
+  }
+});
+void it('two-week equivalent keeps precision beyond 2^53 and rejects malformed input', () => {
+  // Floating point would read 2^53 + 1 as 2^53 and yield ...535.
+  assert.equal(biweeklyDue('9007199254740993'), '4157168886803536');
+  assert.equal(biweeklyDue('999999999999999999999'), '461538461538461538462');
+  for (const monthly of ['-1', '1.5', 'abc', '', ' 1'])
+    assert.throws(() => biweeklyDue(monthly));
+});
+void it('mortgage information adds the two-week amount only alongside a monthly amount', () => {
+  const mortgage = { type: 'mortgage', balanceMinor: '0' };
+  assert.deepEqual(
+    withInformation({ ...mortgage, monthlyDueMinor: '4250000' }),
+    {
+      ...mortgage,
+      monthlyDueMinor: '4250000',
+      biweeklyDueMinor: '1961539',
+    },
+  );
+  assert.deepEqual(withInformation({ ...mortgage, monthlyDueMinor: null }), {
+    ...mortgage,
+    monthlyDueMinor: null,
+    biweeklyDueMinor: null,
+  });
+  const checking = {
+    type: 'checking',
+    balanceMinor: '0',
+    monthlyDueMinor: null,
+  };
+  assert.deepEqual(withInformation(checking), checking);
+  assert.equal(
+    'biweeklyDueMinor' in
+      withInformation({
+        type: 'saving',
+        balanceMinor: '0',
+        annualRateBps: 600,
+      }),
+    false,
+  );
 });
 void it('rate input rejects forged fields and stale-shaped revisions', () => {
   assert.deepEqual(
