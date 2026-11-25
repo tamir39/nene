@@ -161,7 +161,7 @@ class _AssistantScreenState extends State<AssistantScreen> {
                     ),
                   ),
                   const Text(
-                    'Finds the right screen · replies in English',
+                    'Finds the right screen for you',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(color: NeneColors.muted, fontSize: 12.5),
@@ -193,9 +193,10 @@ class _AssistantScreenState extends State<AssistantScreen> {
         const SizedBox(height: 6),
         const Text(
           'Ask about an activity in English or Vietnamese. This assistant '
-          'understands a limited set of requests, replies in English and '
-          'opens the right screen. You review and confirm any transaction in '
-          'its usual flow.',
+          'understands a limited set of requests and opens the right screen. '
+          'Questions it does not recognise may be passed to Google Gemini, so '
+          'do not type personal details. You review and confirm any '
+          'transaction in its usual flow.',
           textAlign: TextAlign.center,
           style: TextStyle(color: NeneColors.muted, fontSize: 13.5),
         ),
