@@ -9,6 +9,7 @@ import {
 import { AssistantController } from '../src/assistant/assistant.controller.js';
 import {
   assistantModel,
+  assistantModelEndpoint,
   assistantModelTimeoutMs,
   AssistantModelService,
 } from '../src/assistant/assistant-model.service.js';
@@ -27,7 +28,7 @@ const baseEnvironment = {
 const enabled = readEnvironment({
   ...baseEnvironment,
   ASSISTANT_AI_ENABLED: 'true',
-  ANTHROPIC_API_KEY: apiKey,
+  GEMINI_API_KEY: apiKey,
 });
 const now = new Date('2026-10-31T17:05:00Z'); // 1 November in UTC+07.
 const customer = { user: { role: 'customer' } } as AuthenticatedRequest;
@@ -37,29 +38,37 @@ const unsupported = answerActivityQuestion(unrecognised, null, now);
 
 interface SentRequest {
   url: string;
+  init: RequestInit;
   headers: Headers;
   body: Record<string, unknown>;
 }
+function text(output: unknown) {
+  return typeof output === 'string' ? output : JSON.stringify(output);
+}
+/** A generateContent response with one candidate; overrides apply to the candidate. */
 function modelMessage(
   output: unknown,
-  overrides: Record<string, unknown> = {},
+  candidate: Record<string, unknown> = {},
 ) {
   return Response.json({
-    id: 'msg_synthetic',
-    type: 'message',
-    role: 'assistant',
-    model: assistantModel,
-    content: [
+    candidates: [
       {
-        type: 'text',
-        text: typeof output === 'string' ? output : JSON.stringify(output),
+        content: { role: 'model', parts: [{ text: text(output) }] },
+        finishReason: 'STOP',
+        index: 0,
+        ...candidate,
       },
     ],
-    stop_reason: 'end_turn',
-    stop_sequence: null,
-    usage: { input_tokens: 1, output_tokens: 1 },
-    ...overrides,
+    usageMetadata: {
+      promptTokenCount: 1,
+      candidatesTokenCount: 1,
+      totalTokenCount: 2,
+    },
+    modelVersion: assistantModel,
   });
+}
+function geminiError(code: number, status: string, message = status) {
+  return Response.json({ error: { code, message, status } }, { status: code });
 }
 /** Replaces the global network boundary; every request is recorded, none leaves the process. */
 function mockModel(t: TestContext, reply: () => Response | Promise<Response>) {
@@ -67,11 +76,12 @@ function mockModel(t: TestContext, reply: () => Response | Promise<Response>) {
   const fetchMock = t.mock.method(
     globalThis,
     'fetch',
-    async (input: string | URL | Request, init?: RequestInit) => {
+    async (input: string | URL | Request, init: RequestInit = {}) => {
       sent.push({
         url: String(input),
-        headers: new Headers(init?.headers),
-        body: JSON.parse(String(init?.body)) as Record<string, unknown>,
+        init,
+        headers: new Headers(init.headers),
+        body: JSON.parse(String(init.body)) as Record<string, unknown>,
       });
       return reply();
     },
@@ -91,51 +101,82 @@ function assertAllowlisted(actions: unknown[]) {
     assert.deepEqual(Object.keys(rest), type === 'history' ? ['month'] : []);
   }
 }
+function systemText(request: SentRequest) {
+  return (request.body.systemInstruction as { parts: Array<{ text: string }> })
+    .parts[0]!.text;
+}
 
-void describe('assistant AI fallback (Messages API mocked, no network or key)', () => {
+void describe('assistant AI fallback (Gemini API mocked, no network or key)', () => {
   void it('maps an unrecognised message to an allowlisted action and sends only the message and month', async (t) => {
+    const answer = {
+      reply:
+        'I can open your transaction history for October 2026. It only opens the screen; nothing has been created or sent.',
+      actions: [{ type: 'history', month: '2026-10' }],
+    };
     const { sent } = mockModel(t, () =>
-      modelMessage({
-        reply:
-          'I can open your transaction history for October 2026. It only opens the screen; nothing has been created or sent.',
-        actions: [{ type: 'history', month: '2026-10' }],
+      modelMessage(answer, {
+        // A thought summary is ignored; only the answer part is used.
+        content: {
+          role: 'model',
+          parts: [
+            { text: 'Thinking about months.', thought: true },
+            { text: text(answer) },
+          ],
+        },
       }),
     );
     const response = await new AssistantModelService(enabled).interpret(
       unrecognised,
       now,
     );
-    assert.deepEqual(response, {
-      reply:
-        'I can open your transaction history for October 2026. It only opens the screen; nothing has been created or sent.',
-      actions: [{ type: 'history', month: '2026-10' }],
-      context: null,
-    });
+    assert.deepEqual(response, { ...answer, context: null });
     assert.equal(sent.length, 1);
-    const [request] = sent;
-    assert.equal(request!.url, 'https://api.anthropic.com/v1/messages');
-    // The key travels only in the auth header, never in the body.
-    assert.equal(request!.headers.get('authorization'), `Bearer ${apiKey}`);
-    assert.ok(!JSON.stringify(request!.body).includes(apiKey));
-    assert.deepEqual(Object.keys(request!.body).sort(), [
-      'max_tokens',
-      'messages',
-      'model',
-      'output_config',
-      'system',
+    const request = sent[0]!;
+    assert.equal(
+      request.url,
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent',
+    );
+    assert.equal(request.url, assistantModelEndpoint);
+    // The key travels only in the x-goog-api-key header: never the URL or body.
+    assert.equal(new URL(request.url).search, '');
+    assert.ok(!request.url.includes(apiKey));
+    assert.equal(request.headers.get('x-goog-api-key'), apiKey);
+    assert.equal(request.headers.get('authorization'), null);
+    assert.ok(!JSON.stringify(request.body).includes(apiKey));
+    assert.equal(request.init.method, 'POST');
+    assert.equal(request.init.redirect, 'error');
+    assert.ok(request.init.signal instanceof AbortSignal);
+    assert.deepEqual(Object.keys(request.body).sort(), [
+      'contents',
+      'generationConfig',
+      'safetySettings',
+      'systemInstruction',
     ]);
-    assert.equal(request!.body.model, 'claude-haiku-5-5');
-    assert.equal(request!.body.max_tokens, 1024);
-    assert.deepEqual(request!.body.messages, [
-      { role: 'user', content: unrecognised },
+    assert.deepEqual(request.body.contents, [
+      { role: 'user', parts: [{ text: unrecognised }] },
     ]);
-    const outputConfig = request!.body.output_config as {
-      effort: string;
-      format: { type: string };
+    const config = request.body.generationConfig as {
+      maxOutputTokens: number;
+      thinkingConfig: unknown;
+      responseFormat: { text: { mimeType: string; schema: unknown } };
     };
-    assert.equal(outputConfig.effort, 'low');
-    assert.equal(outputConfig.format.type, 'json_schema');
-    const system = request!.body.system as string;
+    // No sampling parameters: Gemini 3.6+ ignores them and may reject them later.
+    assert.deepEqual(Object.keys(config).sort(), [
+      'maxOutputTokens',
+      'responseFormat',
+      'thinkingConfig',
+    ]);
+    assert.equal(config.maxOutputTokens, 1024);
+    assert.deepEqual(config.thinkingConfig, { thinkingLevel: 'minimal' });
+    assert.equal(config.responseFormat.text.mimeType, 'APPLICATION_JSON');
+    assert.ok(config.responseFormat.text.schema);
+    assert.deepEqual(
+      (request.body.safetySettings as Array<{ threshold: string }>).map(
+        (setting) => setting.threshold,
+      ),
+      Array(4).fill('BLOCK_MEDIUM_AND_ABOVE'),
+    );
+    const system = systemText(request);
     assert.match(system, /Current month \(UTC\+07\): 2026-11\./);
     assert.match(system, /cannot create, execute, approve or authorize/);
     assert.ok(!system.includes(unrecognised));
@@ -163,7 +204,8 @@ void describe('assistant AI fallback (Messages API mocked, no network or key)', 
     });
   });
 
-  void it('falls back to the rule-based reply for invalid output, refusals and provider errors', async (t) => {
+  void it('falls back to the rule-based reply for invalid output, blocks and provider errors', async (t) => {
+    const valid = { reply: 'OK', actions: [] };
     const outputs: Array<() => Response> = [
       () => modelMessage('Sure! Opening the transfer screen now.'),
       () =>
@@ -196,8 +238,13 @@ void describe('assistant AI fallback (Messages API mocked, no network or key)', 
       () => modelMessage({ reply: '**Open** transfers', actions: [] }),
       () => modelMessage({ reply: 'See https://example.invalid', actions: [] }),
       () => modelMessage({ reply: 'Send it to 100000000001', actions: [] }),
-      () => modelMessage({ reply: 'Hidden‮text', actions: [] }),
-      () => modelMessage({ reply: 'Bell\u0007', actions: [] }),
+      () =>
+        modelMessage({
+          reply: `Hidden${String.fromCharCode(0x202e)}text`,
+          actions: [],
+        }),
+      () =>
+        modelMessage({ reply: `Bell${String.fromCharCode(7)}`, actions: [] }),
       () =>
         modelMessage({
           reply: 'Pick one.',
@@ -212,48 +259,29 @@ void describe('assistant AI fallback (Messages API mocked, no network or key)', 
       () => modelMessage({ reply: 'OK', actions: {} }),
       () => modelMessage({ actions: [] }),
       () => modelMessage([]),
+      // Blocked, truncated or otherwise unfinished generations.
+      () => modelMessage(valid, { finishReason: 'SAFETY' }),
+      () => modelMessage(valid, { finishReason: 'MAX_TOKENS' }),
+      () => modelMessage(valid, { finishReason: 'PROHIBITED_CONTENT' }),
+      () => modelMessage(valid, { finishReason: 'RECITATION' }),
+      () => modelMessage(valid, { finishReason: 'OTHER' }),
+      () => modelMessage(valid, { finishReason: undefined }),
+      () => Response.json({ promptFeedback: { blockReason: 'SAFETY' } }),
+      () => Response.json({ candidates: [] }),
+      () => Response.json({}),
+      () => Response.json({ candidates: [{ finishReason: 'STOP' }] }),
       () =>
-        modelMessage(
-          { reply: 'OK', actions: [] },
-          {
-            stop_reason: 'refusal',
-            stop_details: {
-              type: 'refusal',
-              category: null,
-              explanation: null,
-            },
-          },
-        ),
-      () =>
-        modelMessage(
-          { reply: 'OK', actions: [] },
-          { stop_reason: 'max_tokens' },
-        ),
-      () =>
-        Response.json(
-          { type: 'error', error: { type: 'api_error', message: 'Internal' } },
-          { status: 500 },
-        ),
-      () =>
-        Response.json(
-          {
-            type: 'error',
-            error: {
-              type: 'authentication_error',
-              message: 'invalid x-api-key',
-            },
-          },
-          { status: 401 },
-        ),
-      () =>
-        Response.json(
-          {
-            type: 'error',
-            error: { type: 'rate_limit_error', message: 'slow down' },
-          },
-          { status: 429 },
-        ),
+        modelMessage(valid, {
+          content: { parts: [{ text: text(valid), thought: true }] },
+        }),
+      // Provider errors and malformed bodies.
+      () => geminiError(400, 'INVALID_ARGUMENT'),
+      () => geminiError(403, 'PERMISSION_DENIED'),
+      () => geminiError(429, 'RESOURCE_EXHAUSTED'),
+      () => geminiError(500, 'INTERNAL'),
+      () => geminiError(503, 'UNAVAILABLE'),
       () => new Response('not json', { status: 200 }),
+      () => new Response('x'.repeat(40 * 1024), { status: 200 }),
       () => {
         throw new TypeError('fetch failed');
       },
@@ -405,14 +433,14 @@ void describe('assistant AI fallback (Messages API mocked, no network or key)', 
       assertAllowlisted(result.actions);
     }
     for (const request of sent) {
-      assert.deepEqual(request.body.messages, [
-        { role: 'user', content: injection },
+      assert.deepEqual(request.body.contents, [
+        { role: 'user', parts: [{ text: injection }] },
       ]);
-      assert.ok(!(request.body.system as string).includes(injection));
+      assert.ok(!systemText(request).includes(injection));
     }
   });
 
-  void it('never logs message contents or the API key, nor returns the key', async (t) => {
+  void it('never puts the key in URLs, logs or responses, nor logs message contents', async (t) => {
     const lines: string[] = [];
     const record = (...values: unknown[]) => {
       lines.push(values.map(String).join(' '));
@@ -429,19 +457,14 @@ void describe('assistant AI fallback (Messages API mocked, no network or key)', 
     for (const method of ['log', 'info', 'warn', 'error', 'debug'] as const)
       t.mock.method(console, method, record);
     const failures: Array<() => Response> = [
-      () =>
-        Response.json(
-          {
-            type: 'error',
-            error: {
-              type: 'authentication_error',
-              message: `bad key ${apiKey}`,
-            },
-          },
-          { status: 401 },
-        ),
+      () => geminiError(403, 'PERMISSION_DENIED', `API key ${apiKey} invalid`),
       () => modelMessage({ reply: `Your key is ${apiKey}`, actions: [] }),
       () => modelMessage(`not json ${unrecognised}`),
+      () =>
+        modelMessage(
+          { reply: unrecognised, actions: [] },
+          { finishReason: 'SAFETY' },
+        ),
       () => {
         throw new Error(`network failure for ${unrecognised} ${apiKey}`);
       },
@@ -453,12 +476,17 @@ void describe('assistant AI fallback (Messages API mocked, no network or key)', 
         }),
     ];
     let next = 0;
-    mockModel(t, () => failures[next++]!());
+    const { sent } = mockModel(t, () => failures[next++]!());
     const responses: Awaited<ReturnType<typeof ask>>[] = [];
     for (let i = 0; i < failures.length; i++)
       responses.push(await ask(unrecognised));
-    assert.ok(lines.length >= 4, 'each failure is logged by reason');
-    for (const line of [...lines, ...responses.map((r) => JSON.stringify(r))]) {
+    assert.equal(lines.length, 5, 'each failure is logged by reason only');
+    assert.equal(sent.length, failures.length);
+    for (const line of [
+      ...lines,
+      ...sent.map((request) => request.url),
+      ...responses.map((response) => JSON.stringify(response)),
+    ]) {
       assert.ok(!line.includes(apiKey), line);
       assert.ok(!line.includes('placeholder-key'), line);
     }

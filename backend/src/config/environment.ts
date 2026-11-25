@@ -203,10 +203,10 @@ export function readEnvironment(env: NodeJS.ProcessEnv): Environment {
     throw new Error('ASSISTANT_AI_ENABLED must be true or false.');
   let assistantAi: Environment['assistantAi'];
   if (env.ASSISTANT_AI_ENABLED === 'true') {
-    const apiKey = required(env, 'ANTHROPIC_API_KEY');
+    const apiKey = required(env, 'GEMINI_API_KEY');
     if (!/^[\x21-\x7e]{20,512}$/.test(apiKey))
       throw new Error(
-        'ANTHROPIC_API_KEY must contain 20-512 printable characters without spaces.',
+        'GEMINI_API_KEY must contain 20-512 printable characters without spaces.',
       );
     assistantAi = { apiKey };
   }

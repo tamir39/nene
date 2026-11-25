@@ -106,7 +106,7 @@ void describe('environment boundaries', () => {
       readEnvironment({
         ...localEnvironment,
         ASSISTANT_AI_ENABLED: 'false',
-        ANTHROPIC_API_KEY: apiKey,
+        GEMINI_API_KEY: apiKey,
       }).assistantAi,
       undefined,
     );
@@ -114,7 +114,7 @@ void describe('environment boundaries', () => {
       readEnvironment({
         ...localEnvironment,
         ASSISTANT_AI_ENABLED: 'true',
-        ANTHROPIC_API_KEY: ` ${apiKey} `,
+        GEMINI_API_KEY: ` ${apiKey} `,
       }).assistantAi,
       { apiKey },
     );
@@ -126,7 +126,7 @@ void describe('environment boundaries', () => {
     assert.throws(
       () =>
         readEnvironment({ ...localEnvironment, ASSISTANT_AI_ENABLED: 'true' }),
-      { message: 'ANTHROPIC_API_KEY is required.' },
+      { message: 'GEMINI_API_KEY is required.' },
     );
     for (const invalid of ['short-key', 'test-only has a space-0123456789'])
       assert.throws(
@@ -134,7 +134,7 @@ void describe('environment boundaries', () => {
           readEnvironment({
             ...localEnvironment,
             ASSISTANT_AI_ENABLED: 'true',
-            ANTHROPIC_API_KEY: invalid,
+            GEMINI_API_KEY: invalid,
           }),
         (error: Error) => !error.message.includes(invalid),
       );

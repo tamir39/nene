@@ -83,7 +83,7 @@ void describe('assistant HTTP session boundary (Auth/profile fakes)', () => {
       .expect(400);
   });
 });
-void describe('assistant HTTP with the AI fallback enabled (Messages API mocked)', () => {
+void describe('assistant HTTP with the AI fallback enabled (Gemini API mocked)', () => {
   let app: INestApplication, server: Server;
   before(async () => {
     const module = await Test.createTestingModule({ imports: [AppModule] })
@@ -92,7 +92,7 @@ void describe('assistant HTTP with the AI fallback enabled (Messages API mocked)
         readEnvironment({
           ...testEnvironment,
           ASSISTANT_AI_ENABLED: 'true',
-          ANTHROPIC_API_KEY: 'test-only-placeholder-key-0123456789',
+          GEMINI_API_KEY: 'test-only-placeholder-key-0123456789',
         }),
       )
       .overrideProvider(SupabaseAuthService)
@@ -125,23 +125,25 @@ void describe('assistant HTTP with the AI fallback enabled (Messages API mocked)
   void it('keeps the response contract and calls the model only for unrecognised messages', async (t) => {
     const fetchMock = t.mock.method(globalThis, 'fetch', async () =>
       Response.json({
-        id: 'msg_synthetic',
-        type: 'message',
-        role: 'assistant',
-        model: 'claude-haiku-5-5',
-        content: [
+        candidates: [
           {
-            type: 'text',
-            text: JSON.stringify({
-              reply:
-                'I can open the demo phone top-up screen. It only opens the form; nothing has been created or sent.',
-              actions: [{ type: 'phone' }],
-            }),
+            content: {
+              role: 'model',
+              parts: [
+                {
+                  text: JSON.stringify({
+                    reply:
+                      'I can open the demo phone top-up screen. It only opens the form; nothing has been created or sent.',
+                    actions: [{ type: 'phone' }],
+                  }),
+                },
+              ],
+            },
+            finishReason: 'STOP',
+            index: 0,
           },
         ],
-        stop_reason: 'end_turn',
-        stop_sequence: null,
-        usage: { input_tokens: 1, output_tokens: 1 },
+        modelVersion: 'gemini-3.5-flash-lite',
       }),
     );
     const send = (message: string) =>
