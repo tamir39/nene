@@ -1,7 +1,7 @@
 name: nene_app
 description: Nene mobile banking course project foundation.
 publish_to: none
-version: 1.0.1+2
+version: 1.0.2+3
 
 environment:
   sdk: '>=3.11.0 <4.0.0'

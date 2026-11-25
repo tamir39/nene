@@ -137,12 +137,22 @@ class _SecurityScreenState extends State<SecurityScreen>
         title: 'Checking your authenticator',
       );
     }
+    if (_state == 'restricted') {
+      return const SecurityStatusCard(
+        icon: Icons.report_gmailerrorred_rounded,
+        tone: SecurityTone.danger,
+        title: 'Security needs attention',
+        body: 'Continue an existing security change below.',
+      );
+    }
+    // Blocked, or pending after this screen lost its setup key: the backend
+    // offers a fresh setup once the paused one expires or the session changes.
     return const SecurityStatusCard(
       icon: Icons.report_gmailerrorred_rounded,
       tone: SecurityTone.danger,
-      title: 'Security needs attention',
+      title: 'Setup paused',
       body:
-          'Continue an existing security change below. An initial setup with a lost key still needs synthetic-demo assistance.',
+          'Too many attempts, or the setup was interrupted. Wait up to 10 minutes, then tap Check status to start again.',
     );
   }
 

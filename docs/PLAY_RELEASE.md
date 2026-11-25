@@ -9,7 +9,7 @@ Added 24 November 2026 for TR-04. The user chose the **closed testing** track: a
 | Application ID | `vn.nene.bank`, permanent after the first upload |
 | Launcher name | Nene |
 | Store title (proposed) | Nene – Student Banking Demo |
-| Version | `1.0.1+2` in `app/pubspec.yaml` (1.0.0+1 was the first internal-testing upload); raise the `+N` build number for every upload |
+| Version | `1.0.2+3` in `app/pubspec.yaml` (earlier internal-testing uploads: 1.0.0+1, 1.0.1+2); raise the `+N` build number for every upload |
 
 The iOS bundle identifier remains a generated placeholder; no iOS release is planned.
 

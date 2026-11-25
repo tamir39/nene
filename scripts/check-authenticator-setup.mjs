@@ -151,6 +151,159 @@ try {
       const row = (await pool.query("select * from bank.authenticator_setup"))
         .rows[0];
       assert.ok(!JSON.stringify(row).includes(setup.secret));
+
+      // Abandoned initial setup on a second synthetic customer. Each sign-in
+      // is a new Auth session with fresh password evidence at AAL1.
+      stage = "abandoned setup fixture";
+      const restartEmail = `restart-${randomUUID()}@example.invalid`;
+      const restartUser = await call(
+        "/admin/users",
+        { email: restartEmail, password, email_confirm: true },
+        f.adminToken,
+      );
+      await pool.query("insert into bank.user_profiles values($1)", [
+        restartUser.id,
+      ]);
+      const signIn = async () => {
+        const session = await call("/token?grant_type=password", {
+          email: restartEmail,
+          password,
+        });
+        assert.equal(f.verifyAccessToken(session.access_token).aal, "aal1");
+        return {
+          headers: { authorization: `Bearer ${session.access_token}` },
+          user: { id: restartUser.id, role: "customer" },
+        };
+      };
+      const factorsOf = async (r) => {
+        const response = await fetch(`${f.authOrigin}/user`, {
+          headers: { Authorization: r.headers.authorization },
+        });
+        assert.equal(response.status, 200);
+        return ((await response.json()).factors ?? []).map((x) => ({
+          id: x.id,
+          status: x.status,
+          type: x.factor_type,
+        }));
+      };
+      const setupRow = async () =>
+        (
+          await pool.query(
+            "select request_id,state,factor_id,revision,attempts from bank.authenticator_setup where customer_id=$1",
+            [restartUser.id],
+          )
+        ).rows[0];
+      const first = await signIn();
+      const abandonedSetup = await service.start(first);
+      const abandonedFactor = (await setupRow()).factor_id;
+      assert.equal((await service.status(first)).state, "pending");
+
+      stage = "restart after a new session";
+      const secondSession = await signIn();
+      assert.equal((await service.status(secondSession)).state, "not_set_up");
+      const restarted = await service.start(secondSession);
+      assert.notEqual(restarted.secret, abandonedSetup.secret);
+      assert.notEqual(restarted.requestId, abandonedSetup.requestId);
+      assert.equal(restarted.revision, 2);
+      const afterRestart = await factorsOf(secondSession);
+      // The AAL1 session removed the old unverified factor and enrolled a new one.
+      assert.equal(afterRestart.length, 1);
+      assert.notEqual(afterRestart[0].id, abandonedFactor);
+      assert.equal(afterRestart[0].status, "unverified");
+      assert.equal((await setupRow()).factor_id, afterRestart[0].id);
+      await assert.rejects(
+        service.verify(first, {
+          requestId: abandonedSetup.requestId,
+          code: generateTotp(abandonedSetup.secret),
+        }),
+        (e) => e.getStatus?.() === 409,
+      );
+      await assert.rejects(
+        service.start(secondSession),
+        (e) => e.getStatus?.() === 409,
+      );
+
+      stage = "attempt limit waits for expiry";
+      const nearby = new Set(
+        [-60, -30, 0, 30, 60].map((offset) =>
+          generateTotp(restarted.secret, {
+            timestampSeconds: Math.floor(Date.now() / 1000) + offset,
+          }),
+        ),
+      );
+      const wrongCodes = ["000001", "000002", "000003", "000004", "000005"]
+        .concat(["000006", "000007", "000008", "000009", "000010"])
+        .filter((c) => !nearby.has(c))
+        .slice(0, 5);
+      for (const code of wrongCodes)
+        await assert.rejects(
+          service.verify(secondSession, {
+            requestId: restarted.requestId,
+            code,
+          }),
+          (e) => e.getStatus?.() === 400,
+        );
+      assert.equal((await setupRow()).state, "blocked");
+      const third = await signIn();
+      assert.equal((await service.status(third)).state, "blocked");
+      await assert.rejects(
+        service.start(third),
+        (e) => e.getStatus?.() === 409,
+      );
+      assert.equal((await setupRow()).request_id, restarted.requestId);
+      // Simulate the ten-minute window passing; no other field changes.
+      await pool.query(
+        "update bank.authenticator_setup set expires_at=now()-interval '1 second' where customer_id=$1",
+        [restartUser.id],
+      );
+      assert.equal((await service.status(third)).state, "not_set_up");
+      const afterExpiry = await service.start(third);
+      assert.equal(afterExpiry.revision, 3);
+      assert.equal((await setupRow()).attempts, 0);
+      const expiryFactors = await factorsOf(third);
+      assert.equal(expiryFactors.length, 1);
+      assert.notEqual(expiryFactors[0].id, afterRestart[0].id);
+
+      stage = "restarted setup verifies";
+      const restartedPair = await service.verify(third, {
+        requestId: afterExpiry.requestId,
+        code: generateTotp(afterExpiry.secret),
+      });
+      assert.equal(f.verifyAccessToken(restartedPair.accessToken).aal, "aal2");
+      assert.equal((await service.status(third)).state, "ready");
+
+      stage = "verified factor refuses restart";
+      const fourth = await signIn();
+      await pool.query(
+        "update bank.authenticator_setup set state='pending',expires_at=now()-interval '1 second' where customer_id=$1",
+        [restartUser.id],
+      );
+      const beforeRefusal = await setupRow();
+      assert.equal((await service.status(fourth)).state, "blocked");
+      await assert.rejects(
+        service.start(fourth),
+        (e) =>
+          e.getStatus?.() === 409 &&
+          JSON.stringify(e.getResponse()).includes("recovery support"),
+      );
+      assert.deepEqual(await setupRow(), beforeRefusal);
+      assert.deepEqual(await factorsOf(fourth), [
+        { id: expiryFactors[0].id, status: "verified", type: "totp" },
+      ]);
+      const restartRow = JSON.stringify(
+        (
+          await pool.query(
+            "select * from bank.authenticator_setup where customer_id=$1",
+            [restartUser.id],
+          )
+        ).rows,
+      );
+      for (const value of [
+        abandonedSetup.secret,
+        restarted.secret,
+        afterExpiry.secret,
+      ])
+        assert.ok(!restartRow.includes(value));
       console.log(
         JSON.stringify({
           result: "passed",
@@ -167,6 +320,15 @@ try {
             "repeat verify denied",
             "lost-reply reconciliation",
             "no stored secret",
+            "new session restarts abandoned setup",
+            "AAL1 removed only the unverified factor",
+            "abandoned request cannot verify",
+            "same-session duplicate denied",
+            "attempt limit blocks a new session",
+            "expiry restarts attempt-blocked setup",
+            "restarted setup verifies",
+            "verified factor refuses restart unchanged",
+            "no stored restart secrets",
           ],
         }),
       );

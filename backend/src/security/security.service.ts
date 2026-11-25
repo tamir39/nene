@@ -23,7 +23,33 @@ type Row = {
   revision: number;
   attempts: number;
   expires_at: Date;
+  created_at: Date;
+  /** Database clock: expires_at <= now(). */
+  expired: boolean;
 };
+type Factor = { id?: unknown; factor_type?: unknown; status?: unknown };
+const selectRow =
+  'select *,expires_at<=now() as expired from bank.authenticator_setup where customer_id=$1';
+
+/**
+ * A never-verified initial setup that can be restarted. Ready/restricted
+ * bindings (including management flows) and any verified provider factor are
+ * excluded. Attempt-blocked or possibly in-flight verification waits for expiry;
+ * otherwise another Auth session may restart it. `claimAbandoned` mirrors this.
+ */
+function abandoned(row: Row, factors: Factor[], session: string) {
+  return (
+    ['starting', 'pending', 'verifying', 'blocked'].includes(row.state) &&
+    !factors.some((f) => f.status === 'verified') &&
+    (row.expired ||
+      (row.session_id !== session &&
+        ['starting', 'pending'].includes(row.state) &&
+        row.attempts < 5))
+  );
+}
+const claimAbandoned = `update bank.authenticator_setup set request_id=$2,session_id=$3,state='starting',factor_id=null,attempts=0,revision=revision+1,expires_at=now()+interval '10 minutes',created_at=now()
+  where customer_id=$1 and request_id=$4 and state=$5 and state in ('starting','pending','verifying','blocked')
+  and (expires_at<=now() or (session_id<>$3 and state in ('starting','pending') and attempts<5)) returning *`;
 
 @Injectable()
 export class SecurityService {
@@ -119,18 +145,23 @@ export class SecurityService {
     }
   }
 
+  // Auth omits an empty factor list; anything else malformed is uncertain.
+  private async factors(token: string, customer: string) {
+    const user = await this.provider('/user', token);
+    const factors = user.factors ?? [];
+    if (user.id !== customer || !Array.isArray(factors))
+      throw new ServiceUnavailableException(
+        'Authenticator request could not be confirmed. Check status before retrying.',
+      );
+    return factors as Factor[];
+  }
+
   async status(req: AuthenticatedRequest) {
     const identity = this.identity(req);
-    const [row] = await this.db.query<Row>(
-      'select * from bank.authenticator_setup where customer_id=$1',
-      [req.user.id],
-    );
+    const [row] = await this.db.query<Row>(selectRow, [req.user.id]);
     if (!row) return { state: 'not_set_up' };
     if (row.state === 'restricted') return { state: 'restricted' };
-    const user = await this.provider('/user', identity.token);
-    const factors = Array.isArray(user.factors)
-      ? (user.factors as Record<string, unknown>[])
-      : [];
+    const factors = await this.factors(identity.token, req.user.id);
     const own = factors.find(
       (f) => f.id === row.factor_id && f.factor_type === 'totp',
     );
@@ -145,16 +176,81 @@ export class SecurityService {
       );
       return { state: 'ready' };
     }
+    // Lets the existing setup button restart; start() rechecks and claims it.
+    if (abandoned(row, factors, identity.session))
+      return { state: 'not_set_up' };
     return {
       state:
         row.state === 'pending' &&
-        row.expires_at > new Date() &&
+        !row.expired &&
         row.session_id === identity.session
           ? 'pending'
           : 'blocked',
       requestId: row.request_id,
       revision: row.revision,
     };
+  }
+
+  /**
+   * Claims an abandoned initial setup for this caller, then removes only
+   * unverified TOTP factors. A failure after the claim leaves a `starting` row
+   * owned by this session, which becomes abandoned again after expiry or
+   * another session, so the customer can retry without a reset.
+   */
+  private async restart(
+    req: AuthenticatedRequest,
+    identity: ReturnType<SecurityService['identity']>,
+    requestId: string,
+  ) {
+    const [old] = await this.db.query<Row>(selectRow, [req.user.id]);
+    if (!old)
+      throw new ConflictException('Setup already exists. Check status.');
+    const before = await this.factors(identity.token, req.user.id);
+    if (before.some((f) => f.status === 'verified'))
+      throw new ConflictException('Existing factors require recovery support.');
+    if (!abandoned(old, before, identity.session))
+      throw new ConflictException('Setup already exists. Check status.');
+    const [claimed] = await this.db.query<Row>(claimAbandoned, [
+      req.user.id,
+      requestId,
+      identity.session,
+      old.request_id,
+      old.state,
+    ]);
+    if (!claimed) throw new ConflictException('Check setup status.');
+    const factors = await this.factors(identity.token, req.user.id);
+    if (factors.some((f) => f.status === 'verified')) {
+      // A verification finished between the checks: give the row back unchanged.
+      await this.db.query(
+        "update bank.authenticator_setup set request_id=$3,session_id=$4,state=$5,factor_id=$6,attempts=$7,revision=$8,expires_at=$9,created_at=$10 where customer_id=$1 and request_id=$2 and state='starting'",
+        [
+          req.user.id,
+          requestId,
+          old.request_id,
+          old.session_id,
+          old.state,
+          old.factor_id,
+          old.attempts,
+          old.revision,
+          old.expires_at,
+          old.created_at,
+        ],
+      );
+      throw new ConflictException('Existing factors require recovery support.');
+    }
+    for (const f of factors) {
+      if (f.factor_type !== 'totp' || f.status !== 'unverified') continue;
+      if (typeof f.id !== 'string' || !uuid.test(f.id))
+        throw new ServiceUnavailableException();
+      // Auth permits an AAL1 session to remove only unverified factors.
+      await this.provider(
+        `/factors/${f.id}`,
+        identity.token,
+        undefined,
+        'DELETE',
+      );
+    }
+    return claimed;
   }
 
   async start(req: AuthenticatedRequest) {
@@ -168,15 +264,17 @@ export class SecurityService {
       throw new ForbiddenException('Sign out and sign in again before setup.');
     const requestId = randomUUID();
     // Persist ownership before provider effects; unknown enrollment must never duplicate.
-    const reserved = await this.db.query<Row>(
+    let [row] = await this.db.query<Row>(
       "insert into bank.authenticator_setup(customer_id,request_id,session_id,state) values($1,$2,$3,'starting') on conflict do nothing returning *",
       [req.user.id, requestId, identity.session],
     );
-    if (!reserved.length)
-      throw new ConflictException('Setup already exists. Check status.');
-    const user = await this.provider('/user', identity.token);
-    if (Array.isArray(user.factors) && user.factors.length)
-      throw new ConflictException('Existing factors require recovery support.');
+    if (row) {
+      const user = await this.provider('/user', identity.token);
+      if (Array.isArray(user.factors) && user.factors.length)
+        throw new ConflictException(
+          'Existing factors require recovery support.',
+        );
+    } else row = await this.restart(req, identity, requestId);
     const factor = await this.provider('/factors', identity.token, {
       factor_type: 'totp',
       friendly_name: 'Nene authenticator',
@@ -190,11 +288,13 @@ export class SecurityService {
       !/^[A-Z2-7]{16,128}$/.test(totp.secret)
     )
       throw new ServiceUnavailableException();
-    await this.db.query(
-      "update bank.authenticator_setup set factor_id=$2,state='pending' where customer_id=$1 and request_id=$3 and state='starting'",
+    const bound = await this.db.query(
+      "update bank.authenticator_setup set factor_id=$2,state='pending' where customer_id=$1 and request_id=$3 and state='starting' returning request_id",
       [req.user.id, factor.id, requestId],
     );
-    return { requestId, revision: 1, secret: totp.secret };
+    // A superseded request must not hand out a key for an unbound factor.
+    if (!bound.length) throw new ConflictException('Check setup status.');
+    return { requestId, revision: row.revision, secret: totp.secret };
   }
 
   async verify(req: AuthenticatedRequest, body: unknown) {

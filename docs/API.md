@@ -21,7 +21,7 @@ History update, 3 November 2026: `GET /api/v1/me/accounts/:accountId/history?mon
 Account information update, 3 November 2026: [account views and savings policy](ACCOUNT_INFORMATION.md) adds type-specific read models, monthly savings estimates, stored mortgage schedules and officer-only audited rate changes. [Demo provisioning](DEMO_ACCOUNT_PROVISIONING.md#backend-contract-and-authorization) adds `POST /api/v1/officer/customers/:customerId/demo-accounts`, local-only officer authorization, idempotent requests and `isDemo` on account reads. No financial posting or real loan issuance is enabled.
 
 
-Customer authenticator setup/status endpoints added 3 November 2026: see [AUTHENTICATOR_SETUP.md](AUTHENTICATOR_SETUP.md) for `GET /me/security`, `POST /me/security/setup` and `POST /me/security/verify`, permissions, payloads, no-store responses and limits.
+Customer authenticator setup/status endpoints added 3 November 2026: see [AUTHENTICATOR_SETUP.md](AUTHENTICATOR_SETUP.md) for `GET /me/security`, `POST /me/security/setup` and `POST /me/security/verify`, permissions, payloads, no-store responses and limits. Since 26 November 2026, status reports `not_set_up` for an abandoned, never-verified setup, and `POST /me/security/setup` restarts it. Conflicts return 409. See [restarting an abandoned initial setup](AUTHENTICATOR_SETUP.md#restarting-an-abandoned-initial-setup).
 
 
 Status: private reference enrollment/review added on 2026-10-27 to the first local customer/account flow. Supports BR-01/BR-02 and partial BR-03/BR-05, plus TR-03/TR-06. See [CUSTOMER_FLOW.md](CUSTOMER_FLOW.md) and [REFERENCE_FLOW.md](REFERENCE_FLOW.md) for decisions and remaining security work.
