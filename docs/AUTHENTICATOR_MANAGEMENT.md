@@ -40,7 +40,7 @@ The Flutter screen uses the existing lighter Open pocket theme and memory-only S
 | Final global-sign-out reply or database commit uncertain | Remain restricted. Fresh sign-in can retry final cleanup; no financial proof is created. |
 | Unknown proof, enrollment or issuance outcome (`proving`, `enrolling`, `issuing`), exhausted request attempts or unexpected factor inventory | Remain restricted; no blind provider retry or password-only reset. Synthetic-demo investigation is needed if status stays unresolved. Automatic reconciliation for these cases is not implemented. |
 
-Initial enrollment with a lost key remains subject to the older setup restrictions. Cancellation is for unverified replacement, not a universal MFA reset. Hosted recovery configuration, notification/alert policy, real-user support procedures, native acceptance and human end-to-end acceptance are still open. Do not present this coursework slice as a production-complete recovery system.
+An initial setup that was never verified can now be restarted after it expires or after a new sign-in; see [restarting an abandoned initial setup](AUTHENTICATOR_SETUP.md#restarting-an-abandoned-initial-setup). That restart removes only unverified factors and refuses whenever Auth lists a verified one. Losing a verified authenticator and all recovery codes is still blocked. Cancellation is for unverified replacement, not a universal MFA reset. Hosted recovery configuration, notification/alert policy, real-user support procedures, native acceptance and human end-to-end acceptance are still open. Do not present this coursework slice as a production-complete recovery system.
 
 ## Implemented API
 

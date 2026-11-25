@@ -87,6 +87,82 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+  testWidgets(
+    'a paused setup explains the wait and offers setup again after Check status',
+    (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final owner = SessionOwner(Port());
+      await owner.signIn('', '');
+      addTearDown(owner.dispose);
+      var state = 'blocked';
+      final api = SecurityApi(
+        baseUrl: Uri.parse('http://localhost/api/v1/'),
+        owner: owner,
+        client: MockClient(
+          (req) async => http.Response(
+            jsonEncode({
+              'state': state,
+              if (state == 'blocked') ...{'requestId': 'old', 'revision': 1},
+            }),
+            200,
+          ),
+        ),
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(body: SecurityScreen(api: api)),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Setup paused'), findsOneWidget);
+      expect(
+        find.text(
+          'Too many attempts, or the setup was interrupted. Wait up to 10 minutes, then tap Check status to start again.',
+        ),
+        findsOneWidget,
+      );
+      expect(find.textContaining('Continue an existing'), findsNothing);
+      expect(find.text('Set up authenticator'), findsNothing);
+      expect(find.text('Manage authenticator and recovery'), findsNothing);
+      state = 'not_set_up';
+      await tester.ensureVisible(find.text('Check status'));
+      await tester.tap(find.text('Check status'));
+      await tester.pumpAndSettle();
+      expect(find.text('Setup paused'), findsNothing);
+      expect(find.text('Set up authenticator'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+  testWidgets('a restricted binding still points to the change below', (
+    tester,
+  ) async {
+    final owner = SessionOwner(Port());
+    await owner.signIn('', '');
+    addTearDown(owner.dispose);
+    final api = SecurityApi(
+      baseUrl: Uri.parse('http://localhost/api/v1/'),
+      owner: owner,
+      client: MockClient(
+        (req) async => http.Response(jsonEncode({'state': 'restricted'}), 200),
+      ),
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(body: SecurityScreen(api: api)),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Security needs attention'), findsOneWidget);
+    expect(
+      find.text('Continue an existing security change below.'),
+      findsOneWidget,
+    );
+    expect(find.text('Manage authenticator and recovery'), findsOneWidget);
+    expect(find.text('Setup paused'), findsNothing);
+  });
   test(
     'definite rejection retains the owner and permits a corrected proof',
     () async {
