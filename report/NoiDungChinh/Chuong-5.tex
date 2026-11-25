@@ -53,7 +53,7 @@ Các kịch bản dưới đây được nhóm xem là quan trọng nhất đố
 \section{Kết quả kiểm thử}
 \label{sec:ch5-ket-qua}
 
-Bảng~\ref{tab:ch5-ket-qua} tổng hợp kết quả kiểm thử. Các số liệu của bộ kiểm thử tự động được ghi nhận trên nhánh \texttt{main} tại commit \texttt{bfdab0c}.
+Bảng~\ref{tab:ch5-ket-qua} tổng hợp kết quả kiểm thử. Các số liệu của bộ kiểm thử tự động được ghi nhận trên nhánh \texttt{main} tại commit \texttt{2b0aa73}.
 
 \begingroup
 \linespread{1.15}\small
@@ -70,9 +70,9 @@ Bảng~\ref{tab:ch5-ket-qua} tổng hợp kết quả kiểm thử. Các số li
 	\endhead
 	\bottomrule
 	\endfoot
-	Máy chủ NestJS & Kiểm tra mã (lint) và biên dịch đạt; toàn bộ \textbf{188} kiểm thử đơn vị và HTTP đạt. & \texttt{main} @ \texttt{bfdab0c} \\
+	Máy chủ NestJS & Kiểm tra mã (lint) và biên dịch đạt; toàn bộ \textbf{204} kiểm thử đơn vị và HTTP đạt. & \texttt{main} @ \texttt{2b0aa73} \\
 	\midrule
-	Ứng dụng Flutter & \texttt{flutter analyze} không báo lỗi; toàn bộ \textbf{343} kiểm thử đơn vị và widget đạt, bao gồm các kiểm thử ở cỡ chữ 200\% và các kiểm thử bước kiểm tra khuôn mặt với bộ phát hiện giả lập. & \texttt{main} @ \texttt{bfdab0c} \\
+	Ứng dụng Flutter & \texttt{flutter analyze} không báo lỗi; toàn bộ \textbf{345} kiểm thử đơn vị và widget đạt, bao gồm các kiểm thử ở cỡ chữ 200\% và các kiểm thử bước kiểm tra khuôn mặt với bộ phát hiện giả lập. & \texttt{main} @ \texttt{2b0aa73} \\
 	\midrule
 	CSDL trên đám mây & Toàn bộ 17 tệp di trú SQL được áp dụng lên dự án Supabase đám mây; lịch sử di trú cục bộ và trên đám mây khớp nhau. & 24/11/2026 \\
 	\midrule
@@ -196,6 +196,6 @@ Từ các hạn chế trên, nhóm đề xuất các hướng phát triển sau:
 
 Đề tài đã xây dựng Nene, một ứng dụng ngân hàng di động trên Android với một ứng dụng Flutter cho hai vai trò, một máy chủ NestJS duy nhất và nền tảng Supabase trên đám mây. Sản phẩm bao phủ cả bảy nhóm yêu cầu nghiệp vụ của đề bài ở các mức độ khác nhau: hồ sơ người dùng, quản lý tài khoản, chuyển khoản cùng ngân hàng, định vị và trợ lý hội thoại đã được hiện thực; dịch vụ thanh toán được tích hợp với VNPay sandbox và đã được kiểm chứng trực tiếp; chuyển khoản liên ngân hàng và các tiện ích được hiện thực dưới dạng mô phỏng hoặc dịch vụ hư cấu; eKYC và phát hành trên Google Play mới đạt một phần.
 
-Điểm nhóm chú trọng nhất là tính đúng đắn và an toàn của các thao tác tài chính: máy chủ là nơi quyết định duy nhất, mọi giao dịch phải qua mã TOTP gắn với đúng thao tác, số dư chỉ thay đổi qua các hàm ghi sổ nguyên tử và yêu cầu lặp lại không thể tạo giao dịch trùng. Các quy tắc này được kiểm chứng bằng 188 kiểm thử phía máy chủ, 343 kiểm thử của ứng dụng cùng các kiểm thử CSDL và tích hợp.
+Điểm nhóm chú trọng nhất là tính đúng đắn và an toàn của các thao tác tài chính: máy chủ là nơi quyết định duy nhất, mọi giao dịch phải qua mã TOTP gắn với đúng thao tác, số dư chỉ thay đổi qua các hàm ghi sổ nguyên tử và yêu cầu lặp lại không thể tạo giao dịch trùng. Các quy tắc này được kiểm chứng bằng 204 kiểm thử phía máy chủ, 345 kiểm thử của ứng dụng cùng các kiểm thử CSDL và tích hợp.
 
 Qua đề tài, nhóm đã vận dụng kiến thức của môn học vào một bài toán gần với thực tế, rèn luyện cách phân tích yêu cầu thành các lát cắt chức năng có thể kiểm chứng, cách làm việc với Git và pull request, cũng như cách trình bày trung thực giới hạn của sản phẩm. Những hạn chế đã nêu, đặc biệt là so khớp khuôn mặt cho giao dịch giá trị cao và phát hành công khai, là các bước tiếp theo để Nene tiến gần hơn đến một ứng dụng ngân hàng có thể đưa vào sử dụng thực tế.
