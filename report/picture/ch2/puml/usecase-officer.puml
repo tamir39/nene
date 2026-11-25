@@ -1,0 +1,57 @@
+@startuml usecase-officer
+' Nene - UML use-case diagram (2/2): Bank Officer. Derived from the registered NestJS
+' officer routes and the officer destinations in app/lib/ui/customer_workspace.dart.
+' Route hints are relative to /api/v1. Only implemented behaviour is shown. Main @ 31148c9.
+
+title Nene - ca sử dụng của Nhân viên ngân hàng (phạm vi đã hiện thực)
+
+left to right direction
+skinparam shadowing false
+skinparam defaultFontSize 11
+skinparam usecase {
+  BackgroundColor #FFFFFF
+  BorderColor #286E78
+}
+skinparam actorStyle awesome
+
+actor "Nhân viên ngân hàng" as Officer
+actor "Supabase Auth\n(đăng nhập, admin user API)" as SupaAuth <<system>>
+
+rectangle "Ứng dụng Nene - không gian làm việc của nhân viên" {
+  usecase "Đăng nhập / đăng xuất" as UC_Sign
+  usecase "Tạo khách hàng kèm tài khoản\nthanh toán VND ban đầu\nPOST officer/customers\n(Idempotency-Key)" as UC_Create
+  usecase "Tìm khách hàng và xem chi tiết\nGET officer/customers?query=,\nGET officer/customers/:id" as UC_Find
+  usecase "Sửa hồ sơ theo yêu cầu khách hàng\n(tên, điện thoại, địa chỉ + lý do)\nPATCH officer/customers/:id" as UC_Edit
+  usecase "Thêm tài khoản tiết kiệm /\nvay thế chấp demo\nPOST officer/customers/:id/demo-accounts" as UC_DemoAcc
+  usecase "Hỗ trợ đăng ký ảnh tham chiếu\n(bắt đầu, chụp, gửi)\nofficer/customers/:id/identity[/cases]" as UC_Assist
+  usecase "Duyệt ảnh tham chiếu\n(chấp nhận / yêu cầu sửa)\nofficer/identity/cases/:id/reviews" as UC_Review
+  usecase "Quản lý lãi suất tiết kiệm\nGET/PATCH officer/savings-policy" as UC_Rate
+}
+
+Officer -- UC_Sign
+Officer -- UC_Create
+Officer -- UC_Find
+Officer -- UC_Edit
+Officer -- UC_DemoAcc
+Officer -- UC_Assist
+Officer -- UC_Review
+Officer -- UC_Rate
+
+UC_Edit ..> UC_Find : <<include>>
+UC_DemoAcc ..> UC_Find : <<include>>
+UC_Assist ..> UC_Find : <<include>>
+UC_Review ..> UC_Find : <<include>>
+
+UC_Sign ---- SupaAuth
+UC_Create ---- SupaAuth
+
+legend bottom
+  Tạo khách hàng và tài khoản demo chỉ chạy với Supabase Auth cục bộ (loopback) hoặc
+      bản triển khai đánh dấu DEMO_DEPLOYMENT=hosted-sandbox; tài khoản demo chỉ cấp cho
+      khách hàng có email tổng hợp (.invalid / .test), số dư 0.
+  Đổi tên khách hàng làm mất hiệu lực ảnh tham chiếu (trigger trong cơ sở dữ liệu).
+  Sửa lãi suất dùng revision lạc quan và ghi thêm một dòng bank.savings_rate_audit.
+  "Chấp nhận ảnh tham chiếu" là quyết định liên kết của nhân viên, KHÔNG phải eKYC.
+endlegend
+
+@enduml

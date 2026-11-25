@@ -1,0 +1,14 @@
+% Tài liệu tham khảo được in bằng biblatex (APA, biber) từ tailieu.bib và references/chN.bib.
+% Theo mẫu của Trường, tài liệu được chia thành hai nhóm: tài liệu tiếng Việt (gắn
+% keywords = {tiengviet} trong tệp .bib) và tài liệu tiếng nước ngoài (mọi mục còn lại).
+\renewcommand\bibname{DANH MỤC TÀI LIỆU THAM KHẢO}
+\chapter*{\centering \MakeUppercase{\bibname}}
+\phantomsection
+\addcontentsline{toc}{chapter}{\bibname}
+
+\noindent\textbf{Tiếng Việt}
+\printbibliography[heading=none, keyword=tiengviet]
+
+\vspace{0.5cm}
+\noindent\textbf{Tiếng nước ngoài}
+\printbibliography[heading=none, notkeyword=tiengviet]

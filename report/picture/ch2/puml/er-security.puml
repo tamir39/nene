@@ -1,0 +1,124 @@
+@startuml er-security
+' Nene - ER diagram (part 2 of 3): authenticator binding, security management,
+' proof reservations and transaction confirmations.
+' Source of truth: migrations 20261103000100, 000500, 000600, 000700, 000800,
+' 20261107000100 (later ALTERs of CHECK constraints already applied below).
+' Notation: IE (crow's foot). "*" = NOT NULL.
+
+title Cơ sở dữ liệu Nene (2/3) - bảo mật giao dịch (gắn TOTP, bằng chứng mã, xác nhận)
+
+hide circle
+hide empty members
+skinparam linetype ortho
+skinparam shadowing false
+skinparam defaultFontSize 11
+skinparam class {
+  BackgroundColor #FFFFFF
+  BorderColor #286E78
+  ArrowColor #333333
+}
+
+entity "user_profiles" as user_profiles #EEF5F6 {
+  * id : uuid <<PK>>
+  --
+  (see er-core)
+}
+
+entity "authenticator_setup" as authenticator_setup {
+  * customer_id : uuid <<PK>> <<FK>>
+  --
+  * request_id : uuid <<UQ>>
+  * session_id : uuid (Auth session)
+  factor_id : uuid (Supabase MFA factor, no FK)
+  * state : text {starting|pending|verifying|
+    ready|blocked|restricted}
+  * revision : integer = 1
+  * attempts : integer (0..5)
+  * expires_at : timestamptz (now + 10 min)
+  * created_at : timestamptz
+  * security_not_before : timestamptz = 'epoch'
+}
+
+entity "security_management" as security_management {
+  * id : uuid <<PK>>
+  --
+  * customer_id : uuid <<FK>>
+  * session_id : uuid
+  * revision : integer
+  * purpose : text {replace|recover|codes}
+  * step : text (13 states, see note)
+  * old_factor_id : uuid
+  new_factor_id : uuid
+  * lease_id : uuid
+  * attempts : integer (0..5)
+  * expires_at : timestamptz (now + 10 min)
+  * created_at : timestamptz
+}
+
+entity "security_proof_reservations" as security_proof_reservations {
+  * customer_id : uuid <<PK>> <<FK>>
+  * factor_scope : text <<PK>>
+  * fingerprint : text <<PK>> (HMAC of code)
+  --
+  * purpose : text
+  * created_at : timestamptz
+}
+
+entity "security_proof_key" as security_proof_key #F8F7F2 {
+  * id : boolean <<PK>> (single row)
+  --
+  * secret : text (backend-only HMAC key)
+}
+
+entity "transaction_confirmations" as transaction_confirmations {
+  * id : uuid <<PK>> (= signed review id)
+  --
+  * customer_id : uuid <<FK>>
+  * session_id : uuid
+  * review_digest : text (HMAC of review token)
+  * factor_id : uuid
+  * security_revision : integer
+  * state : text {checking|factor_confirmed|rejected|
+    unknown|cancelled|posted}
+  * purpose : text {preview|local_transfer|local_deposit|
+    local_withdrawal|local_interbank} = 'preview'
+  * expires_at : timestamptz (review + 10 min)
+  * lease_until : timestamptz (now + 30 s)
+  confirmed_until : timestamptz (<= 2 min)
+  * created_at : timestamptz
+}
+
+user_profiles ||--o| authenticator_setup : customer_id
+user_profiles ||--o{ security_management : customer_id
+user_profiles ||--o{ security_proof_reservations : customer_id
+user_profiles ||--o{ transaction_confirmations : customer_id
+
+authenticator_setup ||..o{ transaction_confirmations : "factor_id, revision must match\nfactor_id, security_revision\n(checked in code, no FK)"
+authenticator_setup ||..o{ security_management : "old_factor_id copied from\nfactor_id (no FK)"
+security_proof_key ..> security_proof_reservations : "keys fingerprint"
+security_proof_key ..> transaction_confirmations : "keys review_digest"
+
+note right of security_management
+  Giá trị step: proof, proving, authorized, enrolling,
+  pending, verifying, verified, issuing, codes_shown,
+  finishing, cancelling, completed, cancelled.
+  Partial unique index one_security_management: mỗi
+  khách hàng tối đa một dòng chưa completed/cancelled.
+end note
+
+note bottom of security_proof_reservations
+  Dùng chung cho thiết lập, quản lý authenticator và mọi
+  xác nhận: mỗi dấu vân tay mã chỉ giữ chỗ được một lần
+  (chống phát lại); tối đa 10 lần / khách hàng / 15 phút
+  (dòng cũ hơn bị xoá).
+end note
+
+note bottom of transaction_confirmations
+  Chỉ là siêu dữ liệu bảo mật - không số tài khoản, số tiền hay token.
+  Chi tiết giao dịch nằm trong review token ký HMAC phía client.
+  Với mục đích khác preview, hàm ghi sổ khoá dòng này, yêu cầu
+  factor_confirmed và đặt state = 'posted'; id dòng trở thành
+  id biên lai (xem phần 3/3).
+end note
+
+@enduml

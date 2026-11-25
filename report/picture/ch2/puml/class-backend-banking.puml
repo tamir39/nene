@@ -1,0 +1,153 @@
+@startuml class-backend-banking
+' Nene backend (NestJS) - class diagram 2/4: profiles, officer customer management,
+' accounts (balances, savings/mortgage information, history, savings rate, demo accounts).
+' Source: backend/src/profiles, customers, accounts, auth/supabase-admin.service.ts.
+' Routes are relative to the global prefix /api/v1. [VERB path] = HTTP route.
+
+title Nene API (2/4) - khách hàng, hồ sơ và tài khoản
+
+skinparam shadowing false
+skinparam defaultFontSize 11
+skinparam classAttributeIconSize 0
+skinparam packageStyle rectangle
+skinparam class {
+  BackgroundColor #FFFFFF
+  BorderColor #286E78
+  ArrowColor #333333
+}
+hide empty members
+left to right direction
+
+package "profiles" {
+  class MeController <<Controller me>> {
+    +getMe(req) : CurrentUser [GET]
+    +accounts(req) [GET accounts]
+    +updateContact(req, body) [PATCH contact]
+  }
+}
+
+package "customers" {
+  class OfficerCustomersController <<Controller officer/customers>> {
+    +create(req, idempotencyKey, body) [POST]
+    +search(req, query) [GET ?query=]
+    +detail(req, id) [GET :id]
+    +edit(req, id, body) [PATCH :id]
+  }
+  class CustomersService <<Injectable>> {
+    +officer(user) : void
+    +ownAccounts(user) : Promise<{accounts : Account[]}>
+    +updateContact(user, input : ContactInput) : Promise<CurrentUser>
+    +search(user, query) : Promise<{customers : Customer[]}>
+    +detail(user, id) : Promise<CustomerDetail>
+    +edit(user, id, input : EditCustomerInput) : Promise<CustomerDetail>
+    +create(user, key, input : CreateCustomerInput) : Promise<CustomerDetail>
+  }
+  class "customer.validation.ts" as CustomerValidation <<module>> {
+    +uuid(value, label)
+    +contactInput(body) / +createInput(body)
+    +editInput(body) / +searchQuery(value)
+  }
+  interface Customer {
+    id : string
+    email : string | null
+    displayName : string
+    phone, address : string | null
+  }
+  interface CustomerDetail {
+    accounts : Account[]
+  }
+  interface Account {
+    id, accountNumber : string
+    type : 'checking'|'saving'|'mortgage'
+    currency, balanceMinor, status : string
+    isDemo? : boolean
+    annualRateBps?, rateRevision? : number | null
+    monthlyProfitMinor? : string
+    principalRemainingMinor?, monthlyDueMinor?,
+    nextDueOn? : string | null
+  }
+  interface ContactInput {
+    phone, address : string | null
+  }
+  interface CreateCustomerInput {
+    email, displayName, initialPassword : string
+  }
+  interface EditCustomerInput {
+    displayName, requestReason : string
+  }
+}
+
+package "auth" {
+  class SupabaseAdminService <<Injectable>> {
+    {field} -client? : SupabaseClient (secret key)
+    +assertAvailable() : void
+    +ensureUser(id, email, password) : Promise<void>
+  }
+}
+
+package "accounts" {
+  class AccountHistoryController <<Controller me/accounts/:accountId/history>> {
+    +read(req, accountId, query {month, cursor?}) [GET]
+    .. customer-owned accounts only ..
+    .. month in Asia/Bangkok, 25 rows per page ..
+    .. keyset cursor (posted_at, id) ..
+  }
+  class SavingsPolicyController <<Controller officer/savings-policy>> {
+    +read(req) [GET]
+    +edit(req, body {annualRateBps, revision, reason}) [PATCH]
+    .. officer only; optimistic revision check ..
+    .. savings_policy update + savings_rate_audit in one tx ..
+  }
+  class DemoAccountController <<Controller officer/customers/:customerId/demo-accounts>> {
+    +create(req, customerId, idempotencyKey, body) [POST]
+    .. officer only; loopback Auth or hosted-sandbox ..
+    .. synthetic (.invalid / .test) customer email ..
+    .. zero-balance demo saving or mortgage account ..
+    .. (+ mortgage_schedule) for a synthetic customer; ..
+    .. demo_account_requests makes the key replay-safe ..
+  }
+  class "account-information.ts" as AccountInformation <<module>> {
+    +monthlyProfit(balance, annualBps) : string
+    +withInformation(account) : Account
+    informationColumns : SQL fragment
+  }
+}
+
+package "shared (see diagram 1/4)" {
+  class DatabaseService <<Injectable>> {
+    +query<T>(text, values)
+    +transaction<T>(work)
+  }
+  interface Environment <<ENVIRONMENT token>>
+  interface CurrentUser
+  class "Supabase Auth Admin API" as AuthAdmin <<external>>
+}
+
+' ----- relationships -----
+MeController --> CustomersService
+MeController ..> CustomerValidation
+OfficerCustomersController --> CustomersService
+OfficerCustomersController ..> CustomerValidation
+CustomersService --> DatabaseService
+CustomersService --> SupabaseAdminService : create Auth user\n(reserved UUID)
+CustomersService ..> AccountInformation
+CustomersService ..> CustomerDetail
+CustomersService ..> CurrentUser
+SupabaseAdminService ..> AuthAdmin : getUserById / createUser
+SupabaseAdminService ..> Environment
+
+CustomerDetail -up-|> Customer
+CustomerDetail o-- "0..*" Account
+CreateCustomerInput -up-|> ContactInput
+EditCustomerInput -up-|> ContactInput
+
+AccountHistoryController --> DatabaseService
+SavingsPolicyController --> DatabaseService
+DemoAccountController --> DatabaseService
+DemoAccountController ..> Environment
+AccountInformation ..> Account
+
+note "CustomersService.create(): giữ chỗ (officer, Idempotency-Key)\ntrong customer_creation_requests, tạo người dùng Auth với UUID\nđã giữ, rồi chèn user_profiles + một tài khoản thanh toán VND\n(số dư 0) trong cùng một giao dịch CSDL. edit(): nhân viên sửa\ntên/liên hệ + ghi profile_edit_audit. Tạo khách hàng chỉ chạy với\nAuth loopback hoặc bản triển khai hosted-sandbox." as NCreate
+NCreate .. CustomersService
+
+@enduml

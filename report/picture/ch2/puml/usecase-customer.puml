@@ -1,0 +1,96 @@
+@startuml usecase-customer
+' Nene - UML use-case diagram (1/2): Customer. Derived from the registered NestJS
+' routes (backend/src/**/*.controller.ts) and the customer destinations in
+' app/lib/ui/customer_workspace.dart (_Page enum) and sibling screens.
+' Route hints are relative to /api/v1. Only implemented behaviour is shown.
+' Tags: [M] simulated, [V] VNPay sandbox - see legend. Main @ 31148c9.
+
+title Nene - ca sử dụng của Khách hàng (phạm vi đã hiện thực)
+
+left to right direction
+skinparam shadowing false
+skinparam defaultFontSize 11
+skinparam usecase {
+  BackgroundColor #FFFFFF
+  BorderColor #286E78
+}
+skinparam actorStyle awesome
+
+actor "Khách hàng" as Customer
+actor "Supabase Auth\n(đăng nhập, TOTP MFA)" as SupaAuth <<system>>
+actor "VNPay PAY\nsandbox" as Vnpay <<system>>
+actor "Valhalla routing\n(máy chủ FOSSGIS)" as Valhalla <<system>>
+actor "OpenStreetMap\ntile server" as Osm <<system>>
+
+rectangle "Ứng dụng Nene (Flutter app + NestJS API)" {
+  usecase "Đăng nhập / đăng xuất\n(phiên mật khẩu Supabase)" as UC_Sign
+  usecase "Xem tài khoản và số dư\n(ước tính lãi tiết kiệm, lịch vay)\nGET me/accounts" as UC_Accounts
+  usecase "Xem lịch sử giao dịch theo tháng\nGET me/accounts/:id/history" as UC_History
+  usecase "Sửa số điện thoại, địa chỉ\nPATCH me/contact" as UC_Contact
+  usecase "Gửi ảnh khuôn mặt tham chiếu\nme/identity, identity/cases/*" as UC_Ref
+  usecase "Thiết lập ứng dụng xác thực (TOTP)\nme/security/setup, verify" as UC_Totp
+  usecase "Thay / khôi phục ứng dụng xác thực,\ncấp mã khôi phục\nme/security/management/*" as UC_Manage
+  usecase "Tìm chi nhánh demo gần nhất\nvà đường đi bộ\nme/branches[/route]" as UC_Branch
+  usecase "Hỏi trợ lý Nene\n(dựa trên luật, không LLM)\nme/assistant/messages" as UC_Assistant
+  usecase "Kiểm tra xác nhận chuyển khoản\n(xem trước, không chuyển tiền)\nme/transfer-confirmations" as UC_Preview
+  usecase "Chuyển khoản trong Nene\nme/transfers" as UC_Transfer
+  usecase "Chuyển tới ngân hàng\nkhác giả lập [M]\nme/interbank-transfers" as UC_Interbank
+  usecase "Nạp / rút tiền\nmặt giả lập [M]\nme/cash/{deposit|withdrawal}" as UC_Cash
+  usecase "Thanh toán hoá đơn demo /\nnạp tiền điện thoại [V]\nme/payments" as UC_Bill
+  usecase "Mua vé xem phim demo [V]\nme/payments" as UC_Movie
+  usecase "Thực hiện giao dịch\ncần xác nhận TOTP" as UC_Op
+  usecase "Xem lại chi tiết và xác nhận\nbằng mã ứng dụng xác thực\n(review -> confirm, cancel, status)" as UC_Confirm
+  usecase "Yêu cầu ảnh tham chiếu\nđã được chấp nhận, còn hạn" as UC_RefCheck
+  usecase "Ghi nhận kết quả thanh toán sandbox\nGET payments/vnpay/ipn | return (public)" as UC_Ipn
+}
+
+Customer -- UC_Sign
+Customer -- UC_Accounts
+Customer -- UC_History
+Customer -- UC_Contact
+Customer -- UC_Ref
+Customer -- UC_Totp
+Customer -- UC_Manage
+Customer -- UC_Branch
+Customer -- UC_Assistant
+Customer -- UC_Preview
+Customer -- UC_Transfer
+Customer -- UC_Interbank
+Customer -- UC_Cash
+Customer -- UC_Bill
+Customer -- UC_Movie
+
+UC_Transfer --|> UC_Op
+UC_Interbank --|> UC_Op
+UC_Cash --|> UC_Op
+UC_Bill --|> UC_Op
+UC_Movie --|> UC_Op
+UC_Op ..> UC_Confirm : <<include>>
+UC_Op ..> UC_RefCheck : <<include>>
+UC_Preview ..> UC_Confirm : <<include>>
+
+UC_Sign ---- SupaAuth
+UC_Totp ---- SupaAuth
+UC_Manage ---- SupaAuth
+UC_Confirm -- SupaAuth
+UC_Bill ---- Vnpay
+UC_Movie ---- Vnpay
+UC_Ipn ---- Vnpay
+UC_Branch ---- Valhalla
+UC_Branch ---- Osm
+
+legend bottom
+  <b>Ghi chú trung thực</b>
+  Mọi giao dịch tiền: khách hàng tổng hợp (@example.invalid), tài khoản VND demo, số tiền < 5.000.000 VND,
+      mỗi loại bật bằng cờ môi trường + bảng *_settings; nguồn tiền mở đầu do script seed tạo một lần.
+  [M] Mô phỏng: người nhận "Demo Bank A/B" hư cấu; nguồn tiền mặt giả lập (bank.demo_cash_balances).
+      Không có mạng liên ngân hàng hay dịch vụ tiền mặt thật.
+  [V] Chỉ VNPay sandbox: hoá đơn điện / nước / nạp điện thoại và hai suất phim đều hư cấu.
+      Không đổi số dư Nene; không có hoá đơn, tiền điện thoại, vé hay ghế thật.
+      Chỉ kết quả có chữ ký VNPay hợp lệ (IPN hoặc trang return, cùng bộ kiểm tra) mới đổi trạng thái đơn.
+  "Xem trước" chỉ kiểm tra mã xác thực cho chi tiết đã xem, không bao giờ chuyển tiền.
+  "Reference accepted" là quyết định liên kết của nhân viên, KHÔNG phải eKYC hoàn chỉnh; không có so khớp khuôn mặt tự động.
+  Trợ lý chỉ mở màn hình trong ứng dụng; không đọc tài khoản và không tự gửi giao dịch.
+endlegend
+
+@enduml

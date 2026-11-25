@@ -1,0 +1,229 @@
+@startuml class-app-features
+' Nene Flutter client - class diagram 3/3: identity reference capture/review, account
+' history, branch map, activity assistant, officer savings rate and demo accounts.
+' Source: app/lib/identity_controller.dart, assistant_controller.dart, app/lib/ui/*,
+' app/lib/data/{identity_*, reference_photo_source, account_history_api, branches_api,
+' branch_location, assistant_api, savings_policy_api, demo_accounts_api}.dart.
+
+title Ứng dụng Nene (3/3) - ảnh tham chiếu, lịch sử, chi nhánh, trợ lý và công cụ nhân viên
+
+skinparam shadowing false
+skinparam defaultFontSize 11
+skinparam classAttributeIconSize 0
+skinparam packageStyle rectangle
+skinparam class {
+  BackgroundColor #FFFFFF
+  BorderColor #286E78
+  ArrowColor #333333
+}
+hide empty members
+left to right direction
+
+package "UI (lib/ui)" #F8F7F2 {
+  class CustomerWorkspace <<StatefulWidget>> {
+    see diagram 1/3
+  }
+  class IdentityReferenceScreen <<StatefulWidget>> {
+    session : SessionController
+    repository : IdentityRepository
+    photos : ReferencePhotoSource
+    faceCheck : FaceCheck
+    {field} customerId : String? (officer mode)
+  }
+  class AccountHistoryScreen <<StatefulWidget>> {
+    session : SessionController
+    api : AccountHistoryApi
+    account : BankAccount
+    initialMonth : String?
+  }
+  class BranchMapScreen <<StatefulWidget>> {
+    session : SessionController
+    api : BranchesApi
+    location : BranchLocation?
+    tileProvider : TileProvider?
+    {field} flutter_map TileLayer (OSM tiles)
+  }
+  class AssistantScreen <<StatefulWidget>> {
+    controller : AssistantController
+    onAction : ValueChanged<AssistantAction>
+  }
+  class SavingsPolicyScreen <<StatefulWidget>> {
+    session : SessionController
+    api : SavingsPolicyApi
+  }
+  class DemoAccountScreen <<StatefulWidget>> {
+    session : SessionController
+    api : DemoAccountsApi
+    customerId, customerName : String
+    onDone : VoidCallback
+  }
+}
+
+package "Controllers (ChangeNotifier)" #EEF5F6 {
+  class SessionController {
+    see diagram 1/3
+    +authorized<T>(operation(token), role)
+  }
+  class IdentityController {
+    customerId : String?
+    summary : IdentitySummary?
+    captured : ReferencePhoto?
+    capturedFaceCheck, faceRejection : FaceCheckResult?
+    evidence : Uint8List?
+    busy, capturing, mustCheckStatus : bool
+    +load()
+    +capture()
+    +start({acknowledged})
+    +upload()
+    +submit()
+    +review({accept, associationConfirmed, reason})
+    +retry()
+  }
+  class AssistantController {
+    messages : List<AssistantMessage>
+    +send(text, {retry})
+    +retry()
+    +clear()
+  }
+}
+
+package "Data (lib/data)" #FFFFFF {
+  interface IdentityRepository {
+    +getSummary(token, {customerId}) : Future<IdentitySummary>
+    +start(token, {customerId, noticeVersion, key})
+    +upload(token, caseId, {version, contentType, bytes, key})
+    +submit(token, caseId, {version, key})
+    +review(token, caseId, {version, action, associationConfirmed, reason, key})
+    +getEvidence(token, caseId, evidenceId) : Future<Uint8List>
+  }
+  class IdentityApi
+  class IdentitySummary {
+    customerId, customerName : String
+    status : not_started|draft|submitted|
+      needs_changes|reference_accepted
+    caseId, evidenceId : String?
+    version, revision : int?
+    noticeVersion, noticeText : String
+    allowedActions : List<String>
+    expired : bool
+  }
+  interface ReferencePhotoSource {
+    +capture() : Future<ReferencePhoto?>
+  }
+  class DeviceReferencePhotoSource {
+    +discardLostCapture()
+    {field} image_picker (camera)
+  }
+  interface FaceCheck {
+    +check(bytes) : Future<FaceCheckResult>
+  }
+  class MlKitFaceCheck {
+    {field} google_mlkit_face_detection (on-device)
+  }
+  class UnavailableFaceCheck {
+    {field} web / desktop
+  }
+  enum FaceCheckResult {
+    oneFace
+    noFace
+    multipleFaces
+    faceTooSmall
+    unavailable
+    failed
+  }
+  class AccountHistoryApi {
+    +read(token, accountId, month, {cursor}) : Future<HistoryPage>
+  }
+  class BranchesApi {
+    +read(token) : Future<BranchCatalog>
+    +route(token, origin : LatLng) : Future<BranchRoute>
+  }
+  interface BranchLocation {
+    +current() : Future<LatLng>
+  }
+  class DeviceBranchLocation {
+    {field} geolocator (one-shot position)
+  }
+  class AssistantApi {
+    +ask(token, message, {context}) : Future<AssistantReply>
+  }
+  class AssistantAction {
+    activity : AssistantActivity {history, transfer,
+      interbankTransfer, deposit, withdrawal,
+      bills, phone, movieTickets}
+    month : String?
+  }
+  class SavingsPolicyApi {
+    +read(token) : Future<SavingsPolicy>
+    +save(token, rate, revision, reason) : Future<SavingsPolicy>
+  }
+  class DemoAccountsApi {
+    +create(token, customerId, requestId, body)
+  }
+}
+
+package "External" #EEEEEE {
+  class "Nene API (NestJS)" as NestApi <<external>> {
+    me/identity, identity/cases/*, officer/.../identity
+    me/accounts/:id/history
+    me/branches, me/branches/route
+    me/assistant/messages
+    officer/savings-policy
+    officer/customers/:id/demo-accounts
+  }
+  class "OpenStreetMap tile server\ntile.openstreetmap.org" as OsmTiles <<external>>
+}
+
+' ----- UI -> controllers / data -----
+CustomerWorkspace ..> IdentityReferenceScreen
+CustomerWorkspace ..> AccountHistoryScreen
+CustomerWorkspace ..> BranchMapScreen
+CustomerWorkspace ..> AssistantScreen
+CustomerWorkspace ..> SavingsPolicyScreen : officer
+CustomerWorkspace ..> DemoAccountScreen : officer
+CustomerWorkspace *-- AssistantController : customer only
+
+IdentityReferenceScreen *-- IdentityController
+IdentityController --> SessionController : authorized()
+IdentityController --> IdentityRepository
+IdentityController --> ReferencePhotoSource
+IdentityController --> FaceCheck : check before upload
+MlKitFaceCheck .up.|> FaceCheck
+UnavailableFaceCheck .up.|> FaceCheck
+FaceCheck ..> FaceCheckResult
+IdentityController o-- IdentitySummary
+AssistantScreen --> AssistantController
+AssistantScreen ..> AssistantAction : onAction opens\nnormal app flow
+AssistantController --> SessionController : authorized()
+AssistantController --> AssistantApi
+AccountHistoryScreen --> SessionController : authorized()
+AccountHistoryScreen --> AccountHistoryApi
+BranchMapScreen --> SessionController : authorized()
+BranchMapScreen --> BranchesApi
+BranchMapScreen --> BranchLocation
+BranchMapScreen ..> OsmTiles : map tiles (HTTPS)
+SavingsPolicyScreen --> SessionController : authorized()
+SavingsPolicyScreen --> SavingsPolicyApi
+DemoAccountScreen --> SessionController : authorized()
+DemoAccountScreen --> DemoAccountsApi
+
+IdentityApi .up.|> IdentityRepository
+DeviceReferencePhotoSource .up.|> ReferencePhotoSource
+DeviceBranchLocation .up.|> BranchLocation
+AssistantApi ..> AssistantAction : parses reply actions
+
+IdentityApi ..> NestApi
+AccountHistoryApi ..> NestApi
+BranchesApi ..> NestApi
+AssistantApi ..> NestApi
+SavingsPolicyApi ..> NestApi
+DemoAccountsApi ..> NestApi
+
+note bottom of AssistantController
+  Chỉ nhận câu trả lời dựa trên luật từ backend;
+  action mở màn hình chọn tài khoản, lịch sử,
+  form chuyển khoản/tiền mặt hoặc thanh toán demo
+  bình thường - không bao giờ tự gửi giao dịch.
+end note
+
+@enduml

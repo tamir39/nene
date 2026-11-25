@@ -1,0 +1,264 @@
+@startuml er-core
+' Nene - ER diagram (part 1 of 3): identity, profiles, accounts, history.
+' Source of truth: infrastructure/supabase/migrations/*.sql applied in filename order
+' (20261015000100 ... 20261107000200). Schema "bank" unless prefixed otherwise.
+' Notation: IE (crow's foot). "*" = NOT NULL. <<PK>>, <<FK>>, <<UQ>> = key constraints.
+' {a|b} = CHECK-constrained values.
+
+title Cơ sở dữ liệu Nene (1/3) - danh tính, hồ sơ, tài khoản và lịch sử\n(schema bank sau 16 migration; bảng do Supabase quản lý tô xám)
+
+hide circle
+hide empty members
+skinparam linetype ortho
+skinparam shadowing false
+skinparam defaultFontSize 11
+skinparam class {
+  BackgroundColor #FFFFFF
+  BorderColor #286E78
+  ArrowColor #333333
+}
+
+' ---------- Supabase-managed (external) ----------
+entity "auth.users" as auth_users <<external>> #EEEEEE {
+  * id : uuid <<PK>>
+  --
+  (Supabase Auth identity;
+  passwords and sessions live here)
+}
+
+entity "storage.buckets" as storage_buckets <<external>> #EEEEEE {
+  * id : text <<PK>> = 'identity-evidence'
+  --
+  name : text
+  public : boolean = false
+  file_size_limit : 10485760
+  allowed_mime_types : {image/jpeg|image/png}
+}
+
+entity "storage.objects" as storage_objects <<external>> #EEEEEE {
+  * bucket_id : text <<FK>>
+  * name : text  (object key)
+  --
+  (private photo bytes; mobile roles
+  denied by restrictive policies)
+}
+
+' ---------- Profiles and accounts ----------
+entity "user_profiles" as user_profiles {
+  * id : uuid <<PK>> <<FK auth.users>>
+  --
+  * display_name : text (1..120)
+  * role : text {customer|officer} = 'customer'
+  * status : text {active|disabled} = 'active'
+  email : text <<UQ>> (lower-case)
+  phone : text
+  address : text
+  * created_at : timestamptz
+  * updated_at : timestamptz
+}
+
+entity "banking_accounts" as banking_accounts {
+  * id : uuid <<PK>>
+  --
+  * owner_id : uuid <<FK>>
+  * account_number : bigint <<UQ>> identity from 100000000001
+  * type : text {checking|saving|mortgage}
+  * currency : text (3 upper-case letters, e.g. VND)
+  * balance_minor : bigint >= 0 = 0
+  * status : text {active|closed}
+  * is_demo : boolean = false
+  * created_at : timestamptz
+}
+
+entity "customer_creation_requests" as customer_creation_requests {
+  * officer_id : uuid <<PK>> <<FK>>
+  * idempotency_key : uuid <<PK>>
+  --
+  * customer_id : uuid <<UQ>> (reserved, no FK)
+  * account_id : uuid <<UQ>> (reserved, no FK)
+  * fingerprint_salt : text
+  * payload_fingerprint : text (salted scrypt)
+  * created_at : timestamptz
+  completed_at : timestamptz
+}
+
+entity "profile_edit_audit" as profile_edit_audit {
+  * id : bigint <<PK>> identity
+  --
+  * actor_id : uuid <<FK>>
+  * customer_id : uuid <<FK>>
+  request_reason : text (5..500; officer edits)
+  * fields : text[] {displayName|phone|address}
+  * created_at : timestamptz
+}
+
+entity "account_history" as account_history {
+  * id : uuid <<PK>>
+  --
+  * account_id : uuid <<FK>>
+  * operation_id : uuid (UQ with account_id)
+  * kind : text {deposit|withdrawal|transfer|
+    interbank_transfer|payment|interest|
+    mortgage_repayment}
+  * direction : text {credit|debit}
+  * amount_minor : bigint > 0
+  * currency : text
+  * posted_at : timestamptz
+}
+
+entity "mortgage_schedule" as mortgage_schedule {
+  * account_id : uuid <<PK>> <<FK>>
+  --
+  * principal_remaining_minor : bigint
+  * monthly_due_minor : bigint
+  * next_due_on : date
+  term_months : integer (1..360)
+}
+
+entity "savings_policy" as savings_policy <<config>> #F8F7F2 {
+  * id : boolean <<PK>> (single row)
+  --
+  * annual_rate_bps : integer (0..2000)
+  * revision : integer
+  * updated_at : timestamptz
+}
+
+entity "savings_rate_audit" as savings_rate_audit {
+  * id : bigint <<PK>> identity
+  --
+  * officer_id : uuid <<FK>>
+  * old_bps : integer
+  * new_bps : integer
+  * revision : integer <<UQ>>
+  * reason : text (5..500)
+  * created_at : timestamptz
+}
+
+entity "demo_account_requests" as demo_account_requests {
+  * officer_id : uuid <<PK>> <<FK>>
+  * request_id : uuid <<PK>>
+  --
+  * customer_id : uuid <<FK>>
+  * account_id : uuid <<FK>> <<UQ>>
+  * payload : jsonb
+  * created_at : timestamptz
+}
+
+' ---------- Identity reference enrollment ----------
+entity "identity_cases" as identity_cases {
+  * id : uuid <<PK>>
+  --
+  * customer_id : uuid <<FK>> <<UQ>>
+  * state : text {draft|submitted|
+    needs_changes|reference_accepted}
+  * version : integer
+  * revision : integer
+  * profile_name : text
+  evidence_id : uuid (current photo, no FK)
+  * notice_version : text
+  * acknowledged_by : uuid <<FK>>
+  * acknowledged_role : text {customer|officer}
+  correction_reason : text
+  reviewed_by : uuid <<FK>>
+  reviewed_at : timestamptz
+  * expires_at : timestamptz (now + 7 days)
+  ..
+  omitted: created_at, updated_at
+}
+
+entity "identity_evidence" as identity_evidence {
+  * id : uuid <<PK>>
+  --
+  * case_id : uuid <<FK>>
+  * revision : integer
+  profile_name : text (name snapshot)
+  * object_key : text <<UQ>>
+  * content_hash : text (sha-256 hex)
+  * content_type : text {image/jpeg|image/png}
+  * byte_size : integer (<= 10 MiB)
+  * status : text {pending|ready}
+  * expires_at : timestamptz
+  deleted_at : timestamptz (tombstone)
+  ..
+  omitted: created_at, ready_at
+}
+
+entity "identity_commands" as identity_commands {
+  * actor_id : uuid <<PK>> <<FK>>
+  * idempotency_key : uuid <<PK>>
+  --
+  * customer_id : uuid <<FK>>
+  * action : text {start|upload|submit|
+    accept_reference|request_changes}
+  * payload_hash : text
+  case_id : uuid <<FK>>
+  evidence_id : uuid <<FK>>
+  completed_at : timestamptz
+  * created_at : timestamptz
+}
+
+entity "identity_reviews" as identity_reviews {
+  * id : uuid <<PK>>
+  --
+  * case_id : uuid <<FK>>
+  actor_id : uuid <<FK>> (NULL = system)
+  * revision : integer
+  * action : text {accept_reference|request_changes|
+    name_changed|expired}
+  reason : text (5..500)
+  * created_at : timestamptz
+}
+
+' ---------- Relationships (FK unless marked logical) ----------
+auth_users ||--o| user_profiles : identifies
+user_profiles ||--o{ banking_accounts : owner_id
+user_profiles ||--o{ customer_creation_requests : officer_id
+user_profiles ||--o{ profile_edit_audit : "actor_id,\ncustomer_id"
+user_profiles ||--o{ savings_rate_audit : officer_id
+user_profiles ||--o{ demo_account_requests : "officer_id,\ncustomer_id"
+banking_accounts ||--o| demo_account_requests : account_id
+banking_accounts ||--o| mortgage_schedule : account_id
+banking_accounts ||--o{ account_history : account_id
+
+user_profiles ||--o| identity_cases : customer_id
+user_profiles ||--o{ identity_cases : acknowledged_by
+user_profiles |o--o{ identity_cases : reviewed_by
+identity_cases ||--o{ identity_evidence : case_id
+identity_cases |o..o| identity_evidence : "evidence_id\n(logical)"
+identity_cases ||--o{ identity_reviews : case_id
+user_profiles |o--o{ identity_reviews : actor_id
+user_profiles ||--o{ identity_commands : "actor_id,\ncustomer_id"
+identity_cases |o--o{ identity_commands : case_id
+identity_evidence |o--o{ identity_commands : evidence_id
+
+storage_buckets ||--o{ storage_objects : bucket_id
+identity_evidence |o..|| storage_objects : "object_key = name\n(logical)"
+
+note right of savings_policy
+  Bảng một dòng (id = true).
+  Nhân viên sửa lãi suất làm tăng revision
+  và ghi thêm savings_rate_audit.
+end note
+
+note bottom of account_history
+  Chỉ được ghi bởi các hàm SECURITY DEFINER
+  post_local_transfer / post_local_cash / post_local_interbank
+  (xem phần 3/3). operation_id = id biên lai (không FK).
+  Các loại payment, interest, mortgage_repayment được CHECK
+  cho phép nhưng hiện chưa có mã nào ghi chúng.
+end note
+
+note bottom of customer_creation_requests
+  UUID được giữ chỗ trước khi người dùng Auth tồn tại,
+  nên customer_id / account_id cố ý không có FK.
+end note
+
+note top of identity_cases
+  Mỗi khách hàng một hồ sơ. Khi user_profiles.display_name
+  đổi, trigger invalidate_reference_on_name_change xoá
+  evidence_id, tăng version/revision, chuyển hồ sơ
+  submitted/accepted về needs_changes và ghi thêm một dòng
+  identity_reviews 'name_changed'.
+end note
+
+@enduml

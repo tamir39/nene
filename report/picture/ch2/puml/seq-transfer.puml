@@ -1,0 +1,137 @@
+@startuml seq-transfer
+' Nene - same-bank demo transfer: review -> signed confirmation -> TOTP verification
+' bound to the operation -> atomic posting with duplicate protection -> receipt.
+' Sources: app/lib/ui/confirmation_screen.dart, app/lib/data/confirmation_api.dart,
+' app/lib/data/session_owner.dart, backend/src/auth/session.guard.ts,
+' backend/src/confirmation/{transfers.controller,confirmation.service}.ts,
+' backend/src/security/{security.service,security-proof}.ts,
+' migration 20261103000700_local_transfers.sql (bank.post_local_transfer),
+' docs/LOCAL_TRANSFERS.md, docs/TRANSACTION_CONFIRMATION.md. Main @ 31148c9.
+
+title Chuyển khoản trong Nene - xem lại, xác nhận TOTP và ghi sổ nguyên tử
+
+autonumber
+skinparam shadowing false
+skinparam defaultFontSize 10
+skinparam sequenceMessageAlign left
+skinparam responseMessageBelowArrow true
+skinparam sequence {
+  ParticipantBorderColor #286E78
+  LifeLineBorderColor #888888
+  BoxBorderColor #888888
+}
+
+actor "Khách hàng" as Customer
+box "Flutter app" #F8F7F2
+  participant "ConfirmationScreen" as Screen
+  participant "ConfirmationApi\n(route me/transfers)" as CApi
+  participant "SessionOwner" as Owner
+end box
+box "NestJS API (/api/v1)" #EEF5F6
+  participant "SessionGuard" as Guard
+  participant "TransfersController\n+ ConfirmationService" as Svc
+  participant "reserveSecurityProof" as Proof
+end box
+participant "Supabase Auth" as Auth
+database "PostgreSQL\n(schema bank)" as DB
+
+note over Guard, DB
+  Mọi yêu cầu /me/* đều qua SessionGuard trước: Supabase getUser(bearer)
+  + dòng bank.user_profiles đang active; sau đó service yêu cầu role = customer.
+end note
+
+== 1. Xem lại - token có chữ ký, chưa ghi gì ==
+Customer -> Screen : chọn "Chuyển tiền", nhập số tài khoản\nngười nhận 12 chữ số và số tiền VND
+Screen -> CApi : security.status()  [GET me/security]
+CApi --> Screen : state = ready (nếu chưa: thiết lập authenticator)
+Screen -> CApi : review(sourceId, destinationNumber, amount)
+CApi -> Owner : execute(perform)
+Owner -> Guard : POST me/transfers/review\n{sourceAccountId, destinationAccountNumber, amountMinor}\nAuthorization: Bearer <access token>
+Guard -> Auth : getUser(token)
+Guard -> DB : SELECT user_profiles (profile active, role)
+Guard -> Svc : review(req, body, op = true)
+Svc -> DB : cổng: LOCAL_TRANSFERS_ENABLED (+ loopback hoặc hosted-sandbox),\nlocal_transfer_settings.enabled; không có lần thử 'checking' khác
+Svc -> DB : BEGIN; authenticator_setup FOR UPDATE (state ready);\nnguồn thuộc khách hàng + đích: tài khoản thanh toán VND active, khác nhau;\nảnh tham chiếu đã chấp nhận, còn hạn, cùng tên;\nsố tiền < 5.000.000 và đủ số dư; cả hai là demo + tổng hợp; COMMIT
+Svc -> Svc : Review {id = UUID mới, customer, session, factor, revision,\npolicy local-vnd-under-5000000-v1, reference, accounts,\namount, fee 0, expires = now + 10 phút}\nreviewToken = base64url(review) + "." + HMAC-SHA256(proof key)
+Svc -> Auth : GET /auth/v1/user - factor TOTP vẫn verified
+Svc --> Owner : {reviewToken, requestId, revision, số tài khoản,\namountMinor, feeMinor 0, expiresAt, executionAvailable: true}
+Owner --> CApi : review
+CApi --> Screen : review
+Screen --> Customer : hiển thị chi tiết đã xem lại (đếm ngược hết hạn)
+note right of Screen
+  Sửa / Huỷ gọi POST me/transfers/cancel
+  {reviewToken}: ghi một dòng 'cancelled'
+  để review đó không thể xác nhận về sau.
+end note
+
+== 2. Xác nhận - bằng chứng gắn với đúng review này ==
+Customer -> Screen : nhập mã 6 chữ số từ ứng dụng xác thực
+Screen -> CApi : confirm(review, code)
+CApi -> Owner : exchange(HandoffBinding{requestId,\n'same-bank-transfer', revision}, perform)
+Owner -> Guard : POST me/transfers/confirm {reviewToken, code}
+Guard -> Svc : confirm(req, body, op = true)
+Svc -> Svc : kiểm HMAC (timing-safe), cùng khách hàng + phiên Auth,\ncùng policy; digest = HMAC(reviewToken)
+Svc -> DB : BEGIN; authenticator_setup FOR UPDATE (factor + revision = review);\nSELECT transaction_confirmations WHERE id = requestId FOR UPDATE
+alt dòng xác nhận đã tồn tại (gửi trùng)
+  Svc -> DB : COMMIT
+  Svc --> Owner : trạng thái hiện tại + replay: true\n(không gọi Auth, không cấp token mới)
+  Owner --> CApi : SessionMutationRejected - giữ nguyên phiên;\nConfirmationApi trả về trạng thái phát lại
+else gửi lần đầu
+  Svc -> DB : kiểm lại tài khoản + ảnh tham chiếu không đổi;\nINSERT transaction_confirmations (state 'checking',\npurpose 'local_transfer', lease 30 s); COMMIT
+  Svc -> Proof : reserveSecurityProof(customer, factor, code,\n'same-bank-transfer')
+  Proof -> DB : advisory lock; xoá dòng > 15 phút; < 10 lần (nếu không: 429);\nINSERT security_proof_reservations (dấu vân tay HMAC)\nON CONFLICT DO NOTHING - mã dùng lại -> 400
+  note right of Proof : lỗi -> lần thử chuyển 'rejected'
+  Svc -> Auth : GET /user (factor verified)
+  Svc -> Auth : POST /factors/{factor}/challenge
+  Svc -> Auth : POST /factors/{factor}/verify {challenge_id, code}
+  Auth --> Svc : access + refresh token mới (AAL2)
+  note right of Svc : sai mã -> 'rejected' (400);\nkhông rõ kết quả -> 'unknown' (503)
+  Svc -> Auth : GET /user với token mới (cùng factor)
+  Svc -> Svc : kiểm claims: sub, session_id không đổi, aal = aal2
+
+  == 3. Ghi sổ nguyên tử (một giao dịch cơ sở dữ liệu) ==
+  Svc -> DB : BEGIN; khoá lại authenticator_setup; đọc lại tài khoản\n(đích không đổi)
+  Svc -> DB : UPDATE transaction_confirmations SET state 'factor_confirmed',\nconfirmed_until = least(expires_at, now + 2 phút)\nWHERE state 'checking' AND lease và review chưa hết hạn
+  Svc -> DB : SELECT bank.post_local_transfer(id, customer, session, digest,\nsource, destination, amount, case, version, revision, evidence)
+  activate DB
+  DB -> DB : cổng bật; khoá xác nhận FOR UPDATE;\nkiểm customer, session, digest, purpose
+  alt state đã là 'posted' (gửi lại y hệt)
+    DB -> DB : cùng chi tiết biên lai? trả về, không trừ tiền lần hai
+  else factor_confirmed và còn hạn
+    DB -> DB : khoá authenticator_setup (liên kết không đổi);\nkhoá hai tài khoản ORDER BY id (tránh deadlock);\nsở hữu, tài khoản thanh toán VND demo, active, số dư, tràn số;\nhồ sơ tổng hợp + ảnh tham chiếu FOR SHARE; kiểm lại hạn
+    DB -> DB : trừ nguồn, cộng đích (balance_minor);\nINSERT local_transfers (biên lai);\nINSERT 2 dòng account_history (debit + credit, cùng operation_id);\nUPDATE transaction_confirmations SET state 'posted'
+  end
+  deactivate DB
+  Svc -> DB : COMMIT (lỗi bất kỳ -> hoàn tác toàn bộ)
+  Svc -> DB : trạng thái: xác nhận 'posted' + biên lai local_transfers
+  Svc --> Owner : {state 'posted', sent: true, receipt, requestId, revision,\npurpose 'same-bank-transfer', accessToken, refreshToken, replay: false}
+  note right of Svc
+    Lỗi bất kỳ sau khi Auth đã xác minh mã trả 503
+    "Transfer outcome is unconfirmed": ứng dụng
+    hỏi trạng thái, không bao giờ gửi lại mã.
+  end note
+  Owner -> Owner : binding trả về == HandoffBinding?\n(requestId, purpose, revision)
+  Owner -> Auth : GET /auth/v1/user - kiểm cặp token mới (cùng user + session)
+  Owner -> Owner : nhận phiên mới (chỉ trong bộ nhớ)
+  Owner --> CApi : xong
+end
+CApi --> Screen : {state 'posted', sent: true, receipt}\n(hoặc trạng thái phát lại)
+Screen --> Customer : biên lai "Đã chuyển tiền"
+
+== 4. Sau giao dịch ==
+Customer -> Screen : quay lại danh sách tài khoản
+note over Screen, CApi
+  CustomerWorkspace tải lại GET me/accounts (số dư mới) qua
+  CustomerFlowController / BankingApi; cả hai khách hàng thấy
+  khoản debit / credit trong GET me/accounts/:id/history.
+end note
+alt mất phản hồi hoặc chưa rõ kết quả
+  Screen -> CApi : status(requestId)
+  CApi -> Owner : execute(perform)
+  Owner -> Guard : GET me/transfers/:id
+  Guard -> Svc : status(req, id, op = true)
+  Svc -> DB : transaction_confirmations (+ biên lai local_transfers nếu đã posted)
+  Svc --> Screen : biên lai posted, hoặc checking / unknown / rejected /\ncancelled / expired / invalidated
+end
+
+@enduml

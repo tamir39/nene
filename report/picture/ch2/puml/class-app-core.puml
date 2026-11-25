@@ -1,0 +1,216 @@
+@startuml class-app-core
+' Nene Flutter client - class diagram 1/3: app shell, session ownership, profile and the
+' customer/officer account workflow. Source: app/lib (main.dart, nene_app.dart,
+' session_controller.dart, customer_flow_controller.dart, data/*, ui/customer_workspace.dart).
+' Layers: UI (widgets) -> controllers (ChangeNotifier) -> repositories / API clients -> backends.
+
+title Ứng dụng Nene (1/3) - khung ứng dụng, phiên đăng nhập và luồng khách hàng/nhân viên
+
+skinparam shadowing false
+skinparam defaultFontSize 11
+skinparam classAttributeIconSize 0
+skinparam packageStyle rectangle
+skinparam class {
+  BackgroundColor #FFFFFF
+  BorderColor #286E78
+  ArrowColor #333333
+}
+hide empty members
+
+package "UI - lib/ui and nene_app" #F8F7F2 {
+  class NeneApp <<StatefulWidget>> {
+    controller? : SessionController
+    banking?, identity?, photos?, security?,
+    savingsPolicy?, demoAccounts?, history?,
+    branches?, assistant? : injected clients
+    build() : switch (SessionStatus)
+  }
+  class SignInScreen <<StatefulWidget>> {
+    controller : SessionController
+  }
+  class CustomerWorkspace <<StatefulWidget>> {
+    session : SessionController
+    repository : BankingRepository
+    {field} optional feature clients (see 2/3, 3/3)
+    {field} -_page : _Page (17 in-workspace pages)
+    -_flow : CustomerFlowController
+    -_assistant : AssistantController?
+  }
+  class ContactForm <<StatefulWidget>> {
+    profile : UserProfile
+    flow : CustomerFlowController
+  }
+  class CreateCustomerForm <<StatefulWidget>> {
+    flow : CustomerFlowController
+  }
+}
+
+package "Controllers (ChangeNotifier)" #EEF5F6 {
+  class SessionController {
+    status : SessionStatus
+    profile : UserProfile?
+    message : String?
+    generation : int
+    +authorized<T>(operation(token), role) : Future<T>
+    +signIn(email, password)
+    +signOut()
+    +loadProfile()
+    +revalidateProfile()
+    +acceptOwnProfile(updated)
+  }
+  enum SessionStatus {
+    signedOut
+    loading
+    ready
+    unavailable
+  }
+  class CustomerFlowController {
+    accounts : List<BankAccount>?
+    customers : List<CustomerSummary>?
+    selectedCustomer : CustomerDetail?
+    loading / saving / error fields
+    +loadAccounts()
+    +saveContact(phone, address) : Future<bool>
+    +search(query)
+    +loadCustomer(id)
+    +saveCustomer(displayName, phone, address, requestReason) : Future<bool>
+    +createCustomer([draft]) : Future<CustomerDetail?>
+    +correctCreation()
+  }
+}
+
+package "Data (lib/data)" #FFFFFF {
+  interface AuthRepository {
+    userId : String?
+    accessToken : String?
+    changes : Stream<void>
+    +signIn(email, password)
+    +signOut()
+  }
+  class OwnedAuthRepository {
+    owner : SessionOwner
+    {field} -_timer : Timer (refresh < 3 min before expiry)
+  }
+  class SessionOwner {
+    session : OwnedSession?
+    generation : int
+    changes : Stream<void>
+    +signIn(email, password)
+    +refresh()
+    +exchange(binding : HandoffBinding, perform)
+    +execute<T>(perform) : Future<T>
+    +signOut()
+  }
+  class OwnedSession <<memory only>> {
+    pair : AuthPair {accessToken, refreshToken}
+    userId, sessionId : String
+    expiresAt : DateTime
+  }
+  interface AuthPort {
+    +signIn(email, password) : Future<AuthPair>
+    +refresh(session) : Future<AuthPair>
+    +validate(pair) : Future<OwnedSession>
+    +signOut(session)
+  }
+  class SupabaseAuthPort {
+    -_origin : Uri
+    -_publishableKey : String?
+  }
+  interface ProfileRepository {
+    +getProfile(accessToken) : Future<UserProfile>
+  }
+  class ProfileApi
+  interface BankingRepository {
+    +getAccounts(token) : Future<List<BankAccount>>
+    +updateContact(token, phone, address) : Future<UserProfile>
+    +createCustomer(token, draft, idempotencyKey) : Future<CustomerDetail>
+    +findCustomers(token, query) : Future<List<CustomerSummary>>
+    +getCustomer(token, id) : Future<CustomerDetail>
+    +updateCustomer(token, id, displayName, phone, address, requestReason)
+  }
+  class BankingApi
+  class UserProfile {
+    id : String
+    email : String?
+    displayName : String
+    role : AppRole {customer, officer}
+    phone, address : String?
+  }
+  class BankAccount {
+    id, accountNumber, type, currency : String
+    balanceMinor, status : String
+    isDemo : bool
+    annualRateBps : int?
+    monthlyProfitMinor, principalRemainingMinor,
+    monthlyDueMinor, nextDueOn : String?
+  }
+  class CustomerDetail {
+    id, displayName : String
+    email, phone, address : String?
+    accounts : List<BankAccount>
+  }
+  class CustomerDraft {
+    email, displayName, initialPassword : String
+    phone, address : String?
+  }
+  class AppConfig {
+    apiBaseUrl : Uri
+    supabaseUrl : Uri
+    supabasePublishableKey : String
+    +fromEnvironment() : AppConfig
+  }
+}
+
+package "Backends" #EEEEEE {
+  class "Nene API (NestJS)\n/api/v1/me, /me/accounts, /me/contact,\n/officer/customers[/:id]" as NestApi <<external>>
+  class "Supabase Auth\n/auth/v1/token, /user, /logout" as SupaAuth <<external>>
+}
+
+' ----- UI -> controllers -----
+NeneApp --> SessionController : listens
+NeneApp ..> SignInScreen : signedOut
+NeneApp ..> CustomerWorkspace : ready
+NeneApp ..> AppConfig
+SignInScreen --> SessionController : signIn()
+CustomerWorkspace --> SessionController
+CustomerWorkspace *-- CustomerFlowController
+CustomerWorkspace ..> ContactForm
+CustomerWorkspace ..> CreateCustomerForm
+ContactForm --> CustomerFlowController
+CreateCustomerForm --> CustomerFlowController
+
+' ----- controllers -> data -----
+SessionController --> AuthRepository
+SessionController --> ProfileRepository
+SessionController ..> SessionStatus
+SessionController o-- UserProfile
+CustomerFlowController --> SessionController : authorized()
+CustomerFlowController --> BankingRepository
+CustomerFlowController o-- BankAccount
+CustomerFlowController o-- CustomerDetail
+CustomerFlowController ..> CustomerDraft
+
+OwnedAuthRepository .up.|> AuthRepository
+OwnedAuthRepository --> SessionOwner
+SessionOwner --> AuthPort
+SessionOwner o-- OwnedSession
+SupabaseAuthPort .up.|> AuthPort
+ProfileApi .up.|> ProfileRepository
+BankingApi .up.|> BankingRepository
+CustomerDetail o-- BankAccount
+
+' ----- data -> backends -----
+SupabaseAuthPort ..> SupaAuth : HTTPS
+ProfileApi ..> NestApi : GET me (Bearer)
+BankingApi ..> NestApi : Bearer access token
+
+note as NMain
+  main.dart là composition root: tạo AppConfig.fromEnvironment(),
+  SessionOwner(SupabaseAuthPort), OwnedAuthRepository,
+  SessionController(ProfileApi) và một http.Client dùng chung
+  cho mọi API client, rồi runApp(NeneApp).
+  Phiên chỉ giữ trong bộ nhớ (không lưu token xuống thiết bị).
+end note
+NMain .. NeneApp
+
+@enduml

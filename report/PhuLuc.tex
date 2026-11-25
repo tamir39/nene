@@ -1,0 +1,182 @@
+\chapter*{PHỤ LỤC}
+\phantomsection
+\addcontentsline{toc}{chapter}{PHỤ LỤC}
+
+% Bảng trong phụ lục được đánh số PL.1, PL.2, ... để không trùng với bảng của Chương 5.
+\setcounter{table}{0}
+\renewcommand{\thetable}{PL.\arabic{table}}
+\renewcommand{\theHtable}{PL.\arabic{table}}
+
+\section*{A. Danh sách API chính}
+\phantomsection
+\addcontentsline{toc}{section}{A. Danh sách API chính}
+
+Bảng~\ref{tab:pl-api} liệt kê các điểm cuối chính của máy chủ NestJS, được tổng hợp từ các lớp \texttt{*.\allowbreak{}controller.\allowbreak{}ts} trong thư mục \texttt{backend/\allowbreak{}src} và tài liệu \texttt{docs/\allowbreak{}API.\allowbreak{}md}. Mọi đường dẫn có tiền tố \path{/api/v1}. Trừ hai điểm cuối công khai của VNPay và điểm cuối kiểm tra trạng thái máy chủ, mọi yêu cầu phải kèm mã truy cập của phiên Supabase (\texttt{Authorization: Bearer}); máy chủ xác minh phiên và đọc vai trò từ CSDL trước khi xử lý. Phản hồi dữ liệu dùng \texttt{Cache-\allowbreak{}Control: no-\allowbreak{}store}.
+
+\begingroup
+\linespread{1.1}\small
+\begin{longtable}{@{}p{1.3cm} p{5.4cm} p{2.1cm} p{5.3cm}@{}}
+	\caption{Các điểm cuối API chính của máy chủ Nene}
+	\label{tab:pl-api} \\
+	\toprule
+	\textbf{Phương thức} & \textbf{Đường dẫn} & \textbf{Vai trò} & \textbf{Mục đích} \\
+	\midrule
+	\endfirsthead
+	\multicolumn{4}{@{}l}{\textit{Bảng \thetable{} (tiếp theo)}} \\
+	\toprule
+	\textbf{Phương thức} & \textbf{Đường dẫn} & \textbf{Vai trò} & \textbf{Mục đích} \\
+	\midrule
+	\endhead
+	\midrule
+	\multicolumn{4}{r@{}}{\textit{Còn tiếp ở trang sau}} \\
+	\endfoot
+	\bottomrule
+	\endlastfoot
+	\multicolumn{4}{@{}l}{\textit{Hệ thống và hồ sơ}} \\
+	GET & \path{/health} & Công khai & Kiểm tra tiến trình máy chủ còn hoạt động. \\
+	GET & \path{/me} & Đã đăng nhập & Hồ sơ và vai trò của người dùng hiện tại. \\
+	GET & \path{/me/accounts} & Khách hàng & Các tài khoản của chính khách hàng. \\
+	PATCH & \path{/me/contact} & Khách hàng & Sửa số điện thoại và địa chỉ. \\
+	\midrule
+	\multicolumn{4}{@{}l}{\textit{Nhân viên quản lý khách hàng}} \\
+	POST & \path{/officer/customers} & Nhân viên & Tạo khách hàng kèm tài khoản thanh toán ban đầu; bắt buộc khóa \texttt{Idempotency-\allowbreak{}Key}. \\
+	GET & \path{/officer/customers?query=} & Nhân viên & Tìm khách hàng theo tên, thư điện tử hoặc số điện thoại (tối đa 20 kết quả). \\
+	GET & \path{/officer/customers/:id} & Nhân viên & Chi tiết khách hàng và các tài khoản. \\
+	PATCH & \path{/officer/customers/:id} & Nhân viên & Sửa họ tên, thông tin liên hệ theo yêu cầu của khách hàng, kèm lý do. \\
+	POST & \path{/officer/customers/:customerId/demo-accounts} & Nhân viên & Tạo tài khoản tiết kiệm hoặc thế chấp phục vụ trình diễn. \\
+	GET, PATCH & \path{/officer/savings-policy} & Nhân viên & Xem và sửa lãi suất tiết kiệm (kiểm tra phiên bản, ghi vết). \\
+	\midrule
+	\multicolumn{4}{@{}l}{\textit{Ảnh khuôn mặt tham chiếu}} \\
+	GET & \path{/me/identity} & Khách hàng & Trạng thái ảnh tham chiếu của mình. \\
+	GET & \path{/officer/customers/:id/identity} & Nhân viên & Trạng thái ảnh tham chiếu của một khách hàng. \\
+	POST & \path{/me/identity/cases} & Khách hàng & Bắt đầu hoặc tiếp tục hồ sơ ảnh sau khi xác nhận thông báo. \\
+	POST & \path{/officer/customers/:id/identity/cases} & Nhân viên & Bắt đầu hồ sơ ảnh với sự hỗ trợ của nhân viên. \\
+	GET & \path{/identity/cases/:caseId} & Chủ hồ sơ, nhân viên & Trạng thái hiện tại của hồ sơ ảnh. \\
+	POST & \path{/identity/cases/:caseId/evidence} & Chủ hồ sơ, nhân viên & Tải ảnh JPEG/PNG; máy chủ giải mã, mã hóa lại và loại bỏ siêu dữ liệu. \\
+	GET & \path{/identity/cases/:caseId/evidence/:evidenceId} & Chủ hồ sơ, nhân viên & Xem ảnh trong kho lưu trữ riêng tư. \\
+	POST & \path{/identity/cases/:caseId/submit} & Chủ hồ sơ, nhân viên & Gửi ảnh để nhân viên duyệt. \\
+	POST & \path{/officer/identity/cases/:caseId/reviews} & Nhân viên & Chấp nhận ảnh hoặc yêu cầu chụp lại kèm lý do. \\
+	\midrule
+	\multicolumn{4}{@{}l}{\textit{Ứng dụng xác thực (TOTP)}} \\
+	GET & \path{/me/security} & Khách hàng & Trạng thái ứng dụng xác thực. \\
+	POST & \path{/me/security/setup}, \path{/me/security/verify} & Khách hàng & Đăng ký và xác minh ứng dụng xác thực. \\
+	GET & \path{/me/security/management} & Khách hàng & Trạng thái thay thế hoặc khôi phục ứng dụng xác thực. \\
+	POST & \path{/me/security/management/:step} & Khách hàng & Các bước thay thế và cấp mã khôi phục; \texttt{step} là \texttt{start}, \texttt{prove}, \texttt{resume}, \texttt{enroll}, \texttt{verify}, \texttt{issue-\allowbreak{}codes}, \texttt{finish} hoặc \texttt{cancel}. \\
+	GET, POST & \path{/me/transfer-confirmations/...} & Khách hàng & Thử bước xác nhận giao dịch, không chuyển tiền: \texttt{review}, \texttt{confirm}, \texttt{cancel} (POST), \texttt{:id} (GET). \\
+	\midrule
+	\multicolumn{4}{@{}l}{\textit{Tài khoản và giao dịch}} \\
+	GET & \path{/me/accounts/:accountId/history?month=YYYY-MM} & Khách hàng & Lịch sử giao dịch theo tháng, 25 dòng mỗi trang (tham số \texttt{cursor}). \\
+	GET, POST & \path{/me/transfers/...} & Khách hàng & Chuyển khoản cùng ngân hàng. \\
+	GET, POST & \path{/me/interbank-transfers/...} & Khách hàng & Chuyển khoản liên ngân hàng (mô phỏng). \\
+	GET, POST & \path{/me/cash/:operation/...} & Khách hàng & Nạp tiền (\texttt{deposit}) hoặc rút tiền (\texttt{withdrawal}) với nguồn tiền mặt mô phỏng. \\
+	\multicolumn{4}{@{}p{15.3cm}@{}}{\footnotesize Ba nhóm giao dịch trên có cùng cấu trúc: GET gốc trả về các giao dịch gần đây; \texttt{configuration} (GET) trả về trạng thái bật/tắt và hạn mức; \texttt{review} (POST) tạo bản xem lại có chữ ký; \texttt{confirm} (POST) nhận bản xem lại kèm mã TOTP và ghi sổ; \texttt{cancel} (POST) hủy bản xem lại chưa ghi sổ; \texttt{:id} (GET) trả về trạng thái và biên nhận.} \\
+	\midrule
+	\multicolumn{4}{@{}l}{\textit{Thanh toán qua VNPay sandbox}} \\
+	GET & \path{/me/payments/configuration} & Khách hàng & Danh mục dịch vụ hư cấu và trạng thái cấu hình. \\
+	GET & \path{/me/payments} & Khách hàng & 20 đơn thanh toán gần nhất. \\
+	POST & \path{/me/payments/preview} & Khách hàng & Xem trước dịch vụ, không tạo đơn. \\
+	POST & \path{/me/payments/review} & Khách hàng & Tạo bản xem lại với số tiền do máy chủ quyết định. \\
+	POST & \path{/me/payments/confirm} & Khách hàng & Xác nhận bằng mã TOTP và tạo đường dẫn thanh toán VNPay. \\
+	GET & \path{/me/payments/:id} & Khách hàng & Trạng thái đơn thanh toán. \\
+	GET & \path{/payments/vnpay/ipn} & Công khai (VNPay gọi) & Nhận thông báo kết quả; kiểm tra chữ ký, mã cửa hàng, đơn hàng và số tiền. \\
+	GET & \path{/payments/vnpay/return} & Công khai & Trang trả về; kết quả có chữ ký được kiểm tra bằng cùng bộ kiểm tra với IPN. \\
+	\midrule
+	\multicolumn{4}{@{}l}{\textit{Định vị và trợ lý hội thoại}} \\
+	GET & \path{/me/branches} & Khách hàng & Danh sách văn phòng Nene hư cấu và bán kính tìm kiếm. \\
+	POST & \path{/me/branches/route} & Khách hàng & Đường đi bộ ngắn nhất đến văn phòng gần nhất từ tọa độ gửi lên. \\
+	POST & \path{/me/assistant/messages} & Khách hàng & Gửi câu hỏi, nhận câu trả lời và liên kết đến chức năng. \\
+\end{longtable}
+\endgroup
+
+\section*{B. Tài khoản trình diễn trên máy chủ}
+\phantomsection
+\addcontentsline{toc}{section}{B. Tài khoản trình diễn trên máy chủ}
+
+Máy chủ trình diễn được triển khai tại \url{https://nene-43ej.onrender.com} (điểm cuối kiểm tra: \url{https://nene-43ej.onrender.com/api/v1/health}). Bảng~\ref{tab:pl-tai-khoan} liệt kê các tài khoản trình diễn. Tất cả là danh tính giả lập thuộc miền dành riêng \texttt{example.\allowbreak{}invalid}; \textbf{mật khẩu không được ghi trong báo cáo mà được nhóm cung cấp riêng cho giảng viên}.
+
+% TODO(user): bổ sung vai trò cụ thể của từng khách hàng trình diễn (ví dụ tài khoản nguồn/nhận) nếu cần.
+\begin{table}[H]
+	\centering
+	\caption{Các tài khoản trình diễn trên máy chủ}
+	\label{tab:pl-tai-khoan}
+	\linespread{1.15}\small
+	\begin{tabularx}{\textwidth}{@{}p{5.4cm} p{2.4cm} X@{}}
+		\toprule
+		\textbf{Thư điện tử} & \textbf{Vai trò} & \textbf{Ghi chú} \\
+		\midrule
+		\texttt{officer@example.\allowbreak{}invalid} & Nhân viên & Tạo, tìm và sửa hồ sơ khách hàng; duyệt ảnh tham chiếu; sửa lãi suất tiết kiệm; tạo tài khoản tiết kiệm, thế chấp trình diễn. \\
+		\midrule
+		\texttt{an@example.\allowbreak{}invalid} & Khách hàng & Khách hàng trình diễn. \\
+		\midrule
+		\texttt{binh@example.\allowbreak{}invalid} & Khách hàng & Khách hàng trình diễn. \\
+		\midrule
+		\texttt{vnpay.\allowbreak{}tester@example.\allowbreak{}invalid} & Khách hàng & Khách hàng dùng để thử thanh toán qua VNPay sandbox. \\
+		\bottomrule
+	\end{tabularx}
+\end{table}
+
+Mỗi giao dịch tài chính yêu cầu mã TOTP từ ứng dụng xác thực đã liên kết với tài khoản khách hàng; cách thử các giao dịch này được nhóm trao đổi riêng với giảng viên cùng với mật khẩu. Khi thanh toán qua VNPay sandbox, sử dụng thẻ thử nghiệm do VNPay công bố trong tài liệu môi trường thử nghiệm; mã OTP của ngân hàng thử nghiệm trên trang VNPay là bước riêng của VNPay, khác với mã TOTP của Nene.
+% TODO(user): xác nhận cách giảng viên nhận mã TOTP cho các tài khoản khách hàng trình diễn.
+
+\section*{C. Hướng dẫn cài đặt và chạy thử}
+\phantomsection
+\addcontentsline{toc}{section}{C. Hướng dẫn cài đặt và chạy thử}
+
+\subsection*{C.1. Cài đặt từ Google Play (kênh thử nghiệm nội bộ)}
+
+Ứng dụng (mã gói \texttt{vn.\allowbreak{}nene.\allowbreak{}bank}, phiên bản 1.0.1) đang ở kênh thử nghiệm nội bộ của Google Play nên chỉ người được mời mới cài đặt được:
+\begin{enumerate}
+	\item Giảng viên gửi cho nhóm địa chỉ tài khoản Google đang dùng trên điện thoại Android.
+	\item Nhóm thêm địa chỉ này vào danh sách người thử nghiệm và gửi đường dẫn tham gia thử nghiệm.
+	\item Mở đường dẫn bằng đúng tài khoản Google đó, chấp nhận tham gia thử nghiệm, sau đó cài đặt Nene từ Google Play.
+	\item Mở ứng dụng và đăng nhập bằng một tài khoản trong Bảng~\ref{tab:pl-tai-khoan}.
+\end{enumerate}
+% TODO(user): chèn đường dẫn tham gia thử nghiệm nếu muốn ghi trong báo cáo.
+
+Máy chủ dùng gói miễn phí của Render nên sẽ ngủ khi không có truy cập; lần đăng nhập đầu tiên sau một thời gian có thể mất khoảng một phút. Dự án Supabase miễn phí tạm dừng nếu không hoạt động khoảng một tuần, vì vậy cần duy trì hoạt động của dự án trong thời gian chấm bài.
+
+\subsection*{C.2. Chạy trên máy phát triển}
+
+Môi trường cần có: Node.js 24 và npm 11, Docker Desktop, Flutter bản ổn định kèm Dart (đã kiểm tra với Flutter 3.47.7 và Dart 3.13.5), Android SDK Platform 36 và Git. Từ thư mục gốc của kho mã, khởi động Supabase cục bộ và máy chủ API:
+\begin{lstlisting}
+npm ci
+npm --prefix backend ci
+npm run db:start
+npm run setup:local
+npm run api:dev
+\end{lstlisting}
+
+Lệnh \texttt{setup:local} chỉ làm việc với Supabase cục bộ: tạo ngẫu nhiên mật khẩu cho vai trò CSDL hạn chế mà API sử dụng và ghi các tệp cấu hình cục bộ (\texttt{backend/\allowbreak{}.\allowbreak{}env}, \texttt{app/\allowbreak{}config/\allowbreak{}local.\allowbreak{}json}). Các tệp này bị Git bỏ qua và không được đưa vào kho mã. Không có chức năng tự đăng ký: tài khoản nhân viên đầu tiên được tạo trong trang quản trị Supabase cục bộ, sau đó thêm hồ sơ vai trò \texttt{officer} vào bảng \texttt{bank.\allowbreak{}user\_\allowbreak{}profiles}; các khách hàng được nhân viên tạo từ trong ứng dụng.
+
+Khởi chạy ứng dụng trên trình giả lập Android, từ thư mục \texttt{app/}:
+\begin{lstlisting}
+flutter pub get
+flutter run --dart-define-from-file=config/local.json
+\end{lstlisting}
+
+Trên máy Windows của nhóm, một tệp tiện ích cục bộ \texttt{run.\allowbreak{}bat} (không nằm trong kho mã) khởi động toàn bộ dịch vụ cục bộ, áp dụng các tệp di trú mới và mở bản xem trước của cùng ứng dụng Flutter trên Microsoft Edge:
+\begin{lstlisting}
+run.bat [local|lan|stop|status]
+\end{lstlisting}
+
+\subsection*{C.3. Chạy kiểm thử}
+
+Từ thư mục gốc của kho mã (kiểm thử CSDL cần Supabase cục bộ đang chạy):
+\begin{lstlisting}
+npm --prefix backend run check
+npm --prefix backend run format:check
+npm run db:test
+\end{lstlisting}
+Từ thư mục \texttt{app/}:
+\begin{lstlisting}
+flutter analyze
+flutter test
+\end{lstlisting}
+
+\subsection*{C.4. Tạo bản phát hành Android}
+
+Tệp cấu hình \texttt{app/\allowbreak{}config/\allowbreak{}release.\allowbreak{}json} (bị Git bỏ qua) chỉ chứa địa chỉ máy chủ API triển khai, địa chỉ Supabase và khóa công khai (publishable key); khóa tải lên dùng để ký bản phát hành được lưu ngoài kho mã. Từ thư mục \texttt{app/}:
+\begin{lstlisting}
+flutter build appbundle --release --dart-define-from-file=config/release.json
+\end{lstlisting}
+Tệp \texttt{app-\allowbreak{}release.\allowbreak{}aab} được tạo trong thư mục \texttt{build/\allowbreak{}app/\allowbreak{}outputs/\allowbreak{}bundle/\allowbreak{}release/} và được tải lên Google Play Console.

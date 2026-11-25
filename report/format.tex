@@ -1,0 +1,124 @@
+\usepackage[utf8]{vietnam}
+
+\usepackage[left=3.5cm, right=2cm, top=3.5cm, bottom=3cm, headheight=16pt]{geometry}
+\usepackage{graphicx,float}
+\usepackage{booktabs,longtable,tabularx,array}
+\usepackage{listings}
+\lstset{basicstyle=\ttfamily\footnotesize,breaklines=true,frame=single,columns=fullflexible,keepspaces=true,showstringspaces=false}
+\renewcommand{\lstlistingname}{Đoạn mã}
+% Code identifiers in \texttt cannot be hyphenated; allow extra stretch so lines
+% break before them instead of running into the margin.
+\setlength{\emergencystretch}{3em}
+\tolerance=2000
+% Body text keeps 1.5 spacing; tables use single spacing so they fit on a page.
+\usepackage{etoolbox}
+\AtBeginEnvironment{table}{\linespread{1}\selectfont}
+\AtBeginEnvironment{longtable}{\linespread{1}\selectfont}
+\usepackage{mathtools}
+\usepackage{amssymb,amsmath}
+\usepackage{mathptmx}
+% \usepackage[varvw]{newtxmath}
+\usepackage{multicol}
+\usepackage{xcolor}
+\usepackage{titlesec,titletoc}
+\usepackage{indentfirst}
+
+\titleformat{\section}[hang]{\fontsize{14}{18}\selectfont\bfseries\color{black}}{\thesection}{1.5ex}{}
+
+\titlecontents{chapter}[0pt]{\bfseries\color{black}}{\MakeUppercase\chaptername\ \thecontentslabel.\ \MakeUppercase}{\MakeUppercase}{\normalfont\dotfill\bfseries\contentspage}
+
+\titlecontents{section}[0ex]{\color{black}}{ \thecontentslabel\quad}{}{\dotfill\contentspage}
+
+% \titlecontents{subsection}[5ex]{\color{black}}{ \thecontentslabel\quad}{}{\dotfill\contentspage}
+
+\titlecontents{subsection}[2.5ex]{\itshape\color{black}}{\thecontentslabel\quad}{}{\dotfill\contentspage}
+\titlecontents{subsubsection}[5ex]{\normalfont\color{black}}{\thecontentslabel\quad}{}{\dotfill\contentspage}
+
+% \titleformat{\subsubsection}[hang]{\normalfont\normalsize\color{black}}{\thesubsubsection}{1.5ex}{}
+\titleformat{\subsection}[hang]{\fontsize{14}{18}\selectfont\bfseries\itshape\color{black}}{\thesubsection}{1.5ex}{}
+\titleformat{\subsubsection}[hang]{\fontsize{14}{18}\selectfont\normalfont\color{black}}{\thesubsubsection}{1.5ex}{}
+
+\titlecontents{figure}[0pt]{\color{black}}{\figurename\ \thecontentslabel:\quad}{}{\dotfill\contentspage}
+\titlecontents{table}[0pt]{\color{black}}{\tablename\ \thecontentslabel:\quad}{}{\dotfill\contentspage}
+
+\usepackage{enumitem}
+\newlist{abbrv}{itemize}{1}
+\setlist[abbrv,1]{label=,labelwidth=1in,align=parleft,itemsep=0.1\baselineskip,leftmargin=!}
+
+\usepackage[fontsize = 13]{scrextend}
+\usepackage[amsmath,thmmarks]{ntheorem}
+
+\theorembodyfont{\normalfont}
+\theoremseparator{.}
+\newtheorem{definition}{Định nghĩa}[chapter]
+\theorembodyfont{\itshape}
+\newtheorem{theorem}[definition]{Định lí}
+\newtheorem{lemma}[definition]{Bổ đề}
+\newtheorem{corrollary}[definition]{Hệ quả}
+\newtheorem{Proposition}[definition]{Mệnh đề}
+
+\theorembodyfont{\normalfont}
+\newtheorem{example}{Ví dụ}[chapter]
+
+\theoremheaderfont{\itshape}
+\theoremsymbol{\ensuremath{\blacksquare}}
+\newtheorem*{proof}{Chứng minh}
+
+\usepackage{hyperref}
+\hypersetup{
+	colorlinks=true,
+	linkcolor=black,
+	citecolor=black,
+	urlcolor=black
+}
+
+\renewcommand{\baselinestretch}{1.5} 
+\setlength{\parindent}{1.27cm}
+\allowdisplaybreaks
+
+\usepackage[labelfont=bf]{caption}
+\numberwithin{figure}{chapter}
+\numberwithin{table}{chapter}
+\numberwithin{equation}{chapter}
+
+\usepackage{subcaption}
+\usepackage{fancyhdr}
+\pagestyle{fancyplain}
+
+\setcounter{tocdepth}{3}\setcounter{secnumdepth}{3}
+
+% Khai báo quản lý tài liệu tham khảo theo chuẩn APA
+\usepackage[backend=biber, style=apa]{biblatex}
+\addbibresource{tailieu.bib}
+% One bibliography file per chapter so chapters can be written in parallel.
+\addbibresource{references/ch1.bib}
+\addbibresource{references/ch2.bib}
+\addbibresource{references/ch3.bib}
+\addbibresource{references/ch4.bib}
+\addbibresource{references/ch5.bib}
+
+\DefineBibliographyStrings{english}{
+  and = {và},
+  andothers = {và cộng sự},
+}
+\AtBeginDocument{
+  \DeclareDelimFormat[cite]{finalnamedelim}{\space và\space}
+  \DeclareDelimFormat[parencite]{finalnamedelim}{\space và\space}
+}
+
+% Ghi chú: chuẩn kiểu trích dẫn APA 6.x thì phải là kiểu thụt lề treo (hanging indentation), nhưng trong ví dụ của QĐ-TĐT.2284.2020 thì phải thụt dòng đầu tiên.
+\defbibenvironment{bibliography}
+  {\list
+     {}
+     {\setlength{\leftmargin}{0pt}
+      \setlength{\itemindent}{1.27cm}
+      \setlength{\itemsep}{\bibitemsep}
+      \setlength{\parsep}{\bibparsep}}}
+  {\endlist}
+  {\item}
+
+% Tạo lệnh viết chương không đánh số nhưng vẫn tự động chui vào mục lục
+\newcommand{\chapterwithtoc}[1]{%
+  \chapter*{#1}%
+  \addcontentsline{toc}{chapter}{#1}%
+}

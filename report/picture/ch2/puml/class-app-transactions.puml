@@ -1,0 +1,177 @@
+@startuml class-app-transactions
+' Nene Flutter client - class diagram 2/3: transaction security (authenticator setup and
+' management), TOTP-confirmed operations (preview, same-bank transfer, simulated cash,
+' simulated other-bank) and VNPay sandbox payments. Source: app/lib/ui/{security_screen,
+' security_management_screen, confirmation_screen, payments_screen}.dart and
+' app/lib/data/{security_api, confirmation_api, payments_api, session_owner}.dart.
+
+title Ứng dụng Nene (2/3) - bảo mật giao dịch, xác nhận và thanh toán sandbox
+
+skinparam shadowing false
+skinparam defaultFontSize 11
+skinparam classAttributeIconSize 0
+skinparam packageStyle rectangle
+skinparam class {
+  BackgroundColor #FFFFFF
+  BorderColor #286E78
+  ArrowColor #333333
+}
+hide empty members
+
+package "UI (lib/ui)" #F8F7F2 {
+  class CustomerWorkspace <<StatefulWidget>> {
+    see diagram 1/3
+  }
+  class SecurityScreen <<StatefulWidget>> {
+    api : SecurityApi
+  }
+  class SecurityManagementScreen <<StatefulWidget>> {
+    api : SecurityApi
+    onBack : VoidCallback
+  }
+  class ConfirmationScreen <<StatefulWidget>> {
+    account : BankAccount
+    api : ConfirmationApi
+    -_prepare() / -_confirm() / -_status()
+    -_cancel() / -_edit() / -_recover(requestId)
+  }
+  class PaymentsScreen <<StatefulWidget>> {
+    api : PaymentsApi
+    initialService : String?
+    movies : bool
+    {field} openCheckout : Future<bool> Function(Uri)?
+  }
+}
+
+package "Data (lib/data)" #FFFFFF {
+  class SecurityApi {
+    baseUrl : Uri
+    client : http.Client
+    owner : SessionOwner
+    +request(token, path, [body])
+    +status() / +start()
+    +verify(requestId, revision, code)
+    +managementStatus()
+    +managementCommand(command, body)
+    +managementProof(command, requestId, revision, code)
+    +finishManagement(requestId)
+  }
+  class ConfirmationApi {
+    security : SecurityApi
+    sendMoney : bool
+    interbank : bool
+    cashOperation : CashOperation?
+    route : String
+    +configuration() / +recent()
+    +review(source, destination, amount, {destinationBankCode})
+    +confirm(review, code)
+    +status(id)
+    +cancel(reviewToken)
+  }
+  enum CashOperation {
+    deposit
+    withdrawal
+  }
+  class PaymentsApi {
+    security : SecurityApi
+    +configuration() : Future<PaymentConfiguration>
+    +recent() : Future<List<PaymentOrder>>
+    +preview(serviceId) : Future<PaymentPreview>
+    +review(serviceId, {expected}) : Future<PaymentReview>
+    +confirm(review, code) : Future<PaymentStatus>
+    +status(id) : Future<PaymentStatus>
+  }
+  class PaymentServiceOffer {
+    id, name, description, amountMinor : String
+    isMovie : bool
+  }
+  class PaymentReview {
+    token, requestId : String
+    revision : int
+    service : PaymentServiceOffer
+    expiresAt : DateTime
+  }
+  class PaymentStatus {
+    state : String
+    order : PaymentOrder?
+    checkoutUrl : Uri?
+  }
+  class PaymentOrder {
+    id, state : String
+    service : PaymentServiceOffer
+    createdAt, expiresAt : DateTime
+  }
+  class SessionOwner {
+    see diagram 1/3
+    +execute<T>(perform)
+    +exchange(binding, perform)
+    +signOut()
+  }
+  class HandoffBinding {
+    requestId : String
+    purpose : String
+    securityRevision : int
+  }
+  class HandoffReply {
+    pair : AuthPair
+    binding : HandoffBinding
+  }
+}
+
+package "External" #EEEEEE {
+  class "Nene API (NestJS)" as NestApi <<external>> {
+    me/security, me/security/management/*
+    me/transfer-confirmations, me/transfers
+    me/cash/{deposit|withdrawal}
+    me/interbank-transfers, me/payments
+  }
+  class "VNPay sandbox hosted checkout\n(opened in external browser)" as VnpayCheckout <<external>>
+}
+
+CustomerWorkspace ..> SecurityScreen : Transaction security
+CustomerWorkspace ..> ConfirmationScreen : creates ConfirmationApi\n(per chosen operation)
+CustomerWorkspace ..> PaymentsScreen : creates PaymentsApi
+SecurityScreen ..> SecurityManagementScreen : replace / recover / codes
+SecurityScreen --> SecurityApi
+SecurityManagementScreen --> SecurityApi
+ConfirmationScreen --> ConfirmationApi
+PaymentsScreen --> PaymentsApi
+PaymentsScreen ..> VnpayCheckout : launchUrl(checkoutUrl)
+
+ConfirmationApi --> SecurityApi : reuses client/baseUrl/owner
+ConfirmationApi ..> CashOperation
+PaymentsApi --> SecurityApi
+SecurityApi --> SessionOwner
+ConfirmationApi ..> HandoffBinding : confirm() via exchange()
+SecurityApi ..> HandoffBinding : verify / managementProof
+PaymentsApi ..> HandoffBinding : confirm() via exchange()\n(purpose vnpay-checkout)
+SessionOwner ..> HandoffReply : adopts new AAL2 pair\nonly if binding matches
+HandoffReply *-- HandoffBinding
+PaymentsApi ..> PaymentReview
+PaymentsApi ..> PaymentStatus
+PaymentStatus o-- PaymentOrder
+PaymentReview o-- PaymentServiceOffer
+PaymentOrder o-- PaymentServiceOffer
+
+SecurityApi ..> NestApi : Bearer token
+ConfirmationApi ..> NestApi : me/<route>/{review,confirm,cancel,:id}
+PaymentsApi ..> NestApi : me/payments/*
+
+note right of ConfirmationApi
+  route: transfer-confirmations (preview, no money),
+  transfers (same-bank), cash/deposit, cash/withdrawal,
+  interbank-transfers (fictional banks).
+  HandoffBinding.purpose: transaction-confirmation,
+  same-bank-transfer, cash-deposit, cash-withdrawal,
+  interbank-transfer.
+end note
+
+note bottom of SessionOwner
+  execute(): các yêu cầu tuần tự, không đổi phiên.
+  exchange(): yêu cầu tuần tự trả về cặp access/refresh
+  mới (TOTP verify cho ra AAL2); cặp này được kiểm tra với
+  Supabase Auth và chỉ được nhận khi requestId, purpose
+  và security revision khớp.
+end note
+
+@enduml

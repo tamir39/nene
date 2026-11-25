@@ -1,0 +1,241 @@
+@startuml er-services
+' Nene - ER diagram (part 3 of 3): local demo money movements (same-bank transfer,
+' simulated cash, simulated other-bank transfer), VNPay sandbox checkout (utilities
+' and movie offers) and demo branches.
+' Source of truth: migrations 20261103000700, 000800, 20261105000100, 20261106000100,
+' 20261107000100, 20261107000200 (CHECK constraints shown after later ALTERs).
+' Notation: IE (crow's foot). "*" = NOT NULL. Tinted boxes are defined in er-core / er-security.
+
+title Cơ sở dữ liệu Nene (3/3) - giao dịch tiền demo, thanh toán sandbox và chi nhánh
+
+hide circle
+hide empty members
+skinparam linetype ortho
+skinparam shadowing false
+skinparam defaultFontSize 11
+skinparam class {
+  BackgroundColor #FFFFFF
+  BorderColor #286E78
+  ArrowColor #333333
+}
+
+' ---------- references to other parts ----------
+entity "user_profiles" as user_profiles #EEF5F6 {
+  * id : uuid <<PK>>
+  --
+  (see er-core)
+}
+entity "banking_accounts" as banking_accounts #EEF5F6 {
+  * id : uuid <<PK>>
+  --
+  * balance_minor : bigint
+  (see er-core)
+}
+entity "account_history" as account_history #EEF5F6 {
+  * id : uuid <<PK>>
+  --
+  * operation_id : uuid
+  (see er-core)
+}
+entity "transaction_confirmations" as transaction_confirmations #EEF5F6 {
+  * id : uuid <<PK>>
+  --
+  * purpose : text
+  * state : text
+  (see er-security)
+}
+
+' ---------- same-bank demo transfer ----------
+entity "local_transfer_settings" as local_transfer_settings #F8F7F2 {
+  * id : boolean <<PK>> (single row)
+  --
+  * enabled : boolean = false
+}
+entity "demo_transfer_seeds" as demo_transfer_seeds {
+  * source_id : uuid <<PK>> <<FK>>
+  --
+  * recipient_id : uuid <<FK>>
+  * amount_minor : bigint = 3000000
+  * created_at : timestamptz
+}
+entity "local_transfers" as local_transfers {
+  * id : uuid <<PK>> <<FK>>
+  --
+  * customer_id : uuid <<FK>>
+  * source_id : uuid <<FK>>
+  * destination_id : uuid <<FK>>
+  * amount_minor : bigint (0 < x < 5000000)
+  * currency : text = 'VND'
+  * posted_at : timestamptz
+}
+
+' ---------- simulated cash ----------
+entity "local_cash_settings" as local_cash_settings #F8F7F2 {
+  * id : boolean <<PK>> (single row)
+  --
+  * enabled : boolean = false
+}
+entity "demo_cash_balances" as demo_cash_balances {
+  * customer_id : uuid <<PK>> <<FK>>
+  --
+  * balance_minor : bigint >= 0
+  * opening_minor : bigint = 3000000
+  * created_at : timestamptz
+}
+entity "local_cash_operations" as local_cash_operations {
+  * id : uuid <<PK>> <<FK>>
+  --
+  * customer_id : uuid <<FK>>
+  * account_id : uuid <<FK>>
+  * kind : text {deposit|withdrawal}
+  * amount_minor : bigint (0 < x < 5000000)
+  * currency : text = 'VND'
+  * posted_at : timestamptz
+}
+
+' ---------- simulated other-bank transfer ----------
+entity "local_interbank_settings" as local_interbank_settings #F8F7F2 {
+  * id : boolean <<PK>> (single row)
+  --
+  * enabled : boolean = false
+}
+entity "demo_external_banks" as demo_external_banks {
+  * code : text <<PK>> ('DEMO_A', 'DEMO_B')
+  --
+  * name : text ('Demo %')
+  * active : boolean
+}
+entity "demo_external_recipients" as demo_external_recipients {
+  * id : uuid <<PK>>
+  --
+  * bank_code : text <<FK>>
+  * account_number : text ('99' + 10 digits)
+  * recipient_name : text ('Demo %')
+  * active : boolean
+  * balance_minor : bigint >= 0
+  ..
+  UQ (bank_code, account_number)
+}
+entity "local_interbank_transfers" as local_interbank_transfers {
+  * id : uuid <<PK>> <<FK>>
+  --
+  * customer_id : uuid <<FK>>
+  * source_account_id : uuid <<FK>>
+  * destination_recipient_id : uuid <<FK>>
+  * destination_bank_code : text <<FK>>
+  * destination_bank_name : text
+  * destination_account_number : text
+  * destination_recipient_name : text
+  * amount_minor : bigint (0 < x < 5000000)
+  * currency : text = 'VND'
+  * simulated : boolean = true
+  * posted_at : timestamptz
+}
+
+' ---------- VNPay sandbox checkout ----------
+entity "sandbox_payment_authorizations" as sandbox_payment_authorizations {
+  * id : uuid <<PK>> (= signed review id)
+  --
+  * customer_id : uuid <<FK>>
+  * session_id : uuid
+  * review_digest : text
+  * factor_id : uuid
+  * security_revision : integer
+  * state : text {checking|rejected|unknown|issued}
+  * expires_at : timestamptz
+  * lease_until : timestamptz (now + 45 s)
+  * created_at : timestamptz
+}
+entity "sandbox_payments" as sandbox_payments {
+  * id : uuid <<PK>> <<FK>>
+  --
+  * customer_id : uuid <<FK>>
+  * service_id : text {electricity|water|phone|
+    movie_matinee_v1|movie_evening_v1}
+  * service_snapshot : jsonb (immutable offer)
+  * amount_minor : bigint (fixed per service)
+  * currency : text = 'VND'
+  * provider_reference : text <<UQ>> (vnp_TxnRef)
+  * state : text {awaiting_payment|paid|failed}
+  * fulfillment : text = 'not_available'
+  paid_at : timestamptz
+  provider_transaction_no : text
+  provider_response_code : text
+  provider_transaction_status : text
+  ..
+  omitted: terminal_code, order_info,
+  ip_address, created_at, expires_at
+}
+
+' ---------- branches ----------
+entity "branches" as branches {
+  * id : text <<PK>>
+  --
+  * name : text
+  * area : text
+  * latitude : double precision
+  * longitude : double precision
+  * is_demo : boolean = true
+}
+
+' ---------- relationships ----------
+transaction_confirmations ||--o| local_transfers : "id (receipt)"
+transaction_confirmations ||--o| local_cash_operations : "id (receipt)"
+transaction_confirmations ||--o| local_interbank_transfers : "id (receipt)"
+
+user_profiles ||--o{ local_transfers : customer_id
+banking_accounts ||--o{ local_transfers : "source_id,\ndestination_id"
+banking_accounts ||--o| demo_transfer_seeds : source_id
+banking_accounts ||--o{ demo_transfer_seeds : recipient_id
+
+user_profiles ||--o| demo_cash_balances : customer_id
+user_profiles ||--o{ local_cash_operations : customer_id
+banking_accounts ||--o{ local_cash_operations : account_id
+
+user_profiles ||--o{ local_interbank_transfers : customer_id
+banking_accounts ||--o{ local_interbank_transfers : source_account_id
+demo_external_banks ||--o{ demo_external_recipients : bank_code
+demo_external_recipients ||--o{ local_interbank_transfers : destination_recipient_id
+demo_external_banks ||--o{ local_interbank_transfers : destination_bank_code
+
+user_profiles ||--o{ sandbox_payment_authorizations : customer_id
+user_profiles ||--o{ sandbox_payments : customer_id
+sandbox_payment_authorizations ||--o| sandbox_payments : "id (issued order)"
+
+local_transfers ||..|{ account_history : "operation_id\n(debit + credit)"
+local_cash_operations ||..|| account_history : "operation_id"
+local_interbank_transfers ||..|| account_history : "operation_id\n(debit only)"
+
+note top of local_transfers
+  Dòng trong local_transfers, local_cash_operations và
+  local_interbank_transfers chỉ được ghi bởi các hàm SECURITY
+  DEFINER post_local_transfer / post_local_cash / post_local_interbank.
+  Mỗi lần gọi, một cách nguyên tử: khoá xác nhận, liên kết
+  authenticator, tài khoản và ảnh tham chiếu đã chấp nhận; cập nhật
+  balance_minor; chèn biên lai và dòng account_history; đặt xác nhận
+  thành 'posted'. Gọi lại đúng id đã posted không trừ tiền lần hai.
+end note
+
+note bottom of sandbox_payments
+  Thanh toán qua VNPay sandbox cho hoá đơn, nạp điện
+  thoại và vé phim hư cấu. Không bao giờ ghi vào
+  banking_accounts hay account_history. Partial unique
+  index: mỗi khách hàng/dịch vụ một đơn awaiting_payment;
+  hoá đơn điện/nước chỉ trả được một lần. Trạng thái chỉ
+  đổi khi kết quả VNPay có chữ ký hợp lệ (IPN hoặc return).
+end note
+
+note bottom of branches
+  Ba chi nhánh hư cấu gần TDTU
+  (CHECK buộc is_demo = true).
+  Không có khoá ngoại.
+end note
+
+note bottom of local_interbank_settings
+  Bảng cấu hình một dòng bật/tắt từng mô phỏng
+  (mặc định tắt); backend còn cần cờ môi trường
+  riêng và Auth/CSDL loopback hoặc
+  DEMO_DEPLOYMENT=hosted-sandbox.
+end note
+
+@enduml

@@ -1,0 +1,206 @@
+@startuml class-backend-security
+' Nene backend (NestJS) - class diagram 1/4: session boundary, configuration,
+' database access, authenticator (TOTP) lifecycle and identity reference enrollment.
+' Source: backend/src (only providers/controllers registered in app.module.ts;
+' authorization-prototype/ is not registered and is excluded).
+' Routes are relative to the global prefix /api/v1. [VERB path] = HTTP route.
+
+title Nene API (1/4) - bảo vệ phiên, bảo mật ứng dụng xác thực (TOTP) và ảnh tham chiếu
+
+skinparam shadowing false
+skinparam defaultFontSize 11
+skinparam classAttributeIconSize 0
+skinparam packageStyle rectangle
+skinparam class {
+  BackgroundColor #FFFFFF
+  BorderColor #286E78
+  ArrowColor #333333
+}
+hide empty members
+
+
+package "config / database" {
+  interface Environment <<ENVIRONMENT token>> {
+    nodeEnv : 'development'|'test'|'production'
+    supabaseUrl : string
+    supabasePublishableKey : string
+    supabaseSecretKey? : string
+    localTransfersEnabled? / localCashEnabled? /
+    localInterbankEnabled? : boolean
+    vnpaySandbox? : {terminalCode, hashSecret, returnUrl}
+    {field} database : PoolConfig (role nene_api)
+  }
+  class DatabaseService <<Injectable>> {
+    -pool : pg.Pool
+    +query<T>(text, values) : Promise<T[]>
+    +transaction<T>(work : (PoolClient) => Promise<T>) : Promise<T>
+    +onModuleDestroy() : Promise<void>
+  }
+}
+
+package "auth" {
+  class SessionGuard <<APP_GUARD>> {
+    +canActivate(context) : Promise<boolean>
+  }
+  class SupabaseAuthService <<Injectable>> {
+    {field} -client : SupabaseClient (publishable key)
+    +verifyAccessToken(token) : Promise<VerifiedIdentity>
+  }
+  interface VerifiedIdentity {
+    id : string
+    email : string | null
+  }
+  interface CurrentUser {
+    displayName : string
+    role : 'customer' | 'officer'
+    phone : string | null
+    address : string | null
+  }
+  interface AuthenticatedRequest <<express.Request>> {
+    user : CurrentUser
+  }
+}
+
+package "profiles" {
+  class ProfilesRepository <<Injectable>> {
+    +findById(id) : Promise<UserProfileRow | undefined>
+  }
+}
+
+package "security" {
+  class SecurityController <<Controller me/security>> {
+    +status(req) [GET]
+    +start(req) [POST setup]
+    +verify(req, body) [POST verify]
+  }
+  class SecurityService <<Injectable>> {
+    +identity(req) : {token, session, passwordAt}
+    +provider(path, token, body?, method?) : Promise<Record>
+    +status(req)
+    +start(req) : {requestId, revision, secret}
+    +verify(req, body) : {accessToken, refreshToken, requestId, revision}
+  }
+  class SecurityManagementController <<Controller me/security/management>> {
+    +status(req) [GET]
+    +start(req, body) [POST start]
+    +prove(req, body) [POST prove]
+    +resume(req, body) [POST resume]
+    +enroll(req, body) [POST enroll]
+    +verify(req, body) [POST verify]
+    +issue(req, body) [POST issue-codes]
+    +finish(req, body) [POST finish]
+    +cancel(req, body) [POST cancel]
+  }
+  class SecurityManagementService <<Injectable>> {
+    +status(req)
+    +start(req, body)
+    +prove(req, body, resume = false)
+    +enroll(req, body)
+    +verify(req, body)
+    +issue(req, body)
+    +finish(req, body)
+    +cancel(req, body)
+  }
+  class "security-proof.ts" as SecurityProof <<function>> {
+    +reserveSecurityProof(db, customer, factor, code, purpose) : Promise<void>
+  }
+}
+
+package "identity" {
+  class IdentityController <<Controller>> {
+    +ownStatus(req) [GET me/identity]
+    +customerStatus(req, id) [GET officer/customers/:id/identity]
+    +ownStart(req, key, body) [POST me/identity/cases]
+    +assistedStart(req, id, key, body) [POST officer/customers/:id/identity/cases]
+    +status(req, caseId) [GET identity/cases/:caseId]
+    +upload(req, caseId, key, body) [POST identity/cases/:caseId/evidence]
+    +readEvidence(req, caseId, evidenceId) [GET .../evidence/:evidenceId]
+    +submit(req, caseId, key, body) [POST identity/cases/:caseId/submit]
+    +review(req, caseId, key, body) [POST officer/identity/cases/:caseId/reviews]
+  }
+  class IdentityService <<Injectable>> {
+    +officer(user) / +customer(user)
+    +status(user, customerId) : Promise<IdentitySummary>
+    +caseStatus(user, caseId) : Promise<IdentitySummary>
+    +start(user, customerId, key, input)
+    +upload(user, caseId, key, input)
+    +submit(user, caseId, key, input)
+    +review(user, caseId, key, input)
+    +readEvidence(user, caseId, evidenceId) : {bytes, contentType}
+    +cleanup() : Promise<{removed}>
+  }
+  class IdentityStorageService <<Injectable>> {
+    {field} -client? : SupabaseClient (secret key)
+    +assertAvailable()
+    +read(key) : Promise<Buffer>
+    +write(key, bytes, contentType, hash)
+    +remove(key)
+  }
+  interface IdentitySummary {
+    customerId, customerName : string
+    status : draft|submitted|needs_changes|
+      reference_accepted|not_started
+    caseId, evidenceId : string | null
+    version, revision : number | null
+    correctionReason, expiresAt : string | null
+    expired : boolean
+    allowedActions : string[]
+  }
+  class "identity.validation.ts\nidentity-image.ts" as IdentityHelpers <<module>> {
+    +startInput(body) / +evidenceInput(body)
+    +submitInput(body) / +reviewInput(body)
+    +normalizeImage(bytes, contentType)
+    notice = reference-demo-v1
+  }
+  class "cleanup.ts" as CleanupCli <<CLI script>> {
+    npm run identity:cleanup
+  }
+}
+
+package "external services" {
+  class "Supabase Auth\n/auth/v1 (getUser, MFA factors,\nchallenge, verify)" as AuthApi <<external>>
+  class "Supabase Storage\nbucket identity-evidence (private)" as StorageApi <<external>>
+  class "PostgreSQL\nschema bank (role nene_api)" as Pg <<external>>
+}
+
+' ----- relationships -----
+CurrentUser -|> VerifiedIdentity
+AuthenticatedRequest *-- CurrentUser
+
+SessionGuard --> SupabaseAuthService : verify bearer
+SessionGuard --> ProfilesRepository : load active role
+SessionGuard ..> AuthenticatedRequest : sets req.user
+SupabaseAuthService ..> AuthApi : getUser(token)
+SupabaseAuthService ..> Environment
+ProfilesRepository --> DatabaseService
+DatabaseService ..> Pg
+DatabaseService ..> Environment
+
+SecurityController --> SecurityService
+SecurityService --> DatabaseService
+SecurityService ..> Environment
+SecurityService ..> AuthApi : MFA REST calls\nwith user's bearer
+SecurityService ..> SecurityProof
+SecurityManagementController --> SecurityManagementService
+SecurityManagementService --> DatabaseService
+SecurityManagementService --> SecurityService
+SecurityManagementService ..> SecurityProof
+SecurityProof ..> DatabaseService
+
+IdentityController --> IdentityService
+IdentityController ..> IdentityHelpers
+IdentityService --> DatabaseService
+IdentityService --> IdentityStorageService
+IdentityService ..> IdentityHelpers
+IdentityService ..> IdentitySummary
+IdentityStorageService ..> StorageApi
+IdentityStorageService ..> Environment
+CleanupCli ..> IdentityService : cleanup()
+
+note "SessionGuard là APP_GUARD toàn cục.\nChỉ route gắn @Public() (health, VNPay IPN/return)\nđược bỏ qua; mọi route khác cần bearer token Supabase\nhợp lệ VÀ một dòng bank.user_profiles đang active." as NGuard
+NGuard .. SessionGuard
+
+note "Mọi mã xác nhận, thiết lập hay khôi phục đều qua\nreserveSecurityProof (giữ chỗ dấu vân tay HMAC, tối đa\n10 lần / 15 phút) TRƯỚC khi gọi Auth MFA verify." as NProof
+NProof .. SecurityProof
+
+@enduml

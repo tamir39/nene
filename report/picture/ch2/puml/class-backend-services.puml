@@ -1,0 +1,201 @@
+@startuml class-backend-services
+' Nene backend (NestJS) - class diagram 4/4: VNPay sandbox checkout (utility and movie
+' demo offers), demo branch map/walking route, rule-based activity assistant, health.
+' Source: backend/src/payments, branches, assistant, health. Routes relative to /api/v1.
+
+title Nene API (4/4) - thanh toán sandbox, chi nhánh, trợ lý và health
+
+skinparam shadowing false
+skinparam defaultFontSize 11
+skinparam classAttributeIconSize 0
+skinparam packageStyle rectangle
+skinparam class {
+  BackgroundColor #FFFFFF
+  BorderColor #286E78
+  ArrowColor #333333
+}
+hide empty members
+left to right direction
+
+package "payments" {
+  class PaymentsController <<Controller me/payments>> {
+    +configuration(req) [GET configuration]
+    +recent(req) [GET]
+    +review(req, body {serviceId}) [POST review]
+    +preview(req, body {serviceId}) [POST preview]
+    +confirm(req, body {reviewToken, code}) [POST confirm]
+    +status(req, id) [GET :id]
+  }
+  class VnpayCallbacksController <<Controller payments/vnpay, @Public>> {
+    +ipn(req) : {RspCode, Message} [GET ipn]
+    +returned(req) : fixed HTML page [GET return]
+  }
+  class PaymentsService <<Injectable>> {
+    +configuration(req) : {enabled, services, highValueThresholdMinor, fulfillment}
+    +preview(req, body) : offer details, previewOnly = true
+    +review(req, body) : signed review token for one offer
+    +confirm(req, body) : status + {accessToken, refreshToken, replay}
+    +status(req, id) : {requestId, state, order, checkoutUrl?}
+    +recent(req) : latest 20 orders
+    +ipn(rawQuery) : {RspCode, Message}
+    -decode(req, raw) / -binding(...) / -eligibility(...) / -available(...)
+  }
+  class Offer <<const sandboxServices[]>> {
+    id : electricity | water | phone |
+      movie_matinee_v1 | movie_evening_v1
+    name, description : string
+    amountMinor : '200000' | '100000' | '50000' |
+      '90000' | '120000'
+    currency : 'VND'
+  }
+  class "vnpay.ts" as VnpayModule <<module>> {
+    VNPAY_SANDBOX_URL
+    +createSandboxCheckout(config, input : VnpayCheckoutInput) : string
+    +verifyVnpayNotification(config, rawQuery) : VerifiedVnpayNotification
+  }
+  interface VnpaySandboxConfig {
+    terminalCode : string
+    hashSecret : string
+    returnUrl : string
+  }
+  interface VerifiedVnpayNotification {
+    reference, amountVnd, orderInfo : string
+    terminalCode, transactionNo : string
+    responseCode, transactionStatus : string
+    successful : boolean
+    bankCode : string
+    payDate? : string
+  }
+  class VnpayValidationError {
+    reason : 'malformed' | 'signature' | 'terminal'
+  }
+}
+
+package "branches" {
+  class BranchesController <<Controller me/branches>> {
+    +read(req) : {branches, nearbyRadiusMeters, demoOrigin} [GET]
+    +route(req, body {latitude, longitude}) [POST route]
+  }
+  class WalkingRouteService <<Injectable>> {
+    -nextRequestAt : number
+    -pending : boolean
+    +walk(origin : Point, destination : Point) : {distanceMeters, durationSeconds, points}
+  }
+  class "branch helpers" as BranchHelpers <<module>> {
+    nearbyRadiusMeters = 5000
+    +distanceMeters(a, b) : number
+    +locationInput(body) : Point
+    +nearestBranch(origin, branches) : Branch
+    +parseWalkingRoute(data)
+  }
+  interface Point {
+    latitude : number
+    longitude : number
+  }
+  interface Branch {
+    id, name, area : string
+    isDemo : boolean
+  }
+}
+
+package "assistant" {
+  class AssistantController <<Controller me/assistant>> {
+    +answer(req, body {message, context?}) [POST messages]
+  }
+  class "activity-assistant.ts" as ActivityAssistant <<module>> {
+    +answerActivityQuestion(message, context, now) : AssistantAnswer
+    +requestedMonth(text, now) : string | null
+  }
+  interface AssistantAnswer {
+    reply : string
+    actions : AssistantAction[]
+    context : 'history_month' | null
+  }
+  class AssistantAction <<type>> {
+    type : Activity
+    {field} month? : string (history only)
+  }
+  enum Activity {
+    history
+    transfer
+    deposit
+    withdrawal
+    bills
+    phone
+    movie_tickets
+    interbank_transfer
+  }
+}
+
+package "health" {
+  class HealthController <<Controller health, @Public>> {
+    +getHealth() : {status, service, check : 'liveness'} [GET]
+  }
+}
+
+package "shared (see diagram 1/4)" {
+  class SecurityService <<Injectable>> {
+    +identity(req)
+    +provider(path, token, body?)
+  }
+  class "security-proof.ts" as SecurityProof <<function>>
+  class DatabaseService <<Injectable>>
+  interface Environment <<ENVIRONMENT token>> {
+    vnpaySandbox? : VnpaySandboxConfig
+  }
+}
+
+package "external" {
+  class "VNPay PAY sandbox\n(hosted checkout + IPN)" as VnpayExt <<external>>
+  class "Valhalla (FOSSGIS)\nvalhalla1.openstreetmap.de/route" as ValhallaExt <<external>>
+}
+
+PaymentsController --> PaymentsService
+VnpayCallbacksController --> PaymentsService
+PaymentsService --> DatabaseService
+PaymentsService --> SecurityService : identity + Auth MFA
+PaymentsService ..> SecurityProof
+PaymentsService ..> Environment
+PaymentsService ..> Offer
+PaymentsService ..> VnpayModule
+VnpayModule ..> VnpaySandboxConfig
+VnpayModule ..> VerifiedVnpayNotification
+VnpayModule ..> VnpayValidationError : throws
+VnpayModule ..> VnpayExt : signed checkout URL /\nverify IPN signature
+
+BranchesController --> DatabaseService : bank.branches
+BranchesController --> WalkingRouteService
+BranchesController ..> BranchHelpers
+Branch -up-|> Point
+WalkingRouteService ..> ValhallaExt : pedestrian route
+WalkingRouteService ..> Point
+
+AssistantController ..> ActivityAssistant
+ActivityAssistant ..> AssistantAnswer
+AssistantAnswer *-- "0..*" AssistantAction
+AssistantAction ..> Activity
+
+note right of PaymentsService
+  Cùng mẫu review -> xác nhận TOTP như chuyển khoản (cần ảnh
+  tham chiếu đã chấp nhận + authenticator ready). confirm thành
+  công chỉ tạo một đơn sandbox_payments (awaiting_payment);
+  ứng dụng mở checkoutUrl trong trình duyệt. Chỉ kết quả VNPay
+  có chữ ký hợp lệ (IPN, hoặc trang return gọi cùng ipn())
+  mới đặt paid/failed. Không đổi số dư/lịch sử Nene; không có
+  dịch vụ thật nào được thực hiện. Ở production chỉ bật khi
+  có DEMO_DEPLOYMENT=hosted-sandbox.
+end note
+
+note right of WalkingRouteService
+  Một yêu cầu tại một thời điểm, cách nhau 1,5 s,
+  timeout 12 s, giới hạn 512 KiB; trả 503 ở production
+  trừ khi có DEMO_DEPLOYMENT=hosted-sandbox.
+end note
+
+note right of AssistantController
+  Chỉ dành cho khách hàng. Bộ phân tích từ khoá/tháng
+  dựa trên luật: không LLM, không đọc tài khoản, không
+  thực thi. Action là đích đến nằm trong danh sách cho phép.
+end note
+
+@enduml

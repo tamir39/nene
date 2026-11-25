@@ -1,0 +1,205 @@
+\chapter{Kiểm thử, đánh giá và hướng phát triển}
+\label{chap:5}
+
+Chương này trình bày chiến lược và kết quả kiểm thử của hệ thống Nene, đánh giá mức độ hoàn thành theo từng yêu cầu của đề bài, các hạn chế còn tồn tại, hướng phát triển và kết luận của đề tài. Mọi kết quả nêu trong chương đều gắn với phiên bản mã nguồn hoặc thời điểm kiểm tra cụ thể; những nội dung chưa được kiểm chứng được ghi rõ là chưa kiểm chứng.
+
+\section{Chiến lược kiểm thử}
+\label{sec:ch5-chien-luoc}
+
+Với một ứng dụng ngân hàng, lỗi nghiêm trọng nhất không phải là lỗi giao diện mà là lỗi cho phép một thao tác tài chính sai được ghi nhận: người dùng truy cập tài khoản không thuộc về mình, giao dịch được lưu khi chưa qua xác thực hai lớp, một yêu cầu gửi lại bị ghi sổ hai lần hoặc số dư bị tính sai. Vì vậy, nhóm ưu tiên kiểm thử các quy tắc nghiệp vụ và ranh giới bảo mật thay vì chạy theo tỷ lệ bao phủ mã. Mỗi lát cắt chức năng được hợp nhất vào nhánh \texttt{main} sau khi các bộ kiểm thử tự động của máy chủ và ứng dụng đạt trên máy phát triển; những kiểm tra chưa chạy được (ví dụ kịch bản cần Docker khi Docker không khả dụng) được ghi lại trong tài liệu của chức năng đó. Bảng~\ref{tab:ch5-cap-do} tóm tắt các cấp độ kiểm thử được sử dụng.
+
+\begingroup
+\linespread{1.15}\small
+\begin{longtable}{@{}p{3.4cm} p{3.6cm} p{7.6cm}@{}}
+	\caption{Các cấp độ kiểm thử trong dự án Nene}
+	\label{tab:ch5-cap-do} \\
+	\toprule
+	\textbf{Cấp độ} & \textbf{Công cụ} & \textbf{Nội dung kiểm thử chính} \\
+	\midrule
+	\endfirsthead
+	\toprule
+	\textbf{Cấp độ} & \textbf{Công cụ} & \textbf{Nội dung kiểm thử chính} \\
+	\midrule
+	\endhead
+	\bottomrule
+	\endfoot
+	Kiểm thử đơn vị và HTTP phía máy chủ & Trình chạy kiểm thử của Node.js \parencite{ch3-node-test}, mô-đun kiểm thử của NestJS, ESLint, trình biên dịch TypeScript & Kiểm tra dữ liệu đầu vào, phân quyền theo vai trò, quyền sở hữu tài khoản, tính tiền bằng số nguyên, ràng buộc mã TOTP với thao tác, chống dùng lại mã, chữ ký và nội dung kết quả thanh toán VNPay, ý định của trợ lý hội thoại. Trong kiểm thử HTTP, dịch vụ xác thực và hồ sơ được thay bằng đối tượng giả lập. \\
+	\midrule
+	Kiểm thử đơn vị và widget của ứng dụng & Thư viện \texttt{flutter\_\allowbreak{}test} \parencite{ch3-flutter-testing}, \texttt{flutter analyze} & Bộ điều khiển trạng thái, kho dữ liệu (repository), phân tích phản hồi API, xóa dữ liệu khi đăng xuất, loại bỏ phản hồi đến muộn sau khi đổi phiên, bố cục ở màn hình hẹp (320$\times$640 và chiều rộng 390 điểm ảnh logic) với cỡ chữ phóng to 200\%. \\
+	\midrule
+	Kiểm thử chụp giao diện có điều kiện & \texttt{flutter\_\allowbreak{}test} với cờ \texttt{-{}-dart-\allowbreak{}define} (ví dụ \texttt{CAPTURE\_\allowbreak{}UI}) & Dựng từng màn hình với dữ liệu giả lập và lưu thành ảnh PNG (rộng 390 điểm ảnh logic, tỷ lệ 2x) để rà soát trực quan; mặc định bị bỏ qua khi chạy bộ kiểm thử thông thường. \\
+	\midrule
+	Kiểm thử CSDL & pgTAP \parencite{ch5-pgtap} & Quyền trên từng cột, chính sách bảo mật mức dòng (RLS), ràng buộc của hồ sơ và tài khoản, quyền truy cập kho ảnh riêng tư. \\
+	\midrule
+	Kiểm thử tích hợp cô lập & Các kịch bản \texttt{scripts/\allowbreak{}check-*.\allowbreak{}mjs} chạy trên container PostgreSQL và Supabase Auth dùng một lần (Docker) & Mã TOTP thật, quyền hạn chế của vai trò CSDL dành cho API, ghi sổ đồng thời, hoàn tác khi một bước ghi thất bại, xử lý yêu cầu lặp lại. \\
+	\midrule
+	Kiểm tra trực tiếp trên máy chủ triển khai & Ứng dụng, máy chủ trên Render, VNPay sandbox & Luồng thanh toán đầu--cuối với thẻ thử nghiệm, từ chối thông báo kết quả giả mạo. \\
+\end{longtable}
+\endgroup
+
+\subsection{Các kịch bản kiểm thử trọng tâm}
+
+Các kịch bản dưới đây được nhóm xem là quan trọng nhất đối với một hệ thống tài chính và được đưa vào các bộ kiểm thử tự động ở những cấp độ phù hợp:
+\begin{itemize}
+	\item \textbf{Xác thực và phân quyền}: yêu cầu thiếu hoặc sai phiên đăng nhập bị từ chối; hồ sơ bị vô hiệu hóa không truy cập được; vai trò luôn được đọc từ CSDL phía máy chủ nên dữ liệu do ứng dụng tự khai báo không thể cấp quyền nhân viên; nhân viên bị từ chối ở các chức năng chỉ dành cho khách hàng và ngược lại.
+	\item \textbf{Quyền sở hữu}: khách hàng không đọc được tài khoản, lịch sử hay trạng thái giao dịch của người khác; mã định danh không thuộc quyền sở hữu nhận cùng phản hồi như mã không tồn tại.
+	\item \textbf{Xác thực hai lớp}: mã sai, phiên xem lại giao dịch đã hết hạn, mã đã dùng cho thao tác khác, chi tiết giao dịch bị thay đổi sau bước xem lại, hoặc yếu tố xác thực đã được thay thế đều không thể dẫn đến ghi sổ.
+	\item \textbf{Tính hợp lệ của giao dịch}: số dư không đủ, số tiền từ 5.000.000 VND trở lên, tài khoản nguồn trùng tài khoản đích, tài khoản không đủ điều kiện, ảnh tham chiếu chưa được chấp nhận hoặc đã hết hạn đều bị từ chối trước khi ghi vào CSDL.
+	\item \textbf{Đồng thời và lặp lại}: hai yêu cầu xác nhận đồng thời cho cùng một giao dịch chỉ tạo đúng một lần ghi sổ; yêu cầu lặp lại giống hệt trả về kết quả cũ; yêu cầu tạo khách hàng dùng lại khóa chống trùng (\texttt{Idempotency-\allowbreak{}Key}) nhưng thay đổi nội dung bị từ chối.
+	\item \textbf{Thanh toán VNPay}: chữ ký HMAC-SHA512 sai, mã cửa hàng, số tiền hoặc mã đơn hàng không khớp, tham số trùng lặp hoặc bị sửa, thông báo lặp lại đều không làm thay đổi trạng thái đơn hàng.
+	\item \textbf{Giao diện}: màn hình không tràn bố cục ở cỡ chữ lớn và màn hình hẹp; dữ liệu nhạy cảm bị xóa khi đăng xuất; phản hồi đến muộn của phiên cũ không hiển thị lại trong phiên mới.
+\end{itemize}
+
+\section{Kết quả kiểm thử}
+\label{sec:ch5-ket-qua}
+
+Bảng~\ref{tab:ch5-ket-qua} tổng hợp kết quả kiểm thử. Các số liệu của bộ kiểm thử tự động được ghi nhận trên nhánh \texttt{main} tại commit \texttt{31148c9}.
+
+\begingroup
+\linespread{1.15}\small
+\begin{longtable}{@{}p{3.6cm} p{8.2cm} p{2.8cm}@{}}
+	\caption{Tổng hợp kết quả kiểm thử}
+	\label{tab:ch5-ket-qua} \\
+	\toprule
+	\textbf{Hạng mục} & \textbf{Kết quả} & \textbf{Phiên bản, thời điểm} \\
+	\midrule
+	\endfirsthead
+	\toprule
+	\textbf{Hạng mục} & \textbf{Kết quả} & \textbf{Phiên bản, thời điểm} \\
+	\midrule
+	\endhead
+	\bottomrule
+	\endfoot
+	Máy chủ NestJS & Kiểm tra mã (lint) và biên dịch đạt; toàn bộ \textbf{170} kiểm thử đơn vị và HTTP đạt. & \texttt{main} @ \texttt{31148c9} \\
+	\midrule
+	Ứng dụng Flutter & \texttt{flutter analyze} không báo lỗi; toàn bộ \textbf{338} kiểm thử đơn vị và widget đạt, bao gồm các kiểm thử ở cỡ chữ 200\% và các kiểm thử bước kiểm tra khuôn mặt với bộ phát hiện giả lập. & \texttt{main} @ \texttt{31148c9} \\
+	\midrule
+	CSDL trên đám mây & Toàn bộ 16 tệp di trú SQL được áp dụng lên dự án Supabase đám mây; lịch sử di trú cục bộ và trên đám mây khớp nhau. & 24/11/2026 \\
+	\midrule
+	Bản phát hành Android & Gói ứng dụng Android (AAB) bản phát hành được ký bằng khóa tải lên (upload key); khóa ký ứng dụng do Google Play App Signing quản lý. Bản APK gỡ lỗi chứa mô hình phát hiện khuôn mặt của ML Kit được đóng gói sẵn. & 24--25/11/2026 \\
+	\midrule
+	Thanh toán VNPay sandbox & Hai giao dịch dùng thẻ thử nghiệm của VNPay được thanh toán thành công và được máy chủ triển khai ghi nhận là đã thanh toán, sau khi kết quả có chữ ký của VNPay được kiểm tra. & 25/11/2026 \\
+	\midrule
+	Thông báo giả mạo & Các thông báo kết quả giả mạo gửi tới máy chủ triển khai đều bị từ chối. & 25/11/2026 \\
+	\midrule
+	Kiểm thử tích hợp cô lập & Đạt tại thời điểm hiện thực chức năng: chuyển khoản cùng ngân hàng (12 kiểm tra), nạp và rút tiền (14), xem trước xác nhận giao dịch (17), quản lý ứng dụng xác thực (20), tạo tài khoản trình diễn (20), lịch sử giao dịch (15), thông tin tài khoản và lãi suất (12). Các kịch bản của chuyển khoản liên ngân hàng, thanh toán sandbox và bản đồ văn phòng mới được kiểm tra cú pháp, chưa được chạy trên CSDL do Docker không khả dụng khi hiện thực. & 03--07/11/2026 \\
+\end{longtable}
+\endgroup
+
+Bên cạnh các kết quả trên, cần ghi nhận rõ những gì \textbf{chưa} được kiểm chứng: việc kiểm thử đầu--cuối trên điện thoại Android thật vẫn đang được tiến hành; chức năng bản đồ chưa được thử trên điện thoại thật với vị trí GPS thật; ứng dụng chưa được kiểm thử trên iOS. Các ảnh chụp giao diện được tạo bằng kiểm thử chụp giao diện là bằng chứng về bố cục với dữ liệu giả lập, không phải bằng chứng về một phiên sử dụng thật trên thiết bị.
+
+\section{Đánh giá mức độ hoàn thành}
+\label{sec:ch5-danh-gia}
+
+Bảng~\ref{tab:ch5-danh-gia} đánh giá mức độ hoàn thành theo từng yêu cầu của đề bài. Nhóm sử dụng thống nhất các mức sau: \textbf{Đã hiện thực} -- chức năng đã có trong sản phẩm và được kiểm thử tự động, với các giới hạn ghi trong cột ghi chú; \textbf{Một phần} -- chỉ đáp ứng một phần nội dung yêu cầu; \textbf{Mô phỏng} -- quy trình đầy đủ trong Nene nhưng đối tác bên ngoài là hư cấu; \textbf{Sandbox} -- tích hợp với môi trường thử nghiệm chính thức của nhà cung cấp, không có tiền thật; \textbf{Chưa hiện thực} -- chưa có trong sản phẩm.
+
+\begingroup
+\linespread{1.15}\small
+\begin{longtable}{@{}p{3.3cm} p{1.5cm} p{2.4cm} p{7.0cm}@{}}
+	\caption{Đánh giá mức độ hoàn thành theo yêu cầu của đề bài}
+	\label{tab:ch5-danh-gia} \\
+	\toprule
+	\textbf{Yêu cầu} & \textbf{Mã} & \textbf{Mức độ} & \textbf{Minh chứng và ghi chú} \\
+	\midrule
+	\endfirsthead
+	\multicolumn{4}{@{}l}{\textit{Bảng \thetable{} (tiếp theo)}} \\
+	\toprule
+	\textbf{Yêu cầu} & \textbf{Mã} & \textbf{Mức độ} & \textbf{Minh chứng và ghi chú} \\
+	\midrule
+	\endhead
+	\midrule
+	\multicolumn{4}{r@{}}{\textit{Còn tiếp ở trang sau}} \\
+	\endfoot
+	\bottomrule
+	\endlastfoot
+	Hai vai trò; nhân viên tạo khách hàng và sửa dữ liệu theo yêu cầu; khách hàng sửa thông tin của mình & BR-01, BR-02 & Đã hiện thực & Nhân viên tạo khách hàng kèm một tài khoản thanh toán VND số dư 0; nhân viên sửa họ tên và thông tin liên hệ kèm lý do theo yêu cầu của khách hàng (có ghi vết); khách hàng sửa số điện thoại và địa chỉ. Vai trò được đọc từ hồ sơ phía máy chủ; máy chủ từ chối thao tác sai vai trò. \\
+	\midrule
+	Màn hình đăng nhập & BR-03 & Đã hiện thực & Đăng nhập bằng thư điện tử và mật khẩu qua Supabase Auth, không có tự đăng ký. Phiên đăng nhập chỉ lưu trong bộ nhớ nên cần đăng nhập lại khi khởi động lại ứng dụng. \\
+	\midrule
+	eKYC; nhân viên hỗ trợ cung cấp dữ liệu sinh trắc học & BR-03 & Một phần & Khách hàng (hoặc nhân viên hỗ trợ) chụp và tải ảnh khuôn mặt tham chiếu vào kho lưu trữ riêng tư; nhân viên xem xét và chấp nhận ảnh một cách thủ công. Trên Android, ứng dụng kiểm tra ngay trên thiết bị rằng ảnh có đúng một khuôn mặt bằng ML Kit; đây chỉ là \emph{phát hiện} khuôn mặt, không nhận dạng hay so khớp danh tính \parencite{ch2-mlkit-face}, không kiểm tra người thật, và máy chủ vẫn chấp nhận mọi ảnh hợp lệ. Đây \textbf{không} phải eKYC hoàn chỉnh. \\
+	\midrule
+	Dùng ảnh khuôn mặt để xác minh giao dịch giá trị cao & BR-03 & Chưa hiện thực & Chưa có so khớp khuôn mặt tự động. Thay vào đó, mọi giao dịch từ 5.000.000 VND trở lên bị chặn; giao dịch dưới ngưỡng vẫn yêu cầu ảnh tham chiếu đã được chấp nhận và còn hiệu lực. So khớp khuôn mặt tự động là hướng phát triển. \\
+	\midrule
+	Mọi giao dịch qua 2FA & BR-04 & Đã hiện thực & Mã TOTP 6 chữ số từ ứng dụng xác thực, gắn với từng thao tác cụ thể (chuyển khoản cùng ngân hàng, liên ngân hàng, nạp tiền, rút tiền, thanh toán VNPay); bước xem lại có thời hạn; mã không thể dùng lại cho thao tác khác. \\
+	\midrule
+	Ba loại tài khoản, số dư; lãi suất và lợi nhuận hằng tháng; nhân viên sửa lãi suất & BR-05, BR-06 & Đã hiện thực & Mỗi loại tài khoản có cách hiển thị riêng; lợi nhuận ước tính hằng tháng tính bằng số nguyên từ số dư và lãi suất năm; nhân viên sửa lãi suất có kiểm tra phiên bản và ghi vết. Tài khoản tiết kiệm và thế chấp là tài khoản trình diễn giả lập do nhân viên tạo; lịch trả nợ thế chấp là lịch mẫu với lãi suất 0\%. \\
+	\midrule
+	Số tiền trả thế chấp mỗi tháng hoặc mỗi hai tuần & BR-07 & Đã hiện thực (hằng tháng) & Hiển thị số tiền phải trả hằng tháng, ngày đến hạn kế tiếp và dư nợ gốc còn lại. \\
+	% UPDATE: biweekly mortgage view
+	\midrule
+	Lịch sử giao dịch, nạp và rút tiền & BR-08 & Đã hiện thực & Lịch sử theo tháng (múi giờ UTC+07), phân trang 25 dòng. Nạp và rút tiền dùng nguồn tiền mặt \textbf{mô phỏng}, có xác thực TOTP. \\
+	\midrule
+	Kiểm tra giao dịch được phép và hợp lệ trước khi lưu & BR-09 & Đã hiện thực & Kiểm tra quyền sở hữu, số dư, hạn mức, mã TOTP; ghi sổ nguyên tử qua các hàm CSDL có phạm vi hẹp; chống ghi trùng khi yêu cầu lặp lại. \\
+	\midrule
+	Chuyển khoản cùng ngân hàng & BR-09 & Đã hiện thực & Ghi nợ, ghi có, biên nhận và hai dòng lịch sử được ghi trong cùng một giao dịch CSDL. \\
+	\midrule
+	Chuyển khoản khác ngân hàng & BR-09 & Mô phỏng & Ngân hàng nhận và người nhận là hư cấu (Demo Bank A, Demo Bank B); không kết nối mạng liên ngân hàng thật. \\
+	\midrule
+	Tích hợp dịch vụ thanh toán & BR-10 & Sandbox (đã kiểm chứng trực tiếp) & Tích hợp VNPay sandbox; hai giao dịch thẻ thử nghiệm được ghi nhận đã thanh toán ngày 25/11/2026. VNPay chưa đăng ký địa chỉ nhận thông báo IPN cho mã cửa hàng thử nghiệm, nên kết quả được ghi nhận bằng cách kiểm tra kết quả có chữ ký của VNPay trên trang chuyển hướng trả về, dùng cùng bộ kiểm tra với IPN. Thanh toán không trừ tiền tài khoản Nene. \\
+	\midrule
+	Thanh toán hóa đơn điện, nước; nạp tiền điện thoại & BR-11 & Đã hiện thực (dịch vụ hư cấu) & Các dịch vụ có giá cố định (điện 200.000 VND, nước 100.000 VND, nạp điện thoại 50.000 VND) được thanh toán qua VNPay sandbox; không hóa đơn thật nào được thanh toán, không thuê bao nào được nạp tiền. \\
+	\midrule
+	Vé máy bay, vé xem phim, phòng khách sạn hoặc thương mại điện tử & BR-12 & Một phần & Chỉ có mua vé xem phim với hai suất chiếu hư cấu, thanh toán qua VNPay sandbox; không phát hành vé thật. Vé máy bay, khách sạn và thương mại điện tử chưa hiện thực. \\
+	\midrule
+	Định vị, bản đồ văn phòng lân cận, đường đi bộ ngắn nhất & BR-13 & Đã hiện thực & Ba văn phòng Nene hư cấu gần Trường Đại học Tôn Đức Thắng; bản đồ OpenStreetMap; tuyến đi bộ ngắn nhất từ dịch vụ Valhalla. Chưa thử trên điện thoại thật với vị trí GPS thật. \\
+	\midrule
+	Trợ lý hội thoại có liên kết đến hoạt động & BR-14 & Đã hiện thực (dựa trên luật) & Trợ lý nhận diện ý định dựa trên luật, hiểu câu hỏi tiếng Việt hoặc tiếng Anh (câu trả lời bằng tiếng Anh) và trả về liên kết trong danh sách cho phép: lịch sử theo tháng, chuyển khoản, nạp, rút tiền, hóa đơn, nạp điện thoại, vé xem phim. Trợ lý không thể tự thực hiện giao dịch. \\
+	% UPDATE: assistant AI fallback
+	\midrule
+	Nhóm 2--3 thành viên & TR-01 & Đáp ứng & Nhóm có hai thành viên (Mục~\ref{sec:ch1-thanh-vien}). \\
+	\midrule
+	Ứng dụng Android; dữ liệu lưu trong CSDL đám mây & TR-02, TR-03 & Đã hiện thực & Ứng dụng Android với mã gói \texttt{vn.\allowbreak{}nene.\allowbreak{}bank}; PostgreSQL trên Supabase (khu vực Singapore) với 16 tệp di trú. Kiểm thử đầu--cuối trên thiết bị thật đang được tiến hành. \\
+	\midrule
+	Phát hành trên Google Play cho mọi người dùng & TR-04 & Một phần & Ứng dụng được phát hành trên kênh thử nghiệm nội bộ (internal testing), chỉ người được mời mới tải được. Việc phát hành công khai bị chặn bởi quy định của Google đối với tài khoản nhà phát triển cá nhân mới: phải chạy thử nghiệm kín với ít nhất 12 người thử trong 14 ngày liên tục \parencite{ch5-play-testing}, không kịp trước hạn nộp. \\
+	\midrule
+	Báo cáo phân tích, thiết kế, hiện thực và giao diện & TR-05, TR-06, TR-08 & Đáp ứng & Trình bày trong Chương~\ref{chap:2}, Chương~\ref{chap:3} và Chương~\ref{chap:4} của báo cáo này. \\
+	\midrule
+	Video trình diễn & TR-07 & Nộp kèm & Video là sản phẩm nộp kèm, không thuộc nội dung của tài liệu này. \\
+	% TODO(user): xác nhận video trình diễn đã hoàn thành trước khi nộp.
+\end{longtable}
+\endgroup
+
+Tóm lại, Nene đã hiện thực các chức năng thuộc nhóm hồ sơ người dùng, xác thực hai lớp, quản lý tài khoản, chuyển khoản cùng ngân hàng, định vị và trợ lý hội thoại, với những giới hạn đã ghi trong bảng; các yêu cầu còn lại được đáp ứng một phần, dưới dạng mô phỏng hoặc trong môi trường sandbox. Hai điểm thiếu hụt quan trọng nhất là eKYC chưa hoàn chỉnh (kéo theo việc chưa xác minh khuôn mặt cho giao dịch giá trị cao) và ứng dụng chưa được phát hành công khai trên Google Play.
+
+\section{Hạn chế}
+\label{sec:ch5-han-che}
+
+Bên cạnh những kết quả đạt được, hệ thống còn các hạn chế sau:
+\begin{enumerate}
+	\item \textbf{Định danh điện tử chưa hoàn chỉnh.} Ảnh tham chiếu chỉ được nhân viên xem xét thủ công. Bước kiểm tra khuôn mặt bằng ML Kit chỉ chạy trên ứng dụng Android, chỉ phát hiện có đúng một khuôn mặt, không chống được ảnh in hay ảnh trên màn hình và có thể bị bỏ qua bởi ứng dụng bị sửa đổi hoặc lời gọi API trực tiếp; vì vậy nó hỗ trợ người dùng chụp ảnh đạt yêu cầu chứ không phải một biện pháp bảo mật.
+	\item \textbf{Chưa xác minh khuôn mặt cho giao dịch giá trị cao.} Do chưa có so khớp khuôn mặt, nhóm chọn chặn hoàn toàn các giao dịch từ 5.000.000 VND trở lên. Cách làm này an toàn nhưng giới hạn chức năng so với một ứng dụng ngân hàng thật.
+	\item \textbf{Nhiều đối tác bên ngoài là mô phỏng hoặc hư cấu.} Chuyển khoản liên ngân hàng dùng ngân hàng hư cấu; nạp, rút tiền dùng nguồn tiền mặt mô phỏng; hóa đơn, gói nạp điện thoại và vé xem phim là dịch vụ hư cấu. Thanh toán VNPay sandbox không trừ tiền tài khoản Nene và không thực hiện dịch vụ thật.
+	\item \textbf{Ghi nhận kết quả VNPay phụ thuộc trang trả về.} Khi chưa đăng ký địa chỉ IPN, kết quả chỉ được ghi nhận khi trình duyệt của khách hàng quay về trang trả về của Nene; nếu khách hàng đóng trình duyệt trước bước này, đơn hàng có thể giữ trạng thái chờ thanh toán. Ngoài ra, địa chỉ IP gửi sang VNPay là địa chỉ của máy chủ trung gian trên Render chứ không phải của điện thoại.
+	\item \textbf{Phiên đăng nhập chỉ lưu trong bộ nhớ.} Người dùng phải đăng nhập lại mỗi khi ứng dụng khởi động lại; chưa có lưu phiên an toàn và mở khóa bằng sinh trắc học của thiết bị.
+	\item \textbf{Chưa phát hành công khai trên Google Play.} Ứng dụng mới ở kênh thử nghiệm nội bộ; người dùng phải được mời mới có thể cài đặt.
+	\item \textbf{Kiểm thử trên thiết bị thật chưa hoàn tất.} Kiểm thử đầu--cuối trên điện thoại Android thật đang tiến hành; bản đồ chưa được thử với GPS thật; danh sách văn phòng chỉ gồm ba địa điểm hư cấu.
+	\item \textbf{Trợ lý hội thoại có phạm vi hẹp.} Trợ lý dựa trên luật chỉ hiểu các mẫu câu được hỗ trợ, trả lời bằng tiếng Anh và không phải mô hình ngôn ngữ; giao diện ứng dụng hiện cũng bằng tiếng Anh.
+	\item \textbf{Nghiệp vụ tài khoản ở mức trình diễn.} Lợi nhuận tiết kiệm là số ước tính, không tự động ghi có lãi; tài khoản thế chấp không có giải ngân hay thu nợ thật.
+	\item \textbf{Hạ tầng miễn phí và quy trình kiểm thử.} Máy chủ Render gói miễn phí ngủ khi không có truy cập, yêu cầu đầu tiên có thể mất khoảng một phút; dự án Supabase miễn phí tạm dừng sau khoảng một tuần không hoạt động. Dự án chưa có hệ thống tích hợp liên tục, và một số kịch bản tích hợp cô lập chưa được chạy (Mục~\ref{sec:ch5-ket-qua}).
+\end{enumerate}
+
+\section{Hướng phát triển}
+\label{sec:ch5-huong-phat-trien}
+
+Từ các hạn chế trên, nhóm đề xuất các hướng phát triển sau:
+\begin{enumerate}
+	\item \textbf{So khớp khuôn mặt tự động cho giao dịch giá trị cao.} Bổ sung bước so khớp một--một phía máy chủ giữa ảnh chụp tại thời điểm giao dịch và ảnh tham chiếu đã được chấp nhận, kết hợp kiểm tra người thật, rồi mới mở giới hạn 5.000.000 VND cho các giao dịch vượt qua bước này. Hướng này cũng phù hợp với yêu cầu xác thực sinh trắc học đối với giao dịch giá trị lớn tại Việt Nam \parencite{ch5-sbv2345}.
+	\item \textbf{Tích hợp liên ngân hàng và nhà cung cấp dịch vụ thật.} Thay các ngân hàng, hóa đơn và vé hư cấu bằng kết nối qua đối tác trung gian thanh toán được cấp phép khi có điều kiện pháp lý và thương mại phù hợp.
+	\item \textbf{Đăng ký địa chỉ IPN với VNPay} để nhận kết quả thanh toán trực tiếp giữa hai máy chủ, không phụ thuộc vào việc khách hàng quay về trang trả về.
+	\item \textbf{Phát hành công khai trên Google Play}: chạy thử nghiệm kín với tối thiểu 12 người thử trong 14 ngày, hoàn thiện trang giới thiệu ứng dụng và biểu mẫu an toàn dữ liệu, sau đó đăng ký phát hành chính thức.
+	\item \textbf{Lưu phiên an toàn và mở khóa sinh trắc học}: lưu phiên trong kho khóa an toàn của thiết bị và cho phép mở khóa ứng dụng bằng vân tay hoặc khuôn mặt; sinh trắc học cục bộ chỉ dùng để mở khóa, không thay thế eKYC hay mã TOTP của giao dịch.
+	\item \textbf{Hoàn thiện lịch trả nợ thế chấp mỗi hai tuần} bên cạnh lịch hằng tháng hiện có.
+	% UPDATE: biweekly mortgage view
+	\item \textbf{Cải thiện trợ lý hội thoại}: bổ sung khả năng hiểu ngôn ngữ tự nhiên rộng hơn và trả lời bằng tiếng Việt, trong khi vẫn giữ nguyên danh sách liên kết được phép và quy tắc trợ lý không được tự thực hiện giao dịch.
+	% UPDATE: assistant AI fallback
+	\item \textbf{Nâng cao chất lượng sản phẩm}: Việt hóa giao diện, thiết lập hệ thống tích hợp liên tục chạy kiểm thử cho mỗi pull request, chạy đầy đủ các kịch bản tích hợp còn thiếu, kiểm thử trên nhiều thiết bị Android thật và chuẩn bị bản dựng iOS.
+\end{enumerate}
+
+\section{Kết luận}
+\label{sec:ch5-ket-luan}
+
+Đề tài đã xây dựng Nene, một ứng dụng ngân hàng di động trên Android với một ứng dụng Flutter cho hai vai trò, một máy chủ NestJS duy nhất và nền tảng Supabase trên đám mây. Sản phẩm bao phủ cả bảy nhóm yêu cầu nghiệp vụ của đề bài ở các mức độ khác nhau: hồ sơ người dùng, quản lý tài khoản, chuyển khoản cùng ngân hàng, định vị và trợ lý hội thoại đã được hiện thực; dịch vụ thanh toán được tích hợp với VNPay sandbox và đã được kiểm chứng trực tiếp; chuyển khoản liên ngân hàng và các tiện ích được hiện thực dưới dạng mô phỏng hoặc dịch vụ hư cấu; eKYC và phát hành trên Google Play mới đạt một phần.
+
+Điểm nhóm chú trọng nhất là tính đúng đắn và an toàn của các thao tác tài chính: máy chủ là nơi quyết định duy nhất, mọi giao dịch phải qua mã TOTP gắn với đúng thao tác, số dư chỉ thay đổi qua các hàm ghi sổ nguyên tử và yêu cầu lặp lại không thể tạo giao dịch trùng. Các quy tắc này được kiểm chứng bằng 170 kiểm thử phía máy chủ, 338 kiểm thử của ứng dụng cùng các kiểm thử CSDL và tích hợp.
+
+Qua đề tài, nhóm đã vận dụng kiến thức của môn học vào một bài toán gần với thực tế, rèn luyện cách phân tích yêu cầu thành các lát cắt chức năng có thể kiểm chứng, cách làm việc với Git và pull request, cũng như cách trình bày trung thực giới hạn của sản phẩm. Những hạn chế đã nêu, đặc biệt là so khớp khuôn mặt cho giao dịch giá trị cao và phát hành công khai, là các bước tiếp theo để Nene tiến gần hơn đến một ứng dụng ngân hàng có thể đưa vào sử dụng thực tế.

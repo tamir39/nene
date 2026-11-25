@@ -1,0 +1,240 @@
+\chapter{Tổng quan đề tài}
+\label{chap:1}
+
+Chương này giới thiệu bối cảnh và lý do nhóm chọn xây dựng ứng dụng ngân hàng di động Nene, mục tiêu, phạm vi và đối tượng sử dụng của hệ thống, các yêu cầu nghiệp vụ và kỹ thuật được rút ra từ đề bài, phương pháp và quy trình thực hiện, thành viên nhóm và bố cục của báo cáo.
+
+\section{Bối cảnh và lý do chọn đề tài}
+\label{sec:ch1-boi-canh}
+
+Trong bối cảnh chuyển đổi số, ngân hàng và các tổ chức tài chính cần cung cấp cho khách hàng những kênh giao dịch thuận tiện, có thể sử dụng ở mọi nơi và mọi lúc. Bên cạnh ngân hàng điện tử trên nền web, ứng dụng ngân hàng di động cho phép khách hàng chuyển tiền, theo dõi tài khoản hay thanh toán dịch vụ mà không phải đến quầy giao dịch hoặc cây ATM. Đề bài của môn học nêu rõ rằng tại Việt Nam, các ngân hàng như Vietcombank, BIDV hay OCB đều đã cung cấp ứng dụng di động trên Google Play và Apple App Store; ngân hàng chỉ cần thiết lập tài khoản ban đầu, sau đó khách hàng có thể tự thực hiện các hoạt động ngân hàng của mình \parencite{ch1-debai}.
+
+Vì xử lý tiền và dữ liệu cá nhân, ứng dụng ngân hàng di động phải đáp ứng các yêu cầu an toàn khắt khe hơn nhiều so với một ứng dụng thông thường: xác thực người dùng, phân quyền theo vai trò, kiểm tra tính hợp lệ của từng giao dịch và xác nhận giao dịch bằng nhiều yếu tố. Thực tế tại Việt Nam cho thấy xu hướng này ngày càng chặt chẽ: theo Quyết định 2345/QĐ-NHNN của Ngân hàng Nhà nước Việt Nam, có hiệu lực từ ngày 01/7/2024, giao dịch chuyển tiền trực tuyến từ 10 triệu đồng trở lên, hoặc khi tổng giá trị giao dịch trong ngày vượt 20 triệu đồng, phải được xác thực bằng sinh trắc học \parencite{ch5-sbv2345}. Điều đó cho thấy định danh khách hàng và xác thực giao dịch là thành phần cốt lõi chứ không phải tính năng bổ sung của một ứng dụng ngân hàng.
+
+Đồ án cuối kỳ môn Phát triển ứng dụng di động yêu cầu mỗi nhóm xây dựng một ứng dụng ngân hàng di động cho ``ngân hàng của mình'', với tên ngân hàng và tên ứng dụng do nhóm tự đặt \parencite{ch1-debai}. Nhóm chọn tên \textbf{Nene} và thực hiện đề tài này vì các lý do sau:
+\begin{itemize}
+	\item Đề tài bao quát gần như toàn bộ kiến thức của môn học: thiết kế giao diện di động, quản lý trạng thái, giao tiếp với máy chủ, lưu trữ dữ liệu trên đám mây, sử dụng cảm biến vị trí và máy ảnh, tích hợp dịch vụ bên ngoài và phát hành ứng dụng lên Google Play.
+	\item Bài toán ngân hàng buộc nhóm áp dụng các nguyên tắc xây dựng phần mềm tài chính an toàn: máy chủ là nơi quyết định duy nhất cho mọi thao tác tiền tệ, ghi sổ nguyên tử, chống ghi trùng khi yêu cầu bị gửi lại, xác thực hai lớp (2FA) gắn với từng giao dịch.
+	\item Đề tài có nhiều yêu cầu mở (định danh điện tử, cổng thanh toán, bản đồ, trợ lý hội thoại), tạo cơ hội để nhóm tìm hiểu, so sánh và lựa chọn công nghệ có lập luận, đồng thời trình bày trung thực phần nào đã hoàn thiện, phần nào chỉ là mô phỏng.
+\end{itemize}
+
+\section{Mục tiêu của đề tài}
+\label{sec:ch1-muc-tieu}
+
+Mục tiêu tổng quát của đề tài là xây dựng Nene -- một ứng dụng ngân hàng di động trên Android phục vụ hai nhóm người dùng là khách hàng và nhân viên ngân hàng, đáp ứng bảy nhóm yêu cầu nghiệp vụ và các yêu cầu kỹ thuật của đề bài, với kiến trúc có thể kiểm chứng, ưu tiên an toàn dữ liệu và trình bày minh bạch giới hạn của sản phẩm. Các mục tiêu cụ thể gồm:
+\begin{enumerate}
+	\item Xây dựng một ứng dụng Flutter duy nhất với giao diện riêng cho khách hàng và nhân viên; quyền hạn của từng vai trò được kiểm soát ở máy chủ chứ không chỉ bằng việc ẩn màn hình.
+	\item Xây dựng một máy chủ giao diện lập trình ứng dụng (API) NestJS duy nhất làm nơi quyết định mọi thao tác nghiệp vụ; tiền được biểu diễn bằng số nguyên theo đơn vị nhỏ nhất kèm loại tiền tệ; số dư chỉ thay đổi qua các hàm ghi sổ nguyên tử trong cơ sở dữ liệu (CSDL).
+	\item Hiện thực các yêu cầu bảo mật: đăng nhập qua Supabase Auth, thu thập ảnh khuôn mặt tham chiếu do nhân viên xem xét như bước đầu của định danh điện tử (eKYC), và bắt buộc xác thực hai lớp bằng mật khẩu dùng một lần theo thời gian (TOTP) gắn với từng giao dịch.
+	\item Hiện thực quản lý tài khoản (thanh toán, tiết kiệm, thế chấp), lịch sử giao dịch, nạp và rút tiền; quản lý giao dịch gồm chuyển khoản cùng ngân hàng, chuyển khoản liên ngân hàng và tích hợp cổng thanh toán VNPay ở môi trường thử nghiệm (sandbox).
+	\item Hiện thực các tiện ích (hóa đơn điện, nước, nạp tiền điện thoại, mua vé xem phim), bản đồ văn phòng giao dịch kèm gợi ý đường đi bộ ngắn nhất và trợ lý hội thoại có liên kết đến chức năng.
+	\item Triển khai máy chủ và CSDL trên đám mây, phát hành ứng dụng qua Google Play, đồng thời xây dựng bộ kiểm thử tự động và báo cáo phân tích, thiết kế đầy đủ theo yêu cầu của đề bài.
+\end{enumerate}
+
+\section{Phạm vi và đối tượng sử dụng}
+\label{sec:ch1-pham-vi}
+
+\subsection{Đối tượng sử dụng}
+
+Hệ thống phục vụ hai nhóm người dùng, đăng nhập trên cùng một ứng dụng và được chuyển đến giao diện tương ứng dựa trên vai trò lưu ở máy chủ:
+\begin{itemize}
+	\item \textbf{Khách hàng}: xem và sửa thông tin liên hệ của mình (số điện thoại, địa chỉ); xem các tài khoản thanh toán, tiết kiệm, thế chấp và lịch sử giao dịch; nộp ảnh khuôn mặt tham chiếu; thiết lập ứng dụng xác thực; nạp, rút tiền, chuyển khoản; thanh toán hóa đơn, nạp tiền điện thoại, mua vé xem phim; tìm văn phòng giao dịch gần nhất và trò chuyện với trợ lý.
+	\item \textbf{Nhân viên ngân hàng}: tìm kiếm và tạo hồ sơ khách hàng (kèm một tài khoản thanh toán ban đầu), chỉnh sửa họ tên và thông tin liên hệ khi khách hàng yêu cầu (bắt buộc ghi lý do), hỗ trợ khách hàng chụp ảnh tham chiếu và duyệt ảnh, điều chỉnh lãi suất tiết kiệm theo chính sách của ngân hàng và tạo các tài khoản tiết kiệm, thế chấp phục vụ trình diễn.
+\end{itemize}
+
+Phù hợp với mô tả của đề bài rằng ngân hàng thiết lập tài khoản ban đầu cho khách hàng, Nene không cho phép tự đăng ký công khai và không có lựa chọn vai trò ở phía ứng dụng. Tài khoản khách hàng do nhân viên tạo; tài khoản nhân viên đầu tiên được thiết lập trực tiếp trong trang quản trị Supabase bởi người quản trị hệ thống.
+
+\subsection{Phạm vi đề tài}
+
+Sản phẩm của đề tài gồm ba thành phần: ứng dụng Android viết bằng Flutter, máy chủ API NestJS và nền tảng Supabase (PostgreSQL, Auth, Storage riêng tư). Cùng mã nguồn Flutter có thể chạy dạng xem trước trên trình duyệt Microsoft Edge, nhưng đây chỉ là công cụ hỗ trợ phát triển; sản phẩm bàn giao là ứng dụng Android.
+
+Để trình bày nhất quán, báo cáo sử dụng các thuật ngữ sau:
+\begin{itemize}
+	\item \textbf{Mô phỏng}: quy trình được thực hiện đầy đủ bên trong hệ thống Nene (kiểm tra, xác thực, ghi sổ), nhưng đối tác bên ngoài là hư cấu, ví dụ ngân hàng nhận trong chuyển khoản liên ngân hàng hoặc nguồn tiền mặt khi nạp, rút.
+	\item \textbf{Sandbox}: tích hợp thật về mặt giao thức với môi trường thử nghiệm chính thức của nhà cung cấp (VNPay), nhưng không có tiền thật được chuyển.
+	\item \textbf{Dịch vụ hư cấu}: các hóa đơn điện, nước, gói nạp tiền điện thoại và suất chiếu phim có giá cố định do nhóm tạo ra để trình diễn.
+\end{itemize}
+
+Các nội dung sau nằm ngoài phạm vi của đề tài: xử lý tiền thật; kết nối với mạng liên ngân hàng hoặc nhà cung cấp hóa đơn thật; nhận dạng, so khớp khuôn mặt tự động và kiểm tra người thật (liveness); cho vay, giải ngân và thu nợ thế chấp thật; phát hành trên iOS. Toàn bộ dữ liệu khách hàng là dữ liệu giả lập với địa chỉ thư điện tử thuộc miền dành riêng \texttt{example.\allowbreak{}invalid}.
+
+\section{Yêu cầu của đề tài}
+\label{sec:ch1-yeu-cau}
+
+Yêu cầu của đề tài được lấy từ đề bài \parencite{ch1-debai} và bảng tiêu chí chấm điểm \parencite{ch1-tieuchi}. Nhóm lập một sổ đăng ký yêu cầu (tệp \texttt{REQUIREMENTS.\allowbreak{}md} trong kho mã nguồn), gán mã BR cho yêu cầu nghiệp vụ (business requirement) và mã TR cho yêu cầu kỹ thuật (technical requirement). Các mã này được dùng xuyên suốt trong tài liệu thiết kế, kế hoạch hiện thực, minh chứng kiểm thử và bảng đánh giá ở Chương~\ref{chap:5}.
+
+\subsection{Yêu cầu nghiệp vụ}
+
+Đề bài mô tả bảy nhóm chức năng chính. Bảng~\ref{tab:ch1-yeu-cau-nghiep-vu} tóm tắt nội dung từng nhóm và mã yêu cầu tương ứng.
+
+\begin{table}[H]
+	\centering
+	\caption{Các nhóm yêu cầu nghiệp vụ của đề bài và mã yêu cầu}
+	\label{tab:ch1-yeu-cau-nghiep-vu}
+	\linespread{1.15}\small
+	\begin{tabularx}{\textwidth}{@{}c p{3.1cm} X p{2.2cm}@{}}
+		\toprule
+		\textbf{STT} & \textbf{Nhóm yêu cầu} & \textbf{Nội dung chính theo đề bài} & \textbf{Mã yêu cầu} \\
+		\midrule
+		1 & Hồ sơ người dùng & Hai loại người dùng (khách hàng, nhân viên) với giao diện và quyền khác nhau; nhân viên tạo tài khoản cho khách hàng và sửa dữ liệu theo yêu cầu của khách hàng; khách hàng xem và sửa thông tin của mình. & BR-01, BR-02 \\
+		\midrule
+		2 & Bảo mật & Màn hình đăng nhập; áp dụng eKYC để định danh khách hàng; nhân viên hỗ trợ cung cấp dữ liệu sinh trắc học (ví dụ ảnh khuôn mặt), ảnh này dùng để xác minh khi giao dịch giá trị cao; mọi giao dịch phải qua 2FA (ví dụ OTP) trước khi được lưu. & BR-03, BR-04 \\
+		\midrule
+		3 & Quản lý tài khoản & Ba loại tài khoản (thanh toán, tiết kiệm, thế chấp) với cách hiển thị khác nhau; số dư; lãi suất và lợi nhuận hằng tháng của tài khoản tiết kiệm, nhân viên điều chỉnh lãi suất; số tiền phải trả thế chấp mỗi tháng hoặc mỗi hai tuần; lịch sử giao dịch; nạp và rút tiền. & BR-05, BR-06, BR-07, BR-08 \\
+		\midrule
+		4 & Quản lý giao dịch & Kiểm tra giao dịch được phép và hợp lệ trước khi lưu vào CSDL; chuyển tiền đến tài khoản cùng ngân hàng hoặc khác ngân hàng; tích hợp dịch vụ thanh toán như VNPay hoặc Stripe. & BR-09, BR-10 \\
+		\midrule
+		5 & Tiện ích & Thanh toán hóa đơn điện, nước; nạp tiền điện thoại; mua vé máy bay, vé xem phim, đặt phòng khách sạn hoặc thanh toán trên sàn thương mại điện tử. & BR-11, BR-12 \\
+		\midrule
+		6 & Định vị & Xác định vị trí người dùng; hiển thị người dùng và các văn phòng ngân hàng lân cận trên bản đồ; gợi ý đường đi bộ ngắn nhất đến văn phòng gần nhất. & BR-13 \\
+		\midrule
+		7 & Trợ lý hội thoại AI & Người dùng đặt câu hỏi trên màn hình trò chuyện; câu trả lời kèm liên kết đến hoạt động được yêu cầu (nạp tiền điện thoại, hóa đơn hằng tháng, giao dịch trong tháng\ldots). & BR-14 \\
+		\bottomrule
+	\end{tabularx}
+\end{table}
+
+\subsection{Yêu cầu kỹ thuật}
+
+Phần yêu cầu kỹ thuật của đề bài gồm năm mục, được ánh xạ sang các mã TR như trong Bảng~\ref{tab:ch1-yeu-cau-ky-thuat}. Mã TR-08 bổ sung yêu cầu về hình thức báo cáo lấy từ bảng tiêu chí chấm điểm.
+
+\begin{table}[H]
+	\centering
+	\caption{Các yêu cầu kỹ thuật của đề bài và mã yêu cầu}
+	\label{tab:ch1-yeu-cau-ky-thuat}
+	\linespread{1.15}\small
+	\begin{tabularx}{\textwidth}{@{}c X p{2.6cm}@{}}
+		\toprule
+		\textbf{STT} & \textbf{Nội dung yêu cầu kỹ thuật} & \textbf{Mã yêu cầu} \\
+		\midrule
+		1 & Thực hiện theo nhóm 2--3 thành viên; xây dựng ứng dụng Android đáp ứng mọi yêu cầu nghiệp vụ. & TR-01, TR-02 \\
+		\midrule
+		2 & Lưu toàn bộ dữ liệu trong CSDL; có thể dùng SQLite trên thiết bị nhưng ưu tiên CSDL trên dịch vụ đám mây (ví dụ Google Firebase). & TR-03 \\
+		\midrule
+		3 & Phát hành ứng dụng trên Google Play để mọi người dùng có thể tải, cài đặt và sử dụng trên điện thoại của mình. & TR-04 \\
+		\midrule
+		4 & Báo cáo gồm: phân tích và thiết kế (nguyên lý, mẫu thiết kế, thực hành phát triển; sơ đồ lớp, sơ đồ thực thể -- liên kết (ER), sơ đồ use case, sơ đồ thành phần và hạ tầng); hiện thực (cấu trúc mã nguồn, công nghệ); giao diện (trình bày mọi chức năng). Báo cáo theo mẫu của Khoa, có mục lục, tài liệu tham khảo. & TR-05, TR-06, TR-08 \\
+		\midrule
+		5 & Cung cấp video trình diễn các chức năng của ứng dụng. & TR-07 \\
+		\bottomrule
+	\end{tabularx}
+\end{table}
+
+Một số chi tiết trong đề bài là ví dụ minh họa chứ không phải yêu cầu bắt buộc về công nghệ: Firebase là ví dụ về dịch vụ đám mây, OTP là ví dụ về yếu tố xác thực thứ hai, VNPay và Stripe là ví dụ về dịch vụ thanh toán, chụp ảnh khuôn mặt là ví dụ về cách thu thập dữ liệu sinh trắc học. Nhóm giữ nguyên mục đích của từng yêu cầu và tự lựa chọn cơ chế hiện thực; lý do lựa chọn được trình bày ở Chương~\ref{chap:2}.
+
+\subsection{Tiêu chí đánh giá}
+
+Bảng~\ref{tab:ch1-tieu-chi} tóm tắt các tiêu chí chấm điểm của đồ án \parencite{ch1-tieuchi}. Nhóm dùng trọng số này để phân bổ công sức, nhưng không xem bất kỳ yêu cầu nào của đề bài là tùy chọn.
+
+\begin{table}[H]
+	\centering
+	\caption{Tiêu chí chấm điểm đồ án cuối kỳ}
+	\label{tab:ch1-tieu-chi}
+	\linespread{1.15}\small
+	\begin{tabularx}{\textwidth}{@{}p{4.2cm} X r@{}}
+		\toprule
+		\textbf{Nhóm tiêu chí} & \textbf{Tiêu chí} & \textbf{Điểm tối đa} \\
+		\midrule
+		Kiến trúc & Thiết kế kiến trúc hệ thống, công nghệ sử dụng và lý do lựa chọn & 1,0 \\
+		\midrule
+		Phân tích và thiết kế & Sơ đồ lớp (class diagrams) & 1,0 \\
+		& Giao diện người dùng (UI) & 1,0 \\
+		& Thiết kế cơ sở dữ liệu & 1,0 \\
+		\midrule
+		Chức năng & Hồ sơ người dùng (user profiles) & 1,0 \\
+		& Yêu cầu bảo mật (security requirements) & 1,0 \\
+		& Quản lý tài khoản (account management) & 0,5 \\
+		& Quản lý giao dịch (transaction management) & 1,0 \\
+		& Tiện ích (utilities) & 0,5 \\
+		& Định vị (navigation) & 0,5 \\
+		& Trợ lý hội thoại (chatbot) & 0,5 \\
+		\midrule
+		Hình thức & Hình thức báo cáo và trình diễn & 1,0 \\
+		\midrule
+		\multicolumn{2}{@{}l}{\textbf{Tổng cộng}} & \textbf{10,0} \\
+		\bottomrule
+	\end{tabularx}
+\end{table}
+
+\section{Phương pháp và quy trình thực hiện}
+\label{sec:ch1-phuong-phap}
+
+\subsection{Phương pháp tiếp cận}
+
+Nhóm áp dụng cách tiếp cận lặp, chia sản phẩm thành các lát cắt chức năng (feature slice). Mỗi lát cắt đi xuyên qua tất cả các tầng của hệ thống: tệp di trú (migration) SQL cho CSDL, các điểm cuối (endpoint) API trong NestJS, màn hình và bộ điều khiển trạng thái trong Flutter, kiểm thử tự động và một tài liệu mô tả chức năng trong thư mục \texttt{docs/} của kho mã nguồn. Cách làm này giúp mỗi lát cắt có thể được trình diễn và kiểm chứng độc lập, đồng thời giữ cho tài liệu luôn khớp với mã nguồn.
+
+Với những phần có rủi ro cao hoặc phụ thuộc vào nhà cung cấp bên ngoài, nhóm nghiên cứu và thử nghiệm trước khi hiện thực:
+\begin{itemize}
+	\item So sánh các phương án xác minh danh tính và so khớp khuôn mặt, từ đó quyết định hiện thực trước luồng ảnh tham chiếu có nhân viên duyệt và tạm hoãn việc so khớp tự động.
+	\item Viết các thử nghiệm độc lập để đánh giá khả năng dùng cơ chế xác thực đa yếu tố (MFA) dạng TOTP của Supabase cho việc xác nhận từng giao dịch, cũng như cơ chế mã khôi phục và chuyển giao phiên đăng nhập, trước khi tích hợp vào ứng dụng.
+	\item So sánh các cổng thanh toán có môi trường thử nghiệm và lựa chọn VNPay sandbox.
+\end{itemize}
+
+\subsection{Quy trình thực hiện theo thời gian}
+
+Lịch sử Git của nhánh \texttt{main} ghi nhận 58 commit (không tính các commit hợp nhất) trong khoảng từ ngày 12/10/2026 đến ngày 25/11/2026. Bảng~\ref{tab:ch1-tien-do} tóm tắt các giai đoạn chính được tổng hợp từ lịch sử này.
+
+\begingroup
+\linespread{1.15}\small
+\begin{longtable}{@{}p{1.5cm} p{2.6cm} p{10.5cm}@{}}
+	\caption{Các giai đoạn thực hiện chính theo lịch sử commit}
+	\label{tab:ch1-tien-do} \\
+	\toprule
+	\textbf{Giai đoạn} & \textbf{Thời gian} & \textbf{Nội dung chính} \\
+	\midrule
+	\endfirsthead
+	\toprule
+	\textbf{Giai đoạn} & \textbf{Thời gian} & \textbf{Nội dung chính} \\
+	\midrule
+	\endhead
+	\bottomrule
+	\endfoot
+	1 & 12--17/10/2026 & Khởi tạo kho mã; dựng khung máy chủ NestJS và Supabase chạy cục bộ; nền tảng đăng nhập và hồ sơ trong Flutter; tài liệu phạm vi, kiến trúc và lộ trình gắn với mã yêu cầu. \\
+	\midrule
+	2 & 19--20/10/2026 & Chọn nhận diện thương hiệu và bảng màu; luồng nhân viên tạo khách hàng kèm tài khoản thanh toán ban đầu, khách hàng sửa thông tin liên hệ, nhân viên sửa theo yêu cầu; bản xem trước trên Microsoft Edge. \\
+	\midrule
+	3 & 27/10/2026 & Luồng ảnh tham chiếu riêng tư và nhân viên duyệt ảnh; thiết kế xác nhận giao dịch gắn TOTP; các thử nghiệm về TOTP, mã khôi phục và chuyển giao phiên. \\
+	\midrule
+	4 & 03/11/2026 & Thiết lập, thay thế và khôi phục ứng dụng xác thực; thông tin tài khoản, chính sách lãi suất tiết kiệm, tài khoản tiết kiệm và thế chấp phục vụ trình diễn; lịch sử giao dịch; chuyển khoản cùng ngân hàng; nạp và rút tiền mô phỏng. \\
+	\midrule
+	5 & 05--07/11/2026 & Rà soát mức độ đáp ứng đề bài; chọn VNPay sandbox; bản đồ văn phòng và đường đi bộ; trợ lý hội thoại; thanh toán hóa đơn, nạp tiền điện thoại; chuyển khoản liên ngân hàng mô phỏng; mua vé xem phim. \\
+	\midrule
+	6 & 10--25/11/2026 & Chế độ triển khai thử nghiệm trên Render và Supabase đám mây; định danh gói \texttt{vn.\allowbreak{}nene.\allowbreak{}bank} và ký bản phát hành Android; thiết kế lại toàn bộ giao diện; ghi nhận kết quả VNPay qua trang trả về có chữ ký; chính sách quyền riêng tư cho Google Play; kiểm tra khuôn mặt trên thiết bị trước khi tải ảnh tham chiếu. \\
+\end{longtable}
+\endgroup
+
+\subsection{Quản lý mã nguồn và đảm bảo chất lượng}
+
+Mã nguồn được quản lý bằng Git và lưu trữ trên GitHub. Mỗi thay đổi hoàn chỉnh được phát triển trên một nhánh riêng, sau đó được hợp nhất vào nhánh \texttt{main} thông qua yêu cầu hợp nhất (pull request, PR) \parencite{ch1-github-pr}; ví dụ PR \#1 dựng nền tảng dự án, PR \#35 cấu hình bản phát hành Android và PR \#42 bổ sung bước kiểm tra khuôn mặt trên thiết bị. Nhánh \texttt{main} cũng là nhánh mà dịch vụ Render dùng để triển khai máy chủ. Thông điệp commit tuân theo quy ước Conventional Commits \parencite{ch1-conventionalcommits} với các loại như \texttt{feat}, \texttt{fix}, \texttt{docs}, \texttt{test}, giúp lịch sử thay đổi dễ đọc và dễ truy vết.
+
+Trước khi hợp nhất, các bộ kiểm thử tự động được chạy trên máy phát triển: kiểm tra mã (lint), biên dịch và kiểm thử của máy chủ; phân tích tĩnh và kiểm thử của ứng dụng Flutter; cùng các kiểm thử CSDL và kịch bản tích hợp khi môi trường Docker sẵn sàng. Những kiểm tra chưa chạy được ghi lại trong tài liệu của từng chức năng. Dự án chưa cấu hình hệ thống tích hợp liên tục (CI) chạy tự động trên GitHub. Các thông tin bí mật như khóa, mật khẩu CSDL và khóa ký ứng dụng không được đưa vào kho mã; tệp cấu hình cục bộ được Git bỏ qua. Chiến lược và kết quả kiểm thử được trình bày chi tiết ở Chương~\ref{chap:5}.
+
+\section{Thành viên nhóm}
+\label{sec:ch1-thanh-vien}
+
+Nhóm gồm hai thành viên, đáp ứng yêu cầu thực hiện theo nhóm 2--3 người của đề bài (TR-01). Thông tin thành viên được trình bày trong Bảng~\ref{tab:ch1-thanh-vien}.
+
+\begin{table}[H]
+	\centering
+	\caption{Thành viên nhóm}
+	\label{tab:ch1-thanh-vien}
+	\begin{tabular}{@{}c l c@{}}
+		\toprule
+		\textbf{STT} & \textbf{Họ và tên} & \textbf{Mã số sinh viên} \\
+		\midrule
+		1 & Phí Vương Tường Tâm & 52300155 \\
+		2 & Nguyễn Quốc Uy & 52300166 \\
+		\bottomrule
+	\end{tabular}
+\end{table}
+% TODO(user): phân công công việc (bổ sung cột hoặc đoạn mô tả nhiệm vụ của từng thành viên).
+
+\section{Bố cục báo cáo}
+\label{sec:ch1-bo-cuc}
+
+Ngoài phần mở đầu (lời cảm ơn, lời cam kết, tóm tắt, mục lục và các danh mục), báo cáo gồm năm chương:
+\begin{itemize}
+	\item \textbf{Chương~\ref{chap:1}} giới thiệu bối cảnh, mục tiêu, phạm vi, yêu cầu của đề tài và phương pháp thực hiện.
+	\item \textbf{Chương~\ref{chap:2}} trình bày phân tích và thiết kế hệ thống: kiến trúc tổng thể và lý do lựa chọn công nghệ, sơ đồ use case, sơ đồ lớp, thiết kế CSDL và sơ đồ thành phần, hạ tầng.
+	\item \textbf{Chương~\ref{chap:3}} trình bày phần hiện thực: cấu trúc mã nguồn của ứng dụng và máy chủ, các cơ chế bảo mật, xử lý giao dịch, tích hợp dịch vụ bên ngoài và triển khai.
+	\item \textbf{Chương~\ref{chap:4}} trình bày giao diện người dùng và các chức năng của ứng dụng dành cho khách hàng và nhân viên.
+	\item \textbf{Chương~\ref{chap:5}} trình bày kết quả kiểm thử, đánh giá mức độ hoàn thành theo từng yêu cầu, các hạn chế, hướng phát triển và kết luận.
+\end{itemize}
+Cuối báo cáo là danh mục tài liệu tham khảo và phụ lục gồm danh sách API chính, tài khoản trình diễn trên máy chủ và hướng dẫn cài đặt, chạy thử.

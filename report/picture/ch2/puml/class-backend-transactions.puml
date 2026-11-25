@@ -1,0 +1,157 @@
+@startuml class-backend-transactions
+' Nene backend (NestJS) - class diagram 3/4: transaction confirmation engine shared by
+' the preview, same-bank transfer, simulated cash and simulated other-bank routes.
+' Source: backend/src/confirmation/*.ts. Routes relative to /api/v1.
+' Operation = false (preview) | true (same-bank transfer) | 'deposit' | 'withdrawal' | 'interbank'.
+
+title Nene API (3/4) - xác nhận giao dịch, chuyển khoản, tiền mặt và liên ngân hàng giả lập
+
+skinparam shadowing false
+skinparam defaultFontSize 11
+skinparam classAttributeIconSize 0
+skinparam packageStyle rectangle
+skinparam class {
+  BackgroundColor #FFFFFF
+  BorderColor #286E78
+  ArrowColor #333333
+}
+hide empty members
+left to right direction
+
+package "confirmation" {
+  class ConfirmationController <<Controller me/transfer-confirmations>> {
+    +review(req, body) [POST review]
+    +confirm(req, body) [POST confirm]
+    +cancel(req, body) [POST cancel]
+    +status(req, id) [GET :id]
+  }
+  class TransfersController <<Controller me/transfers>> {
+    +recent(req) [GET]
+    +configuration(req) [GET configuration]
+    +review(req, body) [POST review]
+    +confirm(req, body) [POST confirm]
+    +cancel(req, body) [POST cancel]
+    +status(req, id) [GET :id]
+  }
+  class CashController <<Controller me/cash/:operation>> {
+    +recent(req, operation) [GET]
+    +configuration(req, operation) [GET configuration]
+    +status(req, operation, id) [GET :id]
+    +review(req, operation, body) [POST review]
+    +confirm(req, operation, body) [POST confirm]
+    +cancel(req, operation, body) [POST cancel]
+  }
+  class InterbankController <<Controller me/interbank-transfers>> {
+    +recent(req) [GET]
+    +configuration(req) [GET configuration]
+    +review(req, body) [POST review]
+    +confirm(req, body) [POST confirm]
+    +cancel(req, body) [POST cancel]
+    +status(req, id) [GET :id]
+  }
+
+  class ConfirmationService <<Injectable>> {
+    +configuration(req, op = true) : {enabled, highValueThresholdMinor, currency, banks?, cashBalanceMinor?}
+    +review(req, body, op = false) : {reviewToken, requestId, revision, ..., expiresAt, sufficientFunds}
+    +confirm(req, body {reviewToken, code}, op = false) : status + {accessToken, refreshToken, purpose, replay}
+    +cancel(req, body {reviewToken}, op = false) : {requestId, state : 'cancelled'}
+    +status(req, id, op = false) : {requestId, state, sent, receipt?}
+    +recent(req, op = true) : last 10 attempts
+    -requireTransfers(req, op)
+    -decode(req, rawToken, op) : {identity, review, digest}
+    -accounts(client, customer, source, destinationNumber, op, bankCode?)
+    -binding(client, customer, review?) : Binding
+    -reference(client, customer, expected?) : Reference
+    -activeProvider(token, customer, factor)
+    -key() / -mac(key, text)
+  }
+
+  class Review <<type, HMAC-signed token payload>> {
+    {field} id : string (UUID = confirmation id)
+    customer, session : string
+    factor : string
+    revision : number
+    policy : string
+    source, sourceNumber : string
+    destination, destinationNumber : string
+    destinationBankCode?, destinationBankName?,
+    destinationRecipientName? : string
+    amountMinor : string
+    currency : 'VND'
+    feeMinor : '0'
+    {field} expires : number (epoch ms, +10 min)
+    reference? : Reference
+  }
+  class Reference <<type>> {
+    id : string
+    version, revision : number
+    evidence_id : string
+  }
+  enum CashOperation {
+    deposit
+    withdrawal
+  }
+  class "confirmation input helpers" as ConfirmationInputs <<module>> {
+    +exact(body, keys)
+    +transferInput(body)
+    +interbankInput(body)
+    +cashInput(body)
+    +cashOperation(raw) : CashOperation
+  }
+}
+
+package "shared (see diagram 1/4)" {
+  class SecurityService <<Injectable>> {
+    +identity(req)
+    +provider(path, token, body?)
+  }
+  class "security-proof.ts" as SecurityProof <<function>> {
+    +reserveSecurityProof(db, customer, factor, code, purpose)
+  }
+  class DatabaseService <<Injectable>> {
+    +query<T>(text, values)
+    +transaction<T>(work)
+  }
+  interface Environment <<ENVIRONMENT token>> {
+    localTransfersEnabled? : boolean
+    localCashEnabled? : boolean
+    localInterbankEnabled? : boolean
+  }
+}
+
+package "external" {
+  class "Supabase Auth MFA\nGET /user, POST /factors/:id/challenge,\nPOST /factors/:id/verify" as AuthMfa <<external>>
+  class "PostgreSQL SECURITY DEFINER functions" as PostingFunctions <<external>> {
+    bank.post_local_transfer(...)
+    bank.post_local_cash(...)
+    bank.post_local_interbank(...)
+  }
+}
+
+ConfirmationController --> ConfirmationService : op = false (preview)
+TransfersController --> ConfirmationService : op = true
+CashController --> ConfirmationService : op = deposit | withdrawal
+InterbankController --> ConfirmationService : op = 'interbank'
+CashController ..> ConfirmationInputs : cashOperation()
+ConfirmationService ..> ConfirmationInputs
+ConfirmationService --> DatabaseService
+ConfirmationService --> SecurityService
+ConfirmationService ..> SecurityProof : before MFA verify
+ConfirmationService ..> Environment : feature flags
+ConfirmationService ..> Review : signs / verifies
+Review *-- "0..1" Reference
+ConfirmationService ..> AuthMfa : via SecurityService.provider
+ConfirmationService ..> PostingFunctions : select ... in the final transaction
+CashController ..> CashOperation
+
+note bottom of ConfirmationService
+  review(): kiểm tra quyền sở hữu, điều kiện, số dư và số tiền < 5.000.000 VND,
+  rồi trả về Review token ký HMAC (không ghi gì vào cơ sở dữ liệu).
+  confirm(): xác minh token, chèn transaction_confirmations (state 'checking'),
+  giữ chỗ dấu vân tay của mã, gọi Auth MFA challenge + verify, kiểm tra phiên
+  AAL2 trả về, rồi trong MỘT giao dịch CSDL đặt 'factor_confirmed' và gọi
+  hàm ghi sổ theo mục đích (trừ chế độ xem trước).
+  Gửi lại y hệt: trả trạng thái với replay = true, không cấp token mới.
+end note
+
+@enduml

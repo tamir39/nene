@@ -1,0 +1,109 @@
+@startuml component
+' Nene - component / infrastructure diagram of the hosted sandbox demo (main @ 31148c9).
+' Sources: app/lib/main.dart, app/lib/data/*_api.dart, supabase_auth_port.dart,
+' app/lib/ui/branch_map_screen.dart (flutter_map TileLayer), payments_screen.dart
+' (url_launcher), app/lib/data/face_check_mlkit.dart, backend/src/config/environment.ts,
+' auth/*.service.ts, identity/identity-storage.service.ts, branches/walking-route.service.ts,
+' payments/vnpay.ts, payments/payments.controller.ts, supabase migrations, docs/HOSTED_DEMO.md.
+
+title Nene - sơ đồ thành phần và hạ tầng (bản demo sandbox đã triển khai)
+
+left to right direction
+skinparam shadowing false
+skinparam defaultFontSize 11
+skinparam componentStyle uml2
+skinparam node {
+  BackgroundColor #F8F7F2
+  BorderColor #286E78
+}
+skinparam component {
+  BackgroundColor #FFFFFF
+  BorderColor #286E78
+}
+skinparam database {
+  BackgroundColor #FFFFFF
+  BorderColor #286E78
+}
+skinparam cloud {
+  BackgroundColor #FFFFFF
+  BorderColor #888888
+}
+
+node "Thiết bị Android" as Device {
+  component "Ứng dụng Nene (Flutter)" as App {
+    component "Màn hình UI\n(CustomerWorkspace, ...)" as AppUi
+    component "Controllers\n(ChangeNotifier)" as AppCtl
+    component "Tầng dữ liệu\nAPI clients, SessionOwner,\nSupabaseAuthPort (phiên chỉ trong bộ nhớ)" as AppData
+    component "FaceCheck\n(ML Kit, phát hiện 1 khuôn mặt\ntrên thiết bị)" as FaceCheck
+  }
+  component "Dịch vụ thiết bị\ncamera (image_picker),\nvị trí (geolocator)" as DeviceSvc
+  component "Trình duyệt ngoài\n(url_launcher)" as Browser
+}
+
+node "Render web service (Singapore)\nnene-43ej.onrender.com" as Render {
+  component "Nene API - NestJS / Node.js\nglobal prefix /api/v1\nDEMO_DEPLOYMENT=hosted-sandbox" as Api {
+    component "SessionGuard\n(global APP_GUARD)" as Guard
+    component "Controllers + services\n(profiles, customers, accounts,\nidentity, security, confirmation,\npayments, branches, assistant)" as ApiCore
+    component "DatabaseService\n(pg pool, role nene_api)" as DbSvc
+    component "Supabase clients\n(publishable key: getUser, MFA REST;\nsecret key: admin users, Storage)" as SupaClients
+    component "WalkingRouteService" as RouteSvc
+    component "VNPay adapter\n(vnpay.ts, HMAC-SHA512)" as VnpayAdapter
+  }
+}
+
+cloud "Supabase cloud (Singapore)" as Supabase {
+  component "Supabase Auth (GoTrue)\nphiên mật khẩu, TOTP MFA,\nadmin user API" as SupaAuth
+  database "PostgreSQL\nschema bank (RLS, role nene_api),\nhàm ghi sổ SECURITY DEFINER" as Pg
+  component "Supabase Storage\nbucket riêng tư identity-evidence" as Storage
+}
+
+cloud "Dịch vụ bên ngoài" as Ext {
+  component "VNPay PAY sandbox\ntrang thanh toán (vpcpay.html)\n+ IPN / return có chữ ký" as Vnpay
+  component "Valhalla routing (FOSSGIS)\nvalhalla1.openstreetmap.de/route" as Valhalla
+  component "OpenStreetMap tile server\ntile.openstreetmap.org" as Osm
+}
+
+AppUi --> AppCtl
+AppCtl --> AppData
+AppCtl ..> FaceCheck : kiểm tra ảnh\ntrước khi lưu
+AppUi ..> DeviceSvc : chụp ảnh /\nlấy vị trí một lần
+AppData --> SupaAuth : HTTPS /auth/v1/token,\n/user, /logout
+AppData --> Guard : HTTPS /api/v1/*\nBearer access token
+AppUi --> Osm : HTTPS map tiles\n(flutter_map)
+AppUi ..> Browser : mở checkoutUrl
+Browser --> Vnpay : trang thanh toán sandbox
+Vnpay ..> Browser : chuyển hướng về return URL
+Browser --> ApiCore : GET /api/v1/payments/vnpay/return\n(kiểm chữ ký như IPN, @Public)
+Vnpay --> ApiCore : GET /api/v1/payments/vnpay/ipn\n(server-to-server, @Public)
+
+Guard --> SupaClients : xác minh bearer (getUser)
+Guard --> ApiCore
+ApiCore --> DbSvc
+ApiCore --> SupaClients
+ApiCore --> RouteSvc
+ApiCore --> VnpayAdapter
+DbSvc --> Pg : TLS verify-full qua session pooler\n(DATABASE_URL user nene_api)
+SupaClients --> SupaAuth : HTTPS getUser, MFA\nchallenge/verify, admin
+SupaClients --> Storage : HTTPS đọc/ghi/xoá\nobject riêng tư
+RouteSvc --> Valhalla : HTTPS POST /route\n(pedestrian, shortest)
+VnpayAdapter ..> Vnpay : URL thanh toán có chữ ký\ntrả về cho ứng dụng
+
+note bottom of Render
+  Render triển khai tự động từ nhánh main (root backend).
+  Cờ DEMO_DEPLOYMENT=hosted-sandbox chỉ hợp lệ khi NODE_ENV=production;
+  nó cho phép các luồng demo trên máy chủ thật nhưng vẫn giữ nguyên:
+  dữ liệu tổng hợp, chỉ VNPay sandbox, TOTP gắn với từng giao dịch,
+  giới hạn 5.000.000 VND, cờ *_ENABLED + bảng *_settings cho từng luồng.
+  Bản free của Render ngủ khi không có truy cập (yêu cầu đầu có thể chậm).
+end note
+
+note bottom of Supabase
+  Ứng dụng chỉ gọi trực tiếp Supabase Auth.
+  Data API của Supabase bị tắt; migration thu hồi mọi
+  quyền trên schema bank khỏi anon / authenticated /
+  service_role (chỉ nene_api có quyền hẹp) và chính sách
+  restrictive của Storage chặn vai trò di động khỏi
+  bucket identity-evidence.
+end note
+
+@enduml
