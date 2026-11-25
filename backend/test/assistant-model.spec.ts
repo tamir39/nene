@@ -8,6 +8,7 @@ import {
 } from '../src/assistant/activity-assistant.js';
 import { AssistantController } from '../src/assistant/assistant.controller.js';
 import {
+  assistantAttemptTimeoutMs,
   assistantBackupModel,
   assistantModel,
   assistantModelEndpoint,
@@ -396,6 +397,100 @@ void describe('assistant AI fallback (Gemini API mocked, no network or key)', ()
     assert.equal(settled, false, 'still waiting just before the limit');
     t.mock.timers.tick(1);
     assert.deepEqual(await pending, unsupported);
+  });
+
+  void it('gives a slow first model 6 s, then answers from the backup', async (t) => {
+    t.mock.timers.enable({ apis: ['setTimeout'] });
+    const answer = {
+      reply:
+        'Bạn có thể mở biểu mẫu chuyển tiền. Thao tác này chỉ mở biểu mẫu, chưa có giao dịch nào được tạo hay gửi.',
+      actions: [{ type: 'transfer' }],
+    };
+    const urls: string[] = [];
+    let firstStarted!: () => void;
+    const started = new Promise<void>((resolve) => (firstStarted = resolve));
+    t.mock.method(
+      globalThis,
+      'fetch',
+      (input: string | URL | Request, init?: RequestInit) => {
+        urls.push(String(input));
+        if (urls.length === 1) {
+          firstStarted();
+          // The first model never answers; only an abort ends this request.
+          return new Promise<Response>((_resolve, reject) =>
+            init?.signal?.addEventListener('abort', () =>
+              reject(new DOMException('aborted', 'AbortError')),
+            ),
+          );
+        }
+        return Promise.resolve(modelMessage(answer));
+      },
+    );
+    const pending = new AssistantModelService(enabled).interpret(
+      unrecognised,
+      now,
+    );
+    await started;
+    t.mock.timers.tick(assistantAttemptTimeoutMs);
+    assert.deepEqual(await pending, { ...answer, context: null });
+    assert.deepEqual(urls, [
+      assistantModelEndpoint,
+      modelEndpoint(assistantBackupModel),
+    ]);
+  });
+
+  void it('gives a single configured model the whole limit', async (t) => {
+    t.mock.timers.enable({ apis: ['setTimeout'] });
+    const backupOnly = readEnvironment({
+      ...baseEnvironment,
+      ASSISTANT_AI_ENABLED: 'true',
+      GEMINI_API_KEY: apiKey,
+      GEMINI_MODEL: assistantBackupModel,
+    });
+    let calls = 0;
+    let firstStarted!: () => void;
+    const started = new Promise<void>((resolve) => (firstStarted = resolve));
+    t.mock.method(
+      globalThis,
+      'fetch',
+      (_input: string | URL | Request, init?: RequestInit) => {
+        calls++;
+        firstStarted();
+        return new Promise<Response>((_resolve, reject) =>
+          init?.signal?.addEventListener('abort', () =>
+            reject(new DOMException('aborted', 'AbortError')),
+          ),
+        );
+      },
+    );
+    let settled = false;
+    const pending = ask(unrecognised, backupOnly).finally(
+      () => (settled = true),
+    );
+    await started;
+    t.mock.timers.tick(assistantAttemptTimeoutMs);
+    for (let i = 0; i < 10; i++) await Promise.resolve();
+    assert.equal(settled, false, 'no 6 s cap without a backup');
+    t.mock.timers.tick(assistantModelTimeoutMs - assistantAttemptTimeoutMs);
+    assert.deepEqual(await pending, unsupported);
+    assert.equal(calls, 1);
+  });
+
+  void it('gives the model fixed facts about Nene and no customer data', (t) => {
+    const { sent } = mockModel(t, () =>
+      modelMessage({ reply: 'OK.', actions: [] }),
+    );
+    return new AssistantModelService(enabled)
+      .interpret(unrecognised, now)
+      .then(() => {
+        const system = systemText(sent[0]!);
+        assert.match(system, /Facts about Nene \(use only these/);
+        assert.match(system, /must be below 5,000,000 VND/);
+        assert.match(system, /Profile, Transaction security/);
+        assert.match(system, /Profile, Identity reference/);
+        assert.match(system, /VNPay sandbox test page/);
+        assert.match(system, /cannot see accounts, balances, history/);
+      });
   });
 
   void it('caps concurrent provider requests and falls back while busy', async (t) => {
