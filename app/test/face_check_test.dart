@@ -97,11 +97,128 @@ void main() {
     );
   });
 
+  group('classifyLiveness', () {
+    FaceMeasurement face(double yaw, {double eyes = .9}) =>
+        FaceMeasurement(yaw: yaw, leftEyeOpen: eyes, rightEyeOpen: eyes);
+
+    test('needs exactly one measurable face', () {
+      for (final pose in LivenessPose.values) {
+        expect(classifyLiveness(pose, []), LivenessResult.noFace);
+        expect(
+          classifyLiveness(pose, [face(0), face(30)]),
+          LivenessResult.multipleFaces,
+        );
+        expect(
+          classifyLiveness(pose, [const FaceMeasurement()]),
+          LivenessResult.failed,
+        );
+      }
+      expect(
+        classifyLiveness(LivenessPose.straight, [
+          const FaceMeasurement(yaw: 0, leftEyeOpen: .9),
+        ]),
+        LivenessResult.failed,
+      );
+    });
+
+    test('photo 1 looks straight, |yaw| < 12, with both eyes over 0.6', () {
+      expect(
+        classifyLiveness(LivenessPose.straight, [face(11.9)]),
+        LivenessResult.passed,
+      );
+      expect(
+        classifyLiveness(LivenessPose.straight, [face(-11.9)]),
+        LivenessResult.passed,
+      );
+      expect(
+        classifyLiveness(LivenessPose.straight, [face(12)]),
+        LivenessResult.notStraight,
+      );
+      expect(
+        classifyLiveness(LivenessPose.straight, [face(-25)]),
+        LivenessResult.notStraight,
+      );
+      expect(
+        classifyLiveness(LivenessPose.straight, [face(0, eyes: .6)]),
+        LivenessResult.eyesClosed,
+      );
+      expect(
+        classifyLiveness(LivenessPose.straight, [
+          const FaceMeasurement(yaw: 0, leftEyeOpen: .9, rightEyeOpen: .2),
+        ]),
+        LivenessResult.eyesClosed,
+      );
+    });
+
+    test('photo 2 turns the head, |yaw| > 20, either way', () {
+      expect(
+        classifyLiveness(LivenessPose.turned, [face(20.1)]),
+        LivenessResult.passed,
+      );
+      expect(
+        classifyLiveness(LivenessPose.turned, [face(-20.1, eyes: .1)]),
+        LivenessResult.passed,
+      );
+      expect(
+        classifyLiveness(LivenessPose.turned, [face(20)]),
+        LivenessResult.notTurned,
+      );
+      expect(
+        classifyLiveness(LivenessPose.turned, [face(-5)]),
+        LivenessResult.notTurned,
+      );
+    });
+  });
+
+  test('ML Kit liveness asks for classification and reads pose', () async {
+    final calls = <MethodCall>[];
+    messenger.setMockMethodCallHandler(channel, (call) async {
+      calls.add(call);
+      return call.method == 'vision#startFaceDetector'
+          ? [
+              {
+                'rect': {'left': 40, 'top': 30, 'right': 120, 'bottom': 130},
+                'headEulerAngleY': -24.5,
+                'leftEyeOpenProbability': .95,
+                'rightEyeOpenProbability': .9,
+                'landmarks': <String, dynamic>{},
+                'contours': <String, dynamic>{},
+              },
+            ]
+          : null;
+    });
+    const check = MlKitLivenessCheck();
+    expect(check.available, isTrue);
+    expect(
+      await check.check(LivenessPose.turned, referenceFixture),
+      LivenessResult.passed,
+    );
+    expect(
+      await check.check(LivenessPose.straight, referenceFixture),
+      LivenessResult.notStraight,
+    );
+    final options = (calls.first.arguments as Map)['options'] as Map;
+    expect(options['enableClassification'], isTrue);
+    expect(options['mode'], 'accurate');
+    messenger.setMockMethodCallHandler(
+      channel,
+      (call) async => call.method == 'vision#startFaceDetector'
+          ? throw PlatformException(code: 'InputImageConverterError')
+          : null,
+    );
+    expect(
+      await check.check(LivenessPose.straight, referenceFixture),
+      LivenessResult.failed,
+    );
+  });
+
   test('only Android and iOS use the ML Kit detector', () async {
     expect(createDeviceFaceCheck(), isA<MlKitFaceCheck>());
+    expect(createDeviceLivenessCheck(), isA<MlKitLivenessCheck>());
     debugDefaultTargetPlatformOverride = TargetPlatform.windows;
     try {
       expect(createDeviceFaceCheck(), isA<UnavailableFaceCheck>());
+      expect(createDeviceLivenessCheck().available, isFalse);
     } finally {
       debugDefaultTargetPlatformOverride = null;
     }

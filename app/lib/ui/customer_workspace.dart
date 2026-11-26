@@ -331,6 +331,7 @@ class _CustomerWorkspaceState extends State<CustomerWorkspace> {
                 interbank: _interbank,
               ),
               account: _confirmationAccount!,
+              photos: widget.photos,
             ),
             _Page.history => AccountHistoryScreen(
               key: ValueKey(_historyAccount!.id),

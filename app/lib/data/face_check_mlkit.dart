@@ -12,6 +12,13 @@ FaceCheck createFaceCheck() =>
     ? const MlKitFaceCheck()
     : const UnavailableFaceCheck();
 
+LivenessCheck createLivenessCheck() =>
+    !kIsWeb &&
+        (defaultTargetPlatform == TargetPlatform.android ||
+            defaultTargetPlatform == TargetPlatform.iOS)
+    ? const MlKitLivenessCheck()
+    : const UnavailableLivenessCheck();
+
 /// Google ML Kit face detection with the model bundled in the app: the photo
 /// is processed on the device, nothing is downloaded and no account is used.
 class MlKitFaceCheck implements FaceCheck {
@@ -34,6 +41,47 @@ class MlKitFaceCheck implements FaceCheck {
       ], ui.Size(width.toDouble(), height.toDouble()));
     } catch (_) {
       return FaceCheckResult.failed;
+    } finally {
+      try {
+        await detector.close();
+      } catch (_) {
+        // Nothing to release if the detector never started.
+      }
+    }
+  }
+}
+
+/// ML Kit head-pose and eye-open classification for liveness photos, with
+/// the same bundled on-device model as [MlKitFaceCheck].
+class MlKitLivenessCheck implements LivenessCheck {
+  const MlKitLivenessCheck();
+
+  @override
+  bool get available => true;
+
+  @override
+  Future<LivenessResult> check(LivenessPose pose, Uint8List bytes) async {
+    final detector = FaceDetector(
+      options: FaceDetectorOptions(
+        performanceMode: FaceDetectorMode.accurate,
+        enableClassification: true,
+      ),
+    );
+    try {
+      final (pixels, width, height) = await _rgba(bytes);
+      final faces = await detector.processImage(
+        InputImage.fromBitmap(bitmap: pixels, width: width, height: height),
+      );
+      return classifyLiveness(pose, [
+        for (final face in faces)
+          FaceMeasurement(
+            yaw: face.headEulerAngleY,
+            leftEyeOpen: face.leftEyeOpenProbability,
+            rightEyeOpen: face.rightEyeOpenProbability,
+          ),
+      ]);
+    } catch (_) {
+      return LivenessResult.failed;
     } finally {
       try {
         await detector.close();
