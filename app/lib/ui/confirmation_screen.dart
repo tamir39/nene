@@ -2,19 +2,35 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../data/banking_repository.dart';
 import '../data/confirmation_api.dart';
+import '../data/face_check.dart';
+import '../data/reference_photo_source.dart';
 import '../data/session_owner.dart';
 import 'customer_workspace.dart' show WorkspaceContent;
 import 'nene_brand.dart';
 import 'nene_components.dart' show SectionTitle;
+
+/// Largest single same-bank or other-bank transfer the backend accepts.
+final maximumTransferMinor = BigInt.from(50000000);
+
+/// Failed face checks the server allows for one review.
+const maximumFaceCheckFailures = 5;
 
 class ConfirmationScreen extends StatefulWidget {
   const ConfirmationScreen({
     super.key,
     required this.account,
     required this.api,
+    this.photos,
+    this.liveness,
   });
   final BankAccount account;
   final ConfirmationApi api;
+
+  /// Front-camera selfies for a face check; the device camera by default.
+  final ReferencePhotoSource? photos;
+
+  /// On-device pose checks; ML Kit on Android, unavailable on web/desktop.
+  final LivenessCheck? liveness;
   @override
   State<ConfirmationScreen> createState() => _ConfirmationScreenState();
 }
@@ -32,6 +48,23 @@ class _ConfirmationScreenState extends State<ConfirmationScreen>
   List<Map<String, dynamic>> _recent = [];
   List<Map<String, dynamic>> _banks = [];
   String? _bankCode, _recipient;
+
+  /// Set when confirm answered 409 FACE_CHECK_REQUIRED for this review.
+  bool _faceDemanded = false;
+  String? _faceCheckId, _faceNotice;
+  Timer? _faceExpiry;
+  bool _faceBusy = false;
+
+  /// Changing it starts the face step again with fresh photos.
+  int _faceAttempt = 0;
+  late final ReferencePhotoSource _photos =
+      widget.photos ?? DeviceReferencePhotoSource();
+  late final LivenessCheck _liveness =
+      widget.liveness ?? createDeviceLivenessCheck();
+  bool get _transfer => _send && !_cash;
+  bool get _faceRequired =>
+      _transfer && (_review?['faceCheckRequired'] == true || _faceDemanded);
+  bool get _locked => _busy || (_faceBusy && _state == 'review');
   bool get _interbank => widget.api.interbank;
   bool get _hasReviewToken => _review?['reviewToken'] is String;
   Map<String, dynamic>? get _bank =>
@@ -78,6 +111,7 @@ class _ConfirmationScreenState extends State<ConfirmationScreen>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _expiry?.cancel();
+    _faceExpiry?.cancel();
     _destination.dispose();
     _amount.dispose();
     _code.dispose();
@@ -96,7 +130,7 @@ class _ConfirmationScreenState extends State<ConfirmationScreen>
   }
 
   Future<void> _run(Future<void> Function() work) async {
-    if (_busy) return;
+    if (_locked) return;
     setState(() {
       _busy = true;
       _error = null;
@@ -106,8 +140,10 @@ class _ConfirmationScreenState extends State<ConfirmationScreen>
     } on SessionMutationRejected {
       if (mounted) {
         setState(
-          () => _error = _send
+          () => _error = _cash
               ? 'Check available funds, prepared demo accounts, an unexpired accepted reference and an amount below 5,000,000 VND. For a rejected code, check status before a new review; wait for a fresh code or 15 minutes after too many attempts.'
+              : _send
+              ? 'Check available funds, prepared demo accounts, an unexpired accepted reference and an amount up to 50,000,000 VND. For a rejected code, check status before a new review; wait for a fresh code or 15 minutes after too many attempts.'
               : 'Details or code were not accepted, or the code was already used. Check status, then start a new review with a fresh code. After too many attempts, wait 15 minutes.',
         );
       }
@@ -152,6 +188,10 @@ class _ConfirmationScreenState extends State<ConfirmationScreen>
       );
       return;
     }
+    if (_transfer && BigInt.parse(_amount.text.trim()) > maximumTransferMinor) {
+      setState(() => _error = 'Each transfer can be at most 50,000,000 VND.');
+      return;
+    }
     final data = await widget.api.review(
       widget.account.id,
       _interbank ? _recipient! : _destination.text.trim(),
@@ -162,6 +202,7 @@ class _ConfirmationScreenState extends State<ConfirmationScreen>
     setState(() {
       _review = data;
       _state = 'review';
+      _resetFace();
     });
     _expiry?.cancel();
     _expiry = Timer(
@@ -190,10 +231,69 @@ class _ConfirmationScreenState extends State<ConfirmationScreen>
     }
     // A review permits one submitted proof. Definite rejection needs a new review.
     setState(() => _state = 'checking');
-    final data = await widget.api.confirm(_review!, code);
-    if (data['state'] == 'posted') _expiry?.cancel();
+    final Map<String, dynamic> data;
+    try {
+      data = await widget.api.confirm(
+        _review!,
+        code,
+        faceCheckId: _faceCheckId,
+      );
+    } on FaceCheckRequired {
+      // Rejected before posting: the same review continues with a face check.
+      if (mounted) {
+        setState(() {
+          _state = 'review';
+          _resetFace();
+          _faceDemanded = true;
+          _faceNotice =
+              'Face check required. No money was sent. Complete the face check below, then enter a new authenticator code.';
+        });
+      }
+      return;
+    }
+    if (data['state'] == 'posted') {
+      _expiry?.cancel();
+      _faceExpiry?.cancel();
+    }
     if (mounted) setState(() => _state = data['state'] as String);
   });
+
+  /// Forgets any face check; a later one needs new photos.
+  void _resetFace() {
+    _faceExpiry?.cancel();
+    _faceDemanded = false;
+    _faceCheckId = null;
+    _faceNotice = null;
+    _faceBusy = false;
+    _faceAttempt++;
+  }
+
+  void _faceMatched(String id, DateTime expiresAt) {
+    // The server enforces the expiry; the local timer only prompts early.
+    // A skewed device clock falls back to the documented 5-minute window.
+    var left = expiresAt.difference(DateTime.now());
+    if (left <= Duration.zero || left > const Duration(minutes: 5)) {
+      left = const Duration(minutes: 5);
+    }
+    setState(() {
+      _faceCheckId = id;
+      _faceNotice = null;
+      _faceBusy = false;
+    });
+    _faceExpiry?.cancel();
+    _faceExpiry = Timer(left, () {
+      if (!mounted || _faceCheckId != id || _state != 'review') return;
+      setState(() {
+        final demanded = _faceDemanded;
+        _resetFace();
+        _faceDemanded = demanded;
+        _code.clear();
+        _faceNotice =
+            'Your face check expired after 5 minutes. Take the face check again before entering a code.';
+      });
+    });
+  }
+
   Future<void> _status() => _run(() async {
     final data = await widget.api.status(_review!['requestId'] as String);
     if (data['state'] == 'posted') _expiry?.cancel();
@@ -216,6 +316,7 @@ class _ConfirmationScreenState extends State<ConfirmationScreen>
         if (data['receipt'] != null) ...data['receipt'] as Map<String, dynamic>,
       };
       _state = data['state'] as String;
+      _resetFace();
       _code.clear();
     });
   });
@@ -236,6 +337,7 @@ class _ConfirmationScreenState extends State<ConfirmationScreen>
         _expiry?.cancel();
         _review = null;
         _state = null;
+        _resetFace();
         _code.clear();
       });
     }
@@ -250,11 +352,11 @@ class _ConfirmationScreenState extends State<ConfirmationScreen>
       : 'Transfer confirmation';
 
   String get _intro => _interbank
-      ? 'Local simulation with fictional banks and test recipients. No real bank receives a payment. Confirmation changes your source demo balance and records simulated delivery. Amounts of 5,000,000 VND or more are blocked while face comparison remains undecided.'
+      ? 'Local simulation with fictional banks and test recipients. No real bank receives a payment. Confirmation changes your source demo balance and records simulated delivery. Each transfer can be up to 50,000,000 VND; large transfers also need a face check.'
       : _cash
       ? 'Local cash simulation only. Deposits move your limited simulated cash into this account; withdrawals move it back. No real cash or external payment is involved. Amounts of 5,000,000 VND or more are blocked.'
       : _send
-      ? 'Synthetic local funds only. Sending changes both demo balances and records a transfer. Amounts of 5,000,000 VND or more are blocked until actual face comparison is available.'
+      ? 'Synthetic local funds only. Sending changes both demo balances and records a transfer. Each transfer can be up to 50,000,000 VND; large transfers also need a face check.'
       : 'Confirmation preview only. No money will be sent. Identity checks and money movement are not available yet.';
 
   /// Every review and receipt carries an honest label for its kind of money.
@@ -510,10 +612,12 @@ class _ConfirmationScreenState extends State<ConfirmationScreen>
           fontWeight: FontWeight.w600,
           color: NeneColors.muted,
         ),
-        helperText: _send
+        helperText: _cash
             ? 'Whole VND only · amounts of 5,000,000 VND or more are blocked'
+            : _send
+            ? 'Whole VND only · up to 50,000,000 VND. Over 10,000,000 VND, or over 20,000,000 VND in a day, needs a face check'
             : 'Whole VND only',
-        helperMaxLines: 2,
+        helperMaxLines: 10,
       ),
     ),
     const SizedBox(height: 24),
@@ -604,7 +708,9 @@ class _ConfirmationScreenState extends State<ConfirmationScreen>
 
   List<Widget> _reviewed() {
     final review = _review!;
-    final awaitingCode = _state == 'review' && _hasReviewToken;
+    final awaitingInput = _state == 'review' && _hasReviewToken;
+    final awaitingFace = awaitingInput && _faceRequired && _faceCheckId == null;
+    final awaitingCode = awaitingInput && !awaitingFace;
     final posted = _state == 'posted';
     final time = _postedLabel(review['postedAt']);
     final rows = <(String, String)>[
@@ -637,10 +743,10 @@ class _ConfirmationScreenState extends State<ConfirmationScreen>
         ? 'Start another ${_noun.toLowerCase()}'
         : 'Start another transfer';
     final actions = <({String label, VoidCallback? onPressed})>[
-      if (!awaitingCode)
+      if (!awaitingInput)
         (label: 'Check confirmation status', onPressed: _busy ? null : _status),
       if (!posted && _hasReviewToken)
-        (label: 'Edit details / new review', onPressed: _busy ? null : _edit),
+        (label: 'Edit details / new review', onPressed: _locked ? null : _edit),
       if (posted || !_hasReviewToken)
         (
           label: restartLabel,
@@ -650,15 +756,16 @@ class _ConfirmationScreenState extends State<ConfirmationScreen>
                   setState(() {
                     _review = null;
                     _state = null;
+                    _resetFace();
                   });
                   await _loadRecent();
                 }),
         ),
       if (_state != 'cancelled' && !posted && _hasReviewToken)
-        (label: 'Cancel confirmation', onPressed: _busy ? null : _cancel),
+        (label: 'Cancel confirmation', onPressed: _locked ? null : _cancel),
     ];
     // One emphasized next step per outcome; the others stay quiet.
-    final primary = awaitingCode
+    final primary = awaitingInput
         ? null
         : posted
         ? restartLabel
@@ -673,7 +780,7 @@ class _ConfirmationScreenState extends State<ConfirmationScreen>
         : 'Check confirmation status';
     return [
       _SummaryCard(
-        header: awaitingCode
+        header: awaitingInput
             ? null
             : _StatusHeader(
                 icon: look.icon,
@@ -701,6 +808,33 @@ class _ConfirmationScreenState extends State<ConfirmationScreen>
         ),
       ],
       const SizedBox(height: 20),
+      if (awaitingInput && _faceNotice != null) ...[
+        _Alert(_faceNotice!, tone: _Tone.warning),
+        const SizedBox(height: 16),
+      ],
+      if (awaitingFace) ...[
+        _FaceStep(
+          key: ValueKey(_faceAttempt),
+          api: widget.api,
+          reviewToken: review['reviewToken'] as String,
+          photos: _photos,
+          liveness: _liveness,
+          enabled: !_busy,
+          onBusy: (busy) {
+            if (mounted) setState(() => _faceBusy = busy);
+          },
+          onMatched: _faceMatched,
+        ),
+        const SizedBox(height: 20),
+      ],
+      if (awaitingCode && _faceCheckId != null) ...[
+        const _Note(
+          icon: Icons.verified_user_outlined,
+          text:
+              'Face check passed for this transfer. Enter your authenticator code within 5 minutes.',
+        ),
+        const SizedBox(height: 16),
+      ],
       if (awaitingCode) ...[
         _codeCard(),
         const SizedBox(height: 20),
@@ -777,6 +911,384 @@ class _ConfirmationScreenState extends State<ConfirmationScreen>
       ],
     ],
   );
+}
+
+enum _FacePhase { straight, turned, sending, retry, resend, stopped }
+
+/// Face check before a large transfer. On Android: photo 1 looking straight
+/// with open eyes, photo 2 with the head turned, both checked on the device.
+/// On web and desktop previews: one photo without device checks. Only photo
+/// 1 is uploaded; the server compares it with the accepted reference photo.
+class _FaceStep extends StatefulWidget {
+  const _FaceStep({
+    super.key,
+    required this.api,
+    required this.reviewToken,
+    required this.photos,
+    required this.liveness,
+    required this.enabled,
+    required this.onBusy,
+    required this.onMatched,
+  });
+  final ConfirmationApi api;
+  final String reviewToken;
+  final ReferencePhotoSource photos;
+  final LivenessCheck liveness;
+  final bool enabled;
+  final ValueChanged<bool> onBusy;
+  final void Function(String faceCheckId, DateTime expiresAt) onMatched;
+
+  @override
+  State<_FaceStep> createState() => _FaceStepState();
+}
+
+class _FaceStepState extends State<_FaceStep> {
+  _FacePhase _phase = _FacePhase.straight;
+  ReferencePhoto? _selfie;
+  String? _key, _message, _working;
+  bool _blink = false, _turn = false;
+  int _failures = 0;
+
+  bool get _device => widget.liveness.available;
+
+  void _busy(String? label) {
+    if (!mounted) return;
+    setState(() => _working = label);
+    widget.onBusy(label != null);
+  }
+
+  Future<void> _take() async {
+    if (_working != null || !widget.enabled) return;
+    final pose = _phase == _FacePhase.turned
+        ? LivenessPose.turned
+        : LivenessPose.straight;
+    setState(() {
+      _message = null;
+      if (pose == LivenessPose.straight) {
+        _phase = _FacePhase.straight;
+        _selfie = null;
+        _key = null;
+      }
+    });
+    _busy('Opening the camera…');
+    try {
+      final photo = await widget.photos.capture();
+      if (!mounted || photo == null) return;
+      if (!_device) {
+        _selfie = photo;
+        _blink = false;
+        _turn = false;
+        _key = newIdempotencyKey();
+        await _send();
+        return;
+      }
+      _busy(
+        pose == LivenessPose.straight
+            ? 'Checking photo 1…'
+            : 'Checking photo 2…',
+      );
+      final result = await widget.liveness.check(pose, photo.bytes);
+      if (!mounted) return;
+      if (result != LivenessResult.passed) {
+        setState(() => _message = _livenessMessage(result, pose));
+        return;
+      }
+      if (pose == LivenessPose.straight) {
+        setState(() {
+          _selfie = photo;
+          _phase = _FacePhase.turned;
+        });
+        return;
+      }
+      // Photo 2 only shows the head turned; it is neither uploaded nor kept.
+      _blink = true;
+      _turn = true;
+      _key = newIdempotencyKey();
+      await _send();
+    } on PhotoCaptureException catch (failure) {
+      if (mounted) setState(() => _message = failure.message);
+    } catch (_) {
+      if (mounted) {
+        setState(
+          () => _message =
+              'The camera is unavailable. Check camera access in device settings and try again.',
+        );
+      }
+    } finally {
+      _busy(null);
+    }
+  }
+
+  Future<void> _resend() async {
+    if (_working != null || !widget.enabled) return;
+    setState(() => _message = null);
+    try {
+      await _send();
+    } finally {
+      _busy(null);
+    }
+  }
+
+  /// Uploads photo 1. An unknown outcome keeps the photo and its
+  /// Idempotency-Key, so "send again" repeats the exact same request.
+  Future<void> _send() async {
+    final selfie = _selfie, key = _key;
+    if (selfie == null || key == null) return;
+    setState(() => _phase = _FacePhase.sending);
+    _busy('Comparing with your reference photo. This can take a few seconds…');
+    final FaceCheckOutcome outcome;
+    try {
+      outcome = await widget.api.faceCheck(
+        reviewToken: widget.reviewToken,
+        selfie: selfie.bytes,
+        contentType: selfie.contentType,
+        blink: _blink,
+        turn: _turn,
+        idempotencyKey: key,
+      );
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _selfie = null;
+          _key = null;
+          _phase = _FacePhase.stopped;
+          _message =
+              'Your sign-in changed during the face check. No money was sent. Sign in again before continuing.';
+        });
+      }
+      return;
+    }
+    if (!mounted) return;
+    final id = outcome.faceCheckId;
+    if (id != null) {
+      _selfie = null;
+      _key = null;
+      widget.onMatched(id, outcome.expiresAt!);
+      return;
+    }
+    setState(() {
+      final refusal = outcome.refusal, stop = outcome.stop;
+      if (refusal == null && stop == null) {
+        _phase = _FacePhase.resend;
+        _message =
+            'The face check did not finish. No money was sent. Check your connection, then send the same photo again.';
+        return;
+      }
+      _selfie = null;
+      _key = null;
+      if (refusal != null) {
+        _failures++;
+        _phase = _failures >= maximumFaceCheckFailures
+            ? _FacePhase.stopped
+            : _FacePhase.retry;
+        _message = _phase == _FacePhase.stopped
+            ? 'Too many face checks did not pass for this review. No money was sent. Start a new review to try again.'
+            : _refusalMessage(refusal);
+      } else {
+        _phase = _FacePhase.stopped;
+        _message = _stopMessage(stop!);
+      }
+    });
+  }
+
+  static String _livenessMessage(LivenessResult result, LivenessPose pose) {
+    final photo = pose == LivenessPose.straight ? 'photo 1' : 'photo 2';
+    return switch (result) {
+      LivenessResult.noFace =>
+        'No face was found in $photo. Hold the phone at eye level in good light and try again.',
+      LivenessResult.multipleFaces =>
+        'More than one face is in $photo. Make sure only you are in the frame.',
+      LivenessResult.eyesClosed =>
+        'Your eyes look closed in photo 1. Keep both eyes open and look at the camera.',
+      LivenessResult.notStraight =>
+        'In photo 1, look straight at the camera, not to the side.',
+      LivenessResult.notTurned =>
+        'Your head is not turned enough in photo 2. Turn it further to the left or right.',
+      LivenessResult.failed || LivenessResult.passed =>
+        'The photo could not be checked. Try again in better light.',
+    };
+  }
+
+  static String _refusalMessage(FaceCheckRefusal refusal) => switch (refusal) {
+    FaceCheckRefusal.noFace =>
+      'No face was found in the photo. Use good light and keep your whole face in the frame.',
+    FaceCheckRefusal.multipleFaces =>
+      'The photo shows more than one face. Make sure only you are in the photo.',
+    FaceCheckRefusal.notMatched =>
+      'The photo did not match your reference photo. Face the light, remove sunglasses or a mask, and try again.',
+    FaceCheckRefusal.invalidPhoto =>
+      'The photo was not accepted. Use a JPEG or PNG photo smaller than 10 MiB.',
+  };
+
+  static String _stopMessage(FaceCheckStop stop) => switch (stop) {
+    FaceCheckStop.tooManyAttempts =>
+      'Too many face check attempts. No money was sent. Wait a few minutes, then start a new review.',
+    FaceCheckStop.signIn =>
+      'This face check is not allowed for the current sign-in. No money was sent. Sign out, sign in again and start a new review.',
+    FaceCheckStop.notAvailable =>
+      'A face check is not possible for this review, for example because your reference photo is no longer accepted. No money was sent. Check Identity reference in My profile, then start a new review.',
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final working = _working;
+    final ready = widget.enabled && working == null;
+    final photoOneDone =
+        _phase == _FacePhase.turned ||
+        (_device && _phase == _FacePhase.sending);
+    final (String, VoidCallback)? action = switch (_phase) {
+      _FacePhase.straight => (
+        _device ? 'Take photo 1' : 'Take or choose a photo',
+        _take,
+      ),
+      _FacePhase.turned => ('Take photo 2', _take),
+      _FacePhase.retry => ('Try the face check again', _take),
+      _FacePhase.resend => ('Send the same photo again', _resend),
+      _FacePhase.sending || _FacePhase.stopped => null,
+    };
+    return _Panel(
+      children: [
+        const Center(
+          child: _IconBadge(
+            Icons.face_outlined,
+            tone: _Tone.info,
+            size: 56,
+            circle: true,
+          ),
+        ),
+        const SizedBox(height: 14),
+        Text(
+          'Face check required',
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
+        const SizedBox(height: 6),
+        Text(
+          _device
+              ? 'This transfer is over 10,000,000 VND, or takes today\'s transfers over 20,000,000 VND. Take two selfies with the front camera. Only photo 1 is sent: Nene compares it with your accepted reference photo on its server, then discards it.'
+              : 'This transfer is over 10,000,000 VND, or takes today\'s transfers over 20,000,000 VND. Take or choose one clear, recent photo of your face. Nene compares it with your accepted reference photo on its server, then discards it. Head-movement checks run only in the Android app.',
+          textAlign: TextAlign.center,
+          style: const TextStyle(color: NeneColors.muted, fontSize: 13.5),
+        ),
+        if (_device) ...[
+          const SizedBox(height: 16),
+          _FaceStepRow(
+            number: 1,
+            text: 'Look straight at the camera with both eyes open',
+            done: photoOneDone,
+          ),
+          const SizedBox(height: 10),
+          _FaceStepRow(
+            number: 2,
+            text: 'Turn your head to the left or right',
+            done: _device && _phase == _FacePhase.sending,
+          ),
+        ],
+        if (working != null) ...[
+          const SizedBox(height: 18),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(99),
+            child: LinearProgressIndicator(semanticsLabel: working),
+          ),
+          const SizedBox(height: 8),
+          Semantics(
+            liveRegion: true,
+            child: Text(
+              working,
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: NeneColors.muted, fontSize: 13),
+            ),
+          ),
+        ],
+        if (_message != null) ...[
+          const SizedBox(height: 16),
+          _Alert(
+            _message!,
+            tone: _phase == _FacePhase.stopped ? _Tone.error : _Tone.warning,
+          ),
+        ],
+        if (_failures > 0 && _phase != _FacePhase.stopped) ...[
+          const SizedBox(height: 8),
+          Text(
+            'Attempts left for this review: ${maximumFaceCheckFailures - _failures}',
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: NeneColors.muted, fontSize: 13),
+          ),
+        ],
+        if (action != null) ...[
+          const SizedBox(height: 18),
+          FilledButton.icon(
+            onPressed: ready ? action.$2 : null,
+            icon: Icon(
+              _phase == _FacePhase.resend
+                  ? Icons.refresh_rounded
+                  : Icons.photo_camera_front_outlined,
+              size: 20,
+            ),
+            label: Text(action.$1),
+          ),
+        ],
+        if (_phase == _FacePhase.resend) ...[
+          const SizedBox(height: 4),
+          TextButton(
+            onPressed: ready ? _take : null,
+            child: const Text('Take new photos'),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _FaceStepRow extends StatelessWidget {
+  const _FaceStepRow({
+    required this.number,
+    required this.text,
+    required this.done,
+  });
+  final int number;
+  final String text;
+  final bool done;
+
+  @override
+  Widget build(BuildContext context) {
+    // The circle grows with the text size so the number stays inside it.
+    final side = MediaQuery.textScalerOf(context).scale(14) + 14;
+    return Row(
+      children: [
+        Container(
+          width: side,
+          height: side,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: done ? _Tone.success.background : _Tone.info.background,
+            shape: BoxShape.circle,
+          ),
+          child: done
+              ? Icon(
+                  Icons.check_rounded,
+                  size: 18,
+                  color: _Tone.success.foreground,
+                  semanticLabel: 'Done',
+                )
+              : Text(
+                  '$number',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    color: _Tone.info.foreground,
+                  ),
+                ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            text,
+            style: const TextStyle(fontSize: 14, color: NeneColors.ink),
+          ),
+        ),
+      ],
+    );
+  }
 }
 
 /// Tinted color pairs for icons, pills and callouts on this flow.
