@@ -94,7 +94,6 @@ Bảng~\ref{tab:pl-api} liệt kê các điểm cuối chính của máy chủ N
 
 Máy chủ trình diễn được triển khai tại \url{https://nene-43ej.onrender.com} (điểm cuối kiểm tra: \url{https://nene-43ej.onrender.com/api/v1/health}). Bảng~\ref{tab:pl-tai-khoan} liệt kê các tài khoản trình diễn. Tất cả là danh tính giả lập thuộc miền dành riêng \texttt{example.\allowbreak{}invalid}; \textbf{mật khẩu không được ghi trong báo cáo mà được nhóm cung cấp riêng cho giảng viên}.
 
-% TODO(user): bổ sung vai trò cụ thể của từng khách hàng trình diễn (ví dụ tài khoản nguồn/nhận) nếu cần.
 \begin{table}[H]
 	\centering
 	\caption{Các tài khoản trình diễn trên máy chủ}
@@ -115,8 +114,7 @@ Máy chủ trình diễn được triển khai tại \url{https://nene-43ej.onre
 	\end{tabularx}
 \end{table}
 
-Mỗi giao dịch tài chính yêu cầu mã TOTP từ ứng dụng xác thực đã liên kết với tài khoản khách hàng; cách thử các giao dịch này được nhóm trao đổi riêng với giảng viên cùng với mật khẩu. Khi thanh toán qua VNPay sandbox, sử dụng thẻ thử nghiệm do VNPay công bố trong tài liệu môi trường thử nghiệm; mã OTP của ngân hàng thử nghiệm trên trang VNPay là bước riêng của VNPay, khác với mã TOTP của Nene.
-% TODO(user): xác nhận cách giảng viên nhận mã TOTP cho các tài khoản khách hàng trình diễn.
+Mỗi giao dịch tài chính yêu cầu mã TOTP từ ứng dụng xác thực đã liên kết với tài khoản khách hàng, nên ứng dụng xác thực của các tài khoản trình diễn có sẵn nằm trên điện thoại của nhóm. Để tự kiểm tra trọn vẹn một luồng giao dịch, người chấm có thể: (1) đăng nhập bằng tài khoản nhân viên và tạo một khách hàng mới; (2) đăng nhập bằng khách hàng đó, vào \textit{Profile} $\rightarrow$ \textit{Transaction security} và liên kết ứng dụng xác thực của mình (ví dụ Google Authenticator), rồi chụp ảnh tham chiếu trong \textit{Identity reference}; (3) đăng nhập lại bằng tài khoản nhân viên để chấp nhận ảnh và tạo tài khoản demo nếu cần; (4) quay lại tài khoản khách hàng để chuyển khoản, nạp, rút tiền hoặc thanh toán với mã TOTP của chính mình. Tài khoản thanh toán của khách hàng mới bắt đầu với số dư 0; khoản tiền demo để thử chuyển khoản có thể nhận từ một tài khoản trình diễn có sẵn. Mật khẩu các tài khoản được nhóm gửi riêng cho giảng viên. Khi thanh toán qua VNPay sandbox, sử dụng thẻ thử nghiệm do VNPay công bố trong tài liệu môi trường thử nghiệm; mã OTP của ngân hàng thử nghiệm trên trang VNPay là bước riêng của VNPay, khác với mã TOTP của Nene.
 
 \section*{C. Hướng dẫn cài đặt và chạy thử}
 \phantomsection
@@ -131,7 +129,6 @@ Mỗi giao dịch tài chính yêu cầu mã TOTP từ ứng dụng xác thực 
 	\item Mở đường dẫn bằng đúng tài khoản Google đó, chấp nhận tham gia thử nghiệm, sau đó cài đặt Nene từ Google Play.
 	\item Mở ứng dụng và đăng nhập bằng một tài khoản trong Bảng~\ref{tab:pl-tai-khoan}.
 \end{enumerate}
-% TODO(user): chèn đường dẫn tham gia thử nghiệm nếu muốn ghi trong báo cáo.
 
 Máy chủ dùng gói miễn phí của Render nên sẽ ngủ khi không có truy cập; lần đăng nhập đầu tiên sau một thời gian có thể mất khoảng một phút. Dự án Supabase miễn phí tạm dừng nếu không hoạt động khoảng một tuần, vì vậy cần duy trì hoạt động của dự án trong thời gian chấm bài.
 

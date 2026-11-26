@@ -525,7 +525,6 @@ Các trạng thái được hiển thị trên thẻ trạng thái ở đầu m�
 \end{itemize}
 
 \paragraph{Kiểm tra khuôn mặt trên thiết bị.} Trên ứng dụng Android, ngay sau khi chụp, ứng dụng chạy bộ phát hiện khuôn mặt của Google ML Kit trên thiết bị \parencite{ch2-mlkit-face}, trong lúc đó hiển thị ``Checking the photo for one clear face\ldots''. Đây chỉ là \emph{phát hiện} khuôn mặt, không phải nhận dạng. Nếu không thấy khuôn mặt, có nhiều hơn một khuôn mặt, hoặc khuôn mặt quá nhỏ (cạnh ngắn của khung mặt nhỏ hơn 20\% cạnh ngắn của ảnh), ứng dụng bỏ ảnh đó và hiển thị lý do tương ứng (``No face found'', ``More than one face found'', ``Face too small'') cùng lời nhắc chụp lại. Trên trình duyệt và máy tính, nơi ML Kit không chạy, hoặc khi bộ phát hiện gặp lỗi, ảnh vẫn được phép gửi với ghi chú rằng nhân viên vẫn sẽ xem xét ảnh. Máy chủ chấp nhận mọi ảnh hợp lệ về định dạng, nên bước duyệt của nhân viên vẫn là bước kiểm soát chính. Bộ ảnh chụp màn hình được dựng trước khi bước kiểm tra khuôn mặt được thêm vào, vì vậy chương này chưa có ảnh của các thông báo trên.
-% UPDATE: face-check screenshot (thêm ảnh chụp trạng thái kiểm tra khuôn mặt từ thiết bị Android thật)
 
 \begin{figure}[H]
 \centering
