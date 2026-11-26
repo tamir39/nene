@@ -5,6 +5,7 @@ import '../data/session_owner.dart';
 import 'customer_workspace.dart' show WorkspaceContent;
 import 'nene_brand.dart';
 import 'nene_components.dart';
+import 'smart_otp_button.dart';
 
 class SecurityManagementScreen extends StatefulWidget {
   const SecurityManagementScreen({
@@ -32,6 +33,9 @@ class _SecurityManagementScreenState extends State<SecurityManagementScreen>
       _saved = false,
       _rotate = false;
   int _remaining = 0;
+
+  /// Smart OTP can be used on this phone / is taking over the new key.
+  bool _smartAvailable = false, _smartAdopting = false;
   @override
   void initState() {
     super.initState();
@@ -90,8 +94,10 @@ class _SecurityManagementScreenState extends State<SecurityManagementScreen>
 
   Future<void> _load() async {
     final data = await widget.api.managementStatus();
+    final smartAvailable = await widget.api.smartOtp.available();
     if (!mounted) return;
     setState(() {
+      _smartAvailable = smartAvailable;
       final next = data['management'] as Map<String, dynamic>?;
       if (next?['requestId'] != _management?['requestId']) {
         _secret = null;
@@ -129,7 +135,28 @@ class _SecurityManagementScreenState extends State<SecurityManagementScreen>
     await widget.api.managementCommand('start', {'purpose': purpose});
     await _load();
   });
-  Future<void> _proof(String command) => _run(() async {
+  Future<void> _proof(String command) => _run(() => _sendProof(command));
+
+  /// Keeps the replacement key on this phone as Smart OTP and verifies it
+  /// with its first code. The previous Smart OTP key returns on failure.
+  Future<void> _smartVerify() => _run(() async {
+    final userId = widget.api.userId, secret = _secret;
+    if (userId == null || secret == null) return;
+    final code = await widget.api.smartOtp.adopt(userId, secret);
+    if (!mounted) return;
+    if (code == null) {
+      setState(
+        () => _message =
+            'Smart OTP was not turned on. Try again, or add the key to an authenticator app.',
+      );
+      return;
+    }
+    _code.text = code;
+    _smartAdopting = true;
+    await _sendProof('verify');
+  });
+
+  Future<void> _sendProof(String command) async {
     final raw = _code.text.trim();
     _code.clear();
     final recovery =
@@ -144,12 +171,34 @@ class _SecurityManagementScreenState extends State<SecurityManagementScreen>
       );
       return;
     }
-    final result = await widget.api.managementProof(
-      command,
-      _management!['requestId'] as String,
-      _management!['revision'] as int,
-      raw,
-    );
+    final Map<String, dynamic> result;
+    final smart = widget.api.smartOtp, userId = widget.api.userId;
+    try {
+      result = await widget.api.managementProof(
+        command,
+        _management!['requestId'] as String,
+        _management!['revision'] as int,
+        raw,
+      );
+    } on SessionMutationRejected {
+      // Definitely not accepted: the previous Smart OTP key stays valid.
+      if (command == 'verify' && _smartAdopting && userId != null) {
+        await smart.restore(userId);
+      }
+      _smartAdopting = false;
+      rethrow;
+    } catch (_) {
+      // Unknown outcome: keep the new key, which a verified replacement needs
+      // to resume.
+      _smartAdopting = false;
+      rethrow;
+    }
+    if (command == 'verify' && userId != null) {
+      // A key kept on this phone for the authenticator being replaced would
+      // produce wrong codes from now on.
+      await (_smartAdopting ? smart.keep(userId) : smart.remove(userId));
+      _smartAdopting = false;
+    }
     if (!mounted) return;
     if (command == 'issue-codes') {
       final values = (result['codes'] as List).cast<String>();
@@ -162,7 +211,8 @@ class _SecurityManagementScreenState extends State<SecurityManagementScreen>
     }
     if (command == 'verify') _secret = null;
     await _load();
-  });
+  }
+
   Future<void> _enroll() => _run(() async {
     final result = await widget.api.managementCommand('enroll', {
       'requestId': _management!['requestId'],
@@ -188,9 +238,9 @@ class _SecurityManagementScreenState extends State<SecurityManagementScreen>
       /* local ownership already cleared */
     }
   });
-  Widget _input(String label, {double top = 18}) {
+  Widget _input(String label, {double top = 18, bool smart = true}) {
     final recovery = label.contains('Recovery');
-    return Padding(
+    final field = Padding(
       padding: EdgeInsets.only(top: top),
       child: TextField(
         controller: _code,
@@ -207,6 +257,21 @@ class _SecurityManagementScreenState extends State<SecurityManagementScreen>
           hint: '••••••',
         ),
       ),
+    );
+    if (recovery || !smart) return field;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        field,
+        SmartOtpButton(
+          // A new state per step: the saved key can change between steps.
+          key: ValueKey('smart-$label-${_management?['step']}'),
+          api: widget.api,
+          enabled: !_busy && !_hidden,
+          label: 'Fill with Smart OTP',
+          onCode: (code) => setState(() => _code.text = code),
+        ),
+      ],
     );
   }
 
@@ -401,6 +466,23 @@ class _SecurityManagementScreenState extends State<SecurityManagementScreen>
               icon: Icons.phonelink_setup_rounded,
               title: 'Add your new authenticator',
               children: [
+                if (_smartAvailable && !_hidden) ...[
+                  const SizedBox(height: 18),
+                  const Text(
+                    'Quickest: Nene keeps the new key on this phone and fills each code after your fingerprint or screen lock.',
+                  ),
+                  const SizedBox(height: 12),
+                  FilledButton.icon(
+                    onPressed: locked ? null : _smartVerify,
+                    icon: const Icon(Icons.fingerprint_rounded),
+                    label: const Text('Use Smart OTP on this phone'),
+                  ),
+                  const SizedBox(height: 18),
+                  const Text(
+                    'Or add the key to an authenticator app:',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ],
                 const SizedBox(height: 18),
                 SecurityStep(
                   number: 1,
@@ -421,7 +503,7 @@ class _SecurityManagementScreenState extends State<SecurityManagementScreen>
                   body: 'Type the code your new authenticator shows for Nene.',
                   child: _hidden
                       ? null
-                      : _input('New authenticator code', top: 6),
+                      : _input('New authenticator code', top: 6, smart: false),
                 ),
                 _button('Verify replacement', () => _proof('verify')),
               ],

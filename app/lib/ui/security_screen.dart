@@ -20,6 +20,9 @@ class _SecurityScreenState extends State<SecurityScreen>
   int _revision = 1;
   bool _busy = false, _hidden = false;
   bool _manage = false;
+
+  /// Smart OTP can be used on this phone / is holding this person's key.
+  bool _smartAvailable = false, _smartOn = false;
   final _code = TextEditingController();
   @override
   void initState() {
@@ -70,6 +73,7 @@ class _SecurityScreenState extends State<SecurityScreen>
 
   Future<void> _load() => _run(() async {
     final data = await widget.api.status();
+    await _loadSmart();
     if (mounted) {
       setState(() {
         _state = data['state'] as String;
@@ -104,15 +108,92 @@ class _SecurityScreenState extends State<SecurityScreen>
     if (mounted) setState(() => _state = data['state'] as String);
   });
 
+  Future<void> _loadSmart() async {
+    final smart = widget.api.smartOtp, userId = widget.api.userId;
+    final available = await smart.available();
+    final on = available && userId != null && await smart.enabled(userId);
+    if (mounted) {
+      setState(() {
+        _smartAvailable = available;
+        _smartOn = on;
+      });
+    }
+  }
+
+  /// Links Smart OTP as the authenticator: it keeps the setup key on this
+  /// phone and sends its first code, so nothing has to be typed.
+  Future<void> _smartSetup() => _run(() async {
+    final smart = widget.api.smartOtp, userId = widget.api.userId;
+    final secret = _secret, requestId = _requestId;
+    if (userId == null || secret == null || requestId == null) return;
+    final code = await smart.adopt(userId, secret);
+    if (code == null) {
+      if (mounted) {
+        setState(
+          () => _message =
+              'Smart OTP was not turned on. Try again, or add the setup key to an authenticator app.',
+        );
+      }
+      return;
+    }
+    try {
+      await widget.api.verify(requestId, _revision, code);
+    } on SessionMutationRejected {
+      // Definitely not accepted; an unknown outcome keeps the key, which the
+      // linked authenticator would need.
+      await smart.restore(userId);
+      rethrow;
+    }
+    await smart.keep(userId);
+    _secret = null;
+    final data = await widget.api.status();
+    if (mounted) {
+      setState(() {
+        _state = data['state'] as String;
+        _smartOn = true;
+      });
+    }
+  });
+
+  Future<void> _smartOff() async {
+    final userId = widget.api.userId;
+    if (userId == null) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Turn off Smart OTP?'),
+        content: const Text(
+          'This removes the key from this phone. Do this only if the same key is also in an authenticator app. Otherwise you will need a recovery code to replace your authenticator before your next payment.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Keep Smart OTP'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Turn off'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    await _run(() async {
+      await widget.api.smartOtp.remove(userId);
+      await _loadSmart();
+    });
+  }
+
   /// The current state in words, with an icon and tone that match it.
   Widget _status(bool setup) {
     if (_state == 'ready') {
-      return const SecurityStatusCard(
+      return SecurityStatusCard(
         icon: Icons.verified_user_rounded,
         tone: SecurityTone.positive,
         title: 'Authenticator ready',
-        body:
-            'Each payment and transfer now asks for a code from this app. Save recovery codes in case you lose it.',
+        body: _smartOn
+            ? 'Each payment and transfer asks for a code. On this phone, Smart OTP fills it after your fingerprint or screen lock. Save recovery codes in case you lose the phone.'
+            : 'Each payment and transfer now asks for a code from this app. Save recovery codes in case you lose it.',
       );
     }
     if (_state == 'not_set_up') {
@@ -209,8 +290,30 @@ class _SecurityScreenState extends State<SecurityScreen>
             child: const Text('Set up authenticator'),
           ),
         ] else if (setup) ...[
+          if (_smartAvailable && !_hidden) ...[
+            const SizedBox(height: 24),
+            const SectionTitle('Quickest: Smart OTP on this phone'),
+            SecurityPanel(
+              children: [
+                const _Hint(
+                  Icons.fingerprint_rounded,
+                  'Nene keeps the key on this phone and fills each code after your fingerprint or screen lock.',
+                ),
+                const SizedBox(height: 16),
+                FilledButton.icon(
+                  onPressed: _busy ? null : _smartSetup,
+                  icon: const Icon(Icons.fingerprint_rounded),
+                  label: const Text('Use Smart OTP on this phone'),
+                ),
+              ],
+            ),
+          ],
           const SizedBox(height: 24),
-          const SectionTitle('Link your authenticator'),
+          SectionTitle(
+            _smartAvailable
+                ? 'Or link an authenticator app'
+                : 'Link your authenticator',
+          ),
           SecurityPanel(
             children: [
               const SecurityStep(
@@ -254,6 +357,32 @@ class _SecurityScreenState extends State<SecurityScreen>
           FilledButton(
             onPressed: _busy || _hidden ? null : _verify,
             child: const Text('Verify setup'),
+          ),
+        ],
+        if (_state == 'ready' && _smartAvailable) ...[
+          const SizedBox(height: 24),
+          const SectionTitle('Smart OTP'),
+          SecurityPanel(
+            children: [
+              _Hint(
+                _smartOn
+                    ? Icons.fingerprint_rounded
+                    : Icons.phonelink_lock_rounded,
+                _smartOn
+                    ? 'Smart OTP is on for this phone.'
+                    : 'Smart OTP is off on this phone. To use it, open Manage authenticator and recovery, choose Replace authenticator, then Use Smart OTP on this phone.',
+              ),
+              if (_smartOn) ...[
+                const SizedBox(height: 8),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextButton(
+                    onPressed: _busy ? null : _smartOff,
+                    child: const Text('Turn off Smart OTP on this phone'),
+                  ),
+                ),
+              ],
+            ],
           ),
         ],
         if (['ready', 'restricted'].contains(_state)) ...[

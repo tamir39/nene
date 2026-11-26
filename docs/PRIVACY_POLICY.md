@@ -17,7 +17,7 @@ The student project team that published Nene on Google Play. For questions or re
 | Name, phone number and address | Entered by a bank officer or by you | To show and edit your demo bank profile |
 | Reference face photo | Only if you choose to upload one in **Identity reference** | So a bank officer can review it before money features unlock in the demo, and so large transfers can be compared with it (next row). |
 | Selfie for a large transfer | Only for a transfer over 10,000,000 VND, or one that takes the day's transfers over 20,000,000 VND | A selfie taken for a large transfer is compared with your reference photo on our server and then discarded. Nene keeps only the result (match or no match), the similarity and anti-spoof scores, the time and which transfer review it belongs to, plus whether your phone reported a blink and a head turn. Nene never stores the selfie or any face template. This check is a demo safeguard, not certified biometrics or electronic identity verification (eKYC). |
-| Authenticator setup | Only if you set up transaction security | To confirm each transaction with a 6-digit code. Codes are checked when entered and are not stored. |
+| Authenticator setup | Only if you set up transaction security | To confirm each transaction with a 6-digit code. Codes are checked when entered and are not stored. If you choose **Smart OTP**, the authenticator key is kept encrypted on your phone only and is never sent to Nene again; Nene does not receive your fingerprint or screen-lock details, which your phone checks itself. |
 | Demo accounts, transactions and payment records | When you use banking features | To show balances, history and payment status. All amounts are synthetic. |
 | Approximate or precise location | Only when you open **Offices** and allow location | To find the nearest (fictional) Nene office and a walking route. Location is **not stored** or logged. |
 | Assistant messages | Only when you use **Assistant** | To suggest the right in-app task. Messages are **not stored** by Nene. To reuse an AI answer for the same question, the server keeps only a one-way fingerprint of the question in memory for up to 6 hours, never the text. If the optional AI helper is turned on, a message the built-in rules cannot understand is sent to Google's Gemini API to interpret it (see below). |
@@ -39,7 +39,7 @@ Nene has **no advertising, no analytics and no tracking**, and never sells or sh
 
 - Data is sent over encrypted HTTPS connections. Banking data is only reachable through the Nene server, which checks who you are and what you may access.
 - Reference photos are private: only you and bank officers can view them. The server also reads your reference photo, in memory, when you confirm a large transfer with a selfie. Access to a photo expires 60 days after its upload step starts; expired files can then be deleted.
-- Sign-in sessions are kept in memory only and end when the app is closed.
+- Sign-in sessions are kept in memory only and end when the app is closed. A Smart OTP key stays on the phone until you turn Smart OTP off or uninstall the app; it is excluded from Android backups.
 - Because this is a course demo, the database may be reset or deleted after the course ends.
 
 ## Your choices

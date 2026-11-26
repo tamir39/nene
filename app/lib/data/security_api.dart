@@ -1,16 +1,24 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'session_owner.dart';
+import 'smart_otp.dart';
 
 class SecurityApi {
   SecurityApi({
     required this.baseUrl,
     required this.client,
     required this.owner,
+    this.smartOtp = const UnavailableSmartOtp(),
   });
   final Uri baseUrl;
   final http.Client client;
   final SessionOwner owner;
+
+  /// Optional on-phone code generator; see [SmartOtp].
+  final SmartOtp smartOtp;
+
+  /// The signed-in person, used to keep Smart OTP keys apart per user.
+  String? get userId => owner.session?.userId;
   Future<Map<String, dynamic>> request(
     String token,
     String path, [
