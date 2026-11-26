@@ -17,9 +17,15 @@ import { reserveSecurityProof } from '../security/security-proof.js';
 import { uuid } from '../customers/customer.validation.js';
 import { ENVIRONMENT } from '../config/config.module.js';
 import type { Environment } from '../config/environment.js';
+import {
+  faceCheckRequired,
+  faceCheckRequiredError,
+  faceRule,
+  transferAmountAllowed,
+} from '../face/face-rule.js';
 
 const policy = 'same-bank-confirmation-only-v1';
-const transferPolicy = 'local-vnd-under-5000000-v1';
+const transferPolicy = 'local-vnd-up-to-50000000-v2';
 export type CashOperation = 'deposit' | 'withdrawal';
 // Preserve the preview/transfer callers while sharing one proof lifecycle.
 type Operation = boolean | CashOperation | 'interbank';
@@ -30,6 +36,15 @@ export function cashOperation(raw: string): CashOperation {
 }
 const isCash = (operation: Operation): operation is CashOperation =>
   operation === 'deposit' || operation === 'withdrawal';
+// Same-bank and other-bank transfers share the high-value face-check rule.
+export type TransferOperation = true | 'interbank';
+const isTransfer = (operation: Operation): operation is TransferOperation =>
+  operation === true || operation === 'interbank';
+// Cash keeps its original limit; transfers allow up to 50,000,000 VND.
+const amountAllowed = (operation: Operation, amountMinor: string) =>
+  isTransfer(operation)
+    ? transferAmountAllowed(amountMinor)
+    : BigInt(amountMinor) < 5000000n;
 const purpose = (operation: Operation) =>
   operation === 'interbank'
     ? 'local_interbank'
@@ -40,7 +55,7 @@ const purpose = (operation: Operation) =>
         : 'preview';
 const reviewPolicy = (operation: Operation) =>
   operation === 'interbank'
-    ? 'local-interbank-v1'
+    ? 'local-interbank-v2'
     : isCash(operation)
       ? 'local-cash-' + operation + '-v1'
       : operation
@@ -60,7 +75,7 @@ type Reference = {
   revision: number;
   evidence_id: string;
 };
-type Review = {
+export type Review = {
   id: string;
   customer: string;
   session: string;
@@ -240,6 +255,13 @@ export class ConfirmationService {
       enabled: enabled && rows[0]?.enabled === true,
       highValueThresholdMinor: '5000000',
       currency: 'VND',
+      ...(isTransfer(operation)
+        ? {
+            maxAmountMinor: faceRule.maxTransferMinor,
+            faceCheckAboveMinor: faceRule.singleMinor,
+            faceCheckDailyAboveMinor: faceRule.dailyMinor,
+          }
+        : {}),
       ...(operation === 'interbank' ? { simulated: true, banks } : {}),
       ...(isCash(operation)
         ? {
@@ -501,12 +523,17 @@ export class ConfirmationService {
       const available = transfer === 'deposit' ? cash!.balance : from.balance;
       if (
         transfer &&
-        (BigInt(input.amountMinor) >= 5000000n ||
+        (!amountAllowed(transfer, input.amountMinor) ||
           BigInt(available) < BigInt(input.amountMinor))
       )
         throw new BadRequestException(
-          'Insufficient funds, or amount requires the unavailable high-value identity check.',
+          isTransfer(transfer)
+            ? 'Insufficient funds, or the amount is above the 50,000,000 VND transfer limit.'
+            : 'Insufficient funds, or amount requires the unavailable high-value identity check.',
         );
+      const faceRequired = isTransfer(transfer)
+        ? await faceCheckRequired(client, req.user.id, input.amountMinor)
+        : undefined;
       if (transfer === true) {
         const eligible = await client.query(
           "select a.id from bank.banking_accounts a join bank.user_profiles p on p.id=a.owner_id where a.id=any($1::uuid[]) and a.is_demo and p.email like '%@example.invalid'",
@@ -546,6 +573,7 @@ export class ConfirmationService {
         reviewToken: encoded + '.' + this.mac(key, encoded),
         review,
         sufficientFunds: BigInt(available) >= BigInt(input.amountMinor),
+        faceRequired,
       };
     });
     await this.activeProvider(
@@ -566,6 +594,9 @@ export class ConfirmationService {
       sufficientFunds: result.sufficientFunds,
       executionAvailable: Boolean(transfer),
       identityCheck: 'not_implemented',
+      ...(result.faceRequired === undefined
+        ? {}
+        : { faceCheckRequired: result.faceRequired }),
       ...(transfer === 'interbank'
         ? {
             simulated: true,
@@ -659,9 +690,21 @@ export class ConfirmationService {
     transfer: Operation = false,
   ) {
     if (transfer) await this.requireTransfers(req, transfer);
-    const data = exact(body, ['reviewToken', 'code']);
+    const data = exact(
+      body,
+      isTransfer(transfer) &&
+        !!body &&
+        typeof body === 'object' &&
+        Object.hasOwn(body, 'faceCheckId')
+        ? ['reviewToken', 'code', 'faceCheckId']
+        : ['reviewToken', 'code'],
+    );
     if (typeof data.code !== 'string' || !/^\d{6}$/.test(data.code))
       throw new BadRequestException('Enter a six-digit authenticator code.');
+    const faceCheckId =
+      data.faceCheckId === undefined || data.faceCheckId === null
+        ? null
+        : uuid(data.faceCheckId, 'Face check ID');
     const {
       identity,
       review: r,
@@ -691,9 +734,23 @@ export class ConfirmationService {
       );
       this.matchDestination(to, r, transfer);
       if (transfer) {
-        if (!r.reference || BigInt(r.amountMinor) >= 5000000n)
+        if (!r.reference || !amountAllowed(transfer, r.amountMinor))
           throw new BadRequestException();
         await this.reference(client, req.user.id, r.reference);
+      }
+      // Checked before the authenticator code is reserved, so a missing face
+      // check never consumes the code. Posting enforces the rule again.
+      if (
+        isTransfer(transfer) &&
+        (await faceCheckRequired(client, req.user.id, r.amountMinor))
+      ) {
+        const usable = faceCheckId
+          ? await client.query(
+              "select id from bank.face_checks where id=$1 and customer_id=$2 and review_id=$3 and review_digest=$4 and purpose=$5 and outcome='matched' and used_at is null and expires_at>clock_timestamp()+interval '30 seconds'",
+              [faceCheckId, req.user.id, r.id, digest, purpose(transfer)],
+            )
+          : { rows: [] };
+        if (!usable.rows.length) throw faceCheckRequiredError();
       }
       const inserted = await client.query(
         `insert into bank.transaction_confirmations(id,customer_id,session_id,review_digest,factor_id,security_revision,state,expires_at,purpose) select $1,$2,$3,$4,$5,$6,'checking',to_timestamp($7/1000.0),$8 where to_timestamp($7/1000.0)>clock_timestamp() returning id`,
@@ -754,6 +811,7 @@ export class ConfirmationService {
       );
     }
     // A verified provider call can rotate credentials. Every later failure is uncertain.
+    let faceRace = false;
     try {
       if (
         typeof pair.access_token !== 'string' ||
@@ -789,8 +847,9 @@ export class ConfirmationService {
         if (transfer) {
           const reference = r.reference!;
           if (transfer === 'interbank') {
-            await client.query(
-              'select bank.post_local_interbank($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)',
+            await this.post(
+              client,
+              'select bank.post_local_interbank($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)',
               [
                 r.id,
                 req.user.id,
@@ -807,7 +866,9 @@ export class ConfirmationService {
                 reference.version,
                 reference.revision,
                 reference.evidence_id,
+                faceCheckId,
               ],
+              () => (faceRace = true),
             );
           } else if (isCash(transfer)) {
             await client.query(
@@ -827,8 +888,9 @@ export class ConfirmationService {
               ],
             );
           } else
-            await client.query(
-              'select bank.post_local_transfer($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)',
+            await this.post(
+              client,
+              'select bank.post_local_transfer($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)',
               [
                 r.id,
                 req.user.id,
@@ -841,7 +903,9 @@ export class ConfirmationService {
                 reference.version,
                 reference.revision,
                 reference.evidence_id,
+                faceCheckId,
               ],
+              () => (faceRace = true),
             );
         }
       });
@@ -861,12 +925,69 @@ export class ConfirmationService {
         replay: false,
       };
     } catch {
+      if (faceRace) {
+        // The posting rolled back, so nothing was sent. The rotated session pair
+        // is lost with this response, so the client must sign in again.
+        await this.db.query(
+          "update bank.transaction_confirmations set state='rejected' where id=$1 and state='checking'",
+          [r.id],
+        );
+        throw new ServiceUnavailableException(
+          'Transfer not sent: a face check became required before posting. Sign in again and start a new review.',
+        );
+      }
       throw new ServiceUnavailableException(
         transfer
           ? 'Transfer outcome is unconfirmed. Check transfer history/status before trying again.'
           : 'Confirmation could not be finalized. No money was sent. Sign in again and check security.',
       );
     }
+  }
+  /** Runs a posting function, flagging the database's face-check refusal. */
+  private async post(
+    client: PoolClient,
+    sql: string,
+    values: unknown[],
+    onFaceRequired: () => void,
+  ) {
+    try {
+      await client.query(sql, values);
+    } catch (error) {
+      if ((error as { code?: unknown }).code === 'NF001') onFaceRequired();
+      throw error;
+    }
+  }
+  /**
+   * Verifies a same-bank or other-bank review token for the face-check endpoint:
+   * signature, customer, Auth session, policy, feature gates and expiry.
+   */
+  async faceReview(req: AuthenticatedRequest, raw: unknown) {
+    this.security.identity(req);
+    let policyName: unknown;
+    try {
+      policyName = (
+        JSON.parse(
+          Buffer.from(String(raw).split('.')[0] ?? '', 'base64url').toString(),
+        ) as { policy?: unknown }
+      ).policy;
+    } catch {
+      throw new BadRequestException('Review token is invalid.');
+    }
+    const operation: TransferOperation | undefined =
+      policyName === reviewPolicy('interbank')
+        ? 'interbank'
+        : policyName === reviewPolicy(true)
+          ? true
+          : undefined;
+    if (!operation)
+      throw new BadRequestException(
+        'A face check applies only to a same-bank or other-bank transfer review.',
+      );
+    await this.requireTransfers(req, operation);
+    const { review, digest } = await this.decode(req, raw, operation);
+    if (review.expires <= Date.now())
+      throw new ConflictException('Review expired. Review again.');
+    return { review, digest, purpose: purpose(operation) };
   }
   async cancel(
     req: AuthenticatedRequest,

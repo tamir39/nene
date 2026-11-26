@@ -20,10 +20,13 @@ Run these commands from the repository root in PowerShell. Start Docker Desktop 
 ```powershell
 npm ci
 npm --prefix backend ci
+npm --prefix backend run face-models
 npm run db:start
 npm run setup:local
 npm run api:dev
 ```
+
+`face-models` downloads the pinned high-value transfer face-check models (about 42 MB) into ignored `backend/models/` and verifies their SHA-256; it is needed only for face checks (see [LOCAL_TRANSFERS.md](LOCAL_TRANSFERS.md#high-value-face-check)). Set `ONNXRUNTIME_NODE_INSTALL=skip` before `npm ci` on Linux to skip the CUDA download. `npm run db:test` applies any migration not yet in the local database inside each rolled-back test transaction.
 
 `db:start` applies migrations on a fresh local database. After adding migrations to an existing database, use `npm run db:migrate`. This workstation's Supabase CLI reports a local PostgreSQL connection timeout; `npm run db:migrate:docker` is an explicit local-only fallback. It verifies the named Nene container and applies each pending migration plus its CLI history entry in one transaction. It does not reset data. Avoid database reset commands: they delete local development data.
 

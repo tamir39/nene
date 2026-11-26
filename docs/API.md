@@ -1,5 +1,7 @@
 # API contract
 
+High-value face check added 26 November 2026: same-bank and other-bank transfers allow up to 50,000,000 VND. Their reviews return `faceCheckRequired`; new customer-only `POST /api/v1/me/face-checks` (multipart `reviewToken`, `liveness`, `selfie`; `Idempotency-Key`) compares a selfie with the accepted reference and returns `{faceCheckId, matched: true, expiresAt}` or 422 `{matched: false, reason, message}`; confirm accepts an optional `faceCheckId` and answers 409 `{code: "FACE_CHECK_REQUIRED"}` before the code is used when a check is needed. The selfie is never stored. See [LOCAL_TRANSFERS.md](LOCAL_TRANSFERS.md#high-value-face-check) for the rule, statuses and limits. This is not eKYC.
+
 Movie-ticket demo added 7 November 2026: existing customer payment routes now include two fictional movie offers and immutable stored offer snapshots. New `POST /api/v1/me/payments/preview` accepts exactly `{serviceId}` for a read-only preview without VNPay credentials; it returns `previewOnly: true`, offer/amount/currency, `checkoutAvailable` and `fulfillment: "not_available"`, with no token, order, proof or payment-provider call. Ordinary session validation applies; formal review/confirm remain configured and transaction-bound. See [MOVIE_TICKET_DEMO.md](MOVIE_TICKET_DEMO.md#backend-contract-and-data).
 
 Local other-bank simulation added 7 November 2026: customer `/api/v1/me/interbank-transfers` configuration/review/confirm/status/recent/cancel routes use fictional bank and recipient records. [LOCAL_INTERBANK.md](LOCAL_INTERBANK.md#api) defines inputs, independent gates and explicit simulation results. The narrow posting function debits existing demo funds, credits a separate simulated recipient and writes the immutable receipt/history atomically; no real bank network is called.
@@ -84,7 +86,7 @@ Reference commands cannot set arbitrary state, object keys, match outcomes or cu
 
 Reference acceptance expires with the case's 60-day demo lifetime. Requested display-name edits invalidate the reference atomically; phone/address changes do not. The maintenance command in [REFERENCE_FLOW.md](REFERENCE_FLOW.md) physically removes expired/abandoned files; no public cleanup route exists.
 
-The gated local transfer and cash routes above can post synthetic transfers, deposits and withdrawals. The VNPay routes below implement sandbox checkout code; real provider acceptance and actual face comparison remain open. No endpoint may allow a client to set its financial balance, officer role or identity-verification result. AWS remains undecided.
+The gated local transfer and cash routes above can post synthetic transfers, deposits and withdrawals. The VNPay routes below implement sandbox checkout code; real provider acceptance remains open. Server-side face comparison exists only for high-value transfers, as a demo safeguard without active liveness. No endpoint may allow a client to set its financial balance, officer role or identity-verification result. AWS remains undecided.
 
 ## VNPay sandbox and labelled utility demos
 

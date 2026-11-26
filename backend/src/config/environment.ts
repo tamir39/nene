@@ -20,6 +20,8 @@ export interface Environment {
   };
   /** Optional AI fallback for unrecognised assistant messages; see docs/ASSISTANT.md. */
   assistantAi?: { apiKey: string; model?: string };
+  /** Cosine-similarity threshold for high-value transfer face checks; see docs/LOCAL_TRANSFERS.md. */
+  faceMatchThreshold?: number;
   database: PoolConfig;
 }
 
@@ -215,6 +217,11 @@ export function readEnvironment(env: NodeJS.ProcessEnv): Environment {
       );
     assistantAi = model ? { apiKey, model } : { apiKey };
   }
+  const thresholdText = env.FACE_MATCH_THRESHOLD?.trim() || '0.40';
+  if (!/^0\.\d{1,3}$/.test(thresholdText) || Number(thresholdText) <= 0)
+    throw new Error(
+      'FACE_MATCH_THRESHOLD must be a decimal above 0 and below 1 with up to three places, such as 0.40.',
+    );
   if (env.DATABASE_SSL_CA_FILE?.trim()) {
     if (sslMode !== 'verify-full')
       throw new Error('A PostgreSQL CA requires verify-full TLS.');
@@ -235,6 +242,7 @@ export function readEnvironment(env: NodeJS.ProcessEnv): Environment {
     ...(hostedSandbox ? { demoDeployment: 'hosted-sandbox' as const } : {}),
     ...(vnpaySandbox ? { vnpaySandbox } : {}),
     ...(assistantAi ? { assistantAi } : {}),
+    faceMatchThreshold: Number(thresholdText),
     supabaseUrl: supabaseUrl.toString().replace(/\/$/, ''),
     supabasePublishableKey: required(env, 'SUPABASE_PUBLISHABLE_KEY'),
     ...(env.SUPABASE_SECRET_KEY?.trim()

@@ -14,6 +14,25 @@ const localEnvironment = {
 };
 
 void describe('environment boundaries', () => {
+  void it('defaults the face-match threshold to 0.40 and accepts only a bounded decimal', () => {
+    assert.equal(readEnvironment(localEnvironment).faceMatchThreshold, 0.4);
+    assert.equal(
+      readEnvironment({ ...localEnvironment, FACE_MATCH_THRESHOLD: ' ' })
+        .faceMatchThreshold,
+      0.4,
+    );
+    assert.equal(
+      readEnvironment({ ...localEnvironment, FACE_MATCH_THRESHOLD: '0.45' })
+        .faceMatchThreshold,
+      0.45,
+    );
+    for (const value of ['0', '0.0', '1', '1.0', '-0.4', '0.4567', 'abc'])
+      assert.throws(
+        () =>
+          readEnvironment({ ...localEnvironment, FACE_MATCH_THRESHOLD: value }),
+        /FACE_MATCH_THRESHOLD/,
+      );
+  });
   void it('keeps interbank simulation independently disabled and rejects remote or production enablement', () => {
     assert.equal(
       readEnvironment(localEnvironment).localInterbankEnabled,

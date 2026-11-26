@@ -54,6 +54,14 @@ function fixture() {
   let providerFailure: 'rejected' | 'unknown' | undefined;
   let afterVerify: (() => void) | undefined;
   let amountAvailable = '1000000';
+  // Face-check rule outcome returned by bank.transfer_face_check_required;
+  // `atPost` lets a test change it between the API pre-check and posting.
+  const face = {
+    required: false,
+    atPost: undefined as boolean | undefined,
+    checks: new Map<string, Data>(),
+    usedBy: [] as unknown[],
+  };
   const recipient = {
     id: recipientId,
     number: '990000000001',
@@ -87,6 +95,21 @@ function fixture() {
         },
       ];
     if (sql.startsWith('select secret')) return [{ secret }];
+    if (sql.startsWith('select bank.transfer_face_check_required'))
+      return [{ required: face.required }];
+    if (sql.startsWith('select id from bank.face_checks')) {
+      const check = face.checks.get(String(values[0]));
+      return check &&
+        check.customer_id === values[1] &&
+        check.review_id === values[2] &&
+        check.review_digest === values[3] &&
+        check.purpose === values[4] &&
+        check.outcome === 'matched' &&
+        !check.used_at &&
+        (check.expires_at as number) > Date.now() + 30000
+        ? [{ id: values[0] }]
+        : [];
+    }
     if (
       sql.startsWith('select factor_id') ||
       sql.startsWith('select state,factor_id')
@@ -193,6 +216,15 @@ function fixture() {
     }
     if (sql.startsWith('select bank.post_local_')) {
       assert.equal(attempt?.state, 'factor_confirmed');
+      if (!sql.includes('post_local_cash') && (face.atPost ?? face.required)) {
+        const check = face.checks.get(String(values.at(-1)));
+        if (!check || check.used_at || check.review_id !== values[0])
+          throw Object.assign(new Error('Face check required'), {
+            code: 'NF001',
+          });
+        check.used_at = Date.now();
+        face.usedBy.push(values[0]);
+      }
       posts.push({ sql, values });
       attempt!.state = 'posted';
       receipt = {
@@ -268,6 +300,7 @@ function fixture() {
     db,
     env,
     recipient,
+    face,
     posts,
     reservationPurposes,
     get attempt() {
@@ -388,7 +421,8 @@ void test('review binds bank, recipient, reference and zero fee without moving f
   const signed = JSON.parse(
     Buffer.from(review.reviewToken.split('.')[0]!, 'base64url').toString(),
   ) as Data;
-  assert.equal(signed.policy, 'local-interbank-v1');
+  assert.equal(signed.policy, 'local-interbank-v2');
+  assert.equal(review.faceCheckRequired, false);
   assert.equal(signed.destination, recipientId);
   assert.equal(signed.destinationBankCode, 'DEMO_A');
   assert.equal(signed.destinationBankName, review.destinationBankName);
@@ -436,11 +470,11 @@ void test('review denies unavailable recipients, unowned/unprepared sources, ref
     ),
     400,
   );
-  f.balance('9000000');
+  f.balance('90000000');
   await rejectStatus(
     f.service.review(
       request(),
-      { ...body, amountMinor: '5000000' },
+      { ...body, amountMinor: '50000001' },
       'interbank',
     ),
     400,
@@ -565,6 +599,7 @@ void test('posting consumes bound proof and passes immutable snapshots to the at
     1,
     1,
     factor,
+    null,
   ]);
   const receipt = result.receipt as Data;
   assert.equal(receipt.destinationBankName, 'Demo Bank A');
@@ -734,7 +769,7 @@ void test('shared lifecycle retains preview, same-bank and cash purpose separati
       cash
         ? `local-cash-${operation}-v1`
         : operation
-          ? 'local-vnd-under-5000000-v1'
+          ? 'local-vnd-up-to-50000000-v2'
           : 'same-bank-confirmation-only-v1',
     );
     await rejectStatus(
@@ -769,4 +804,244 @@ void test('shared lifecycle retains preview, same-bank and cash purpose separati
         cash ? /post_local_cash\(/ : /post_local_transfer\(/,
       );
   }
+});
+
+const sameBank = {
+  sourceAccountId: source,
+  destinationAccountNumber: '100000000002',
+  amountMinor: '12000000',
+};
+const highValue = { ...body, amountMinor: '12000000' };
+function matchedCheck(
+  f: ReturnType<typeof fixture>,
+  review: { requestId: string; reviewToken: string },
+  purpose: string,
+  changes: Data = {},
+) {
+  const id = crypto.randomUUID();
+  f.face.checks.set(id, {
+    customer_id: customer,
+    review_id: review.requestId,
+    review_digest: createHmac('sha256', secret)
+      .update('nene-review-v1\0' + review.reviewToken)
+      .digest('base64url'),
+    purpose,
+    outcome: 'matched',
+    used_at: null,
+    expires_at: Date.now() + 300000,
+    ...changes,
+  });
+  return id;
+}
+
+void test('transfer configuration and reviews describe the face-check rule; cash is unchanged', async () => {
+  const f = fixture();
+  f.balance('90000000');
+  for (const operation of [true, 'interbank'] as const) {
+    const config = (await f.service.configuration(
+      request(),
+      operation,
+    )) as Data;
+    assert.equal(config.highValueThresholdMinor, '5000000');
+    assert.equal(config.maxAmountMinor, '50000000');
+    assert.equal(config.faceCheckAboveMinor, '10000000');
+    assert.equal(config.faceCheckDailyAboveMinor, '20000000');
+  }
+  const cash = (await f.service.configuration(request(), 'deposit')) as Data;
+  assert.equal(cash.maxAmountMinor, undefined);
+  f.face.required = true;
+  assert.equal(
+    (await f.service.review(request(), sameBank, true)).faceCheckRequired,
+    true,
+  );
+  assert.equal(
+    (await f.service.review(request(), highValue, 'interbank'))
+      .faceCheckRequired,
+    true,
+  );
+  const withdrawal = await f.service.review(
+    request(),
+    { accountId: source, amountMinor: '100000' },
+    'withdrawal',
+  );
+  assert.equal('faceCheckRequired' in withdrawal, false);
+  await rejectStatus(
+    f.service.review(
+      request(),
+      { accountId: source, amountMinor: '5000000' },
+      'withdrawal',
+    ),
+    400,
+  );
+  await f.service.review(
+    request(),
+    { ...sameBank, amountMinor: '50000000' },
+    true,
+  );
+  await rejectStatus(
+    f.service.review(request(), { ...sameBank, amountMinor: '50000001' }, true),
+    400,
+  );
+});
+
+void test('a required face check is refused before the code is reserved or verified', async () => {
+  for (const operation of [true, 'interbank'] as const) {
+    const f = fixture();
+    f.balance('90000000');
+    f.face.required = true;
+    const input = operation === true ? sameBank : highValue;
+    const review = await f.service.review(request(), input, operation);
+    const purpose = operation === true ? 'local_transfer' : 'local_interbank';
+    const otherReview = await f.service.review(request(), input, operation);
+    for (const faceCheckId of [
+      undefined,
+      null,
+      crypto.randomUUID(),
+      matchedCheck(f, otherReview, purpose),
+      matchedCheck(f, review, purpose, { outcome: 'not_matched' }),
+      matchedCheck(f, review, purpose, { used_at: Date.now() }),
+      matchedCheck(f, review, purpose, { expires_at: Date.now() + 10000 }),
+      matchedCheck(f, review, purpose, { customer_id: other }),
+      matchedCheck(
+        f,
+        review,
+        purpose === 'local_transfer' ? 'local_interbank' : 'local_transfer',
+      ),
+    ]) {
+      const error = await f.service
+        .confirm(
+          request(),
+          {
+            reviewToken: review.reviewToken,
+            code: '123456',
+            ...(faceCheckId === undefined ? {} : { faceCheckId }),
+          },
+          operation,
+        )
+        .then(
+          () => undefined,
+          (e: unknown) => e as { getStatus(): number; getResponse(): Data },
+        );
+      assert.equal(error?.getStatus(), 409);
+      assert.equal(error?.getResponse().code, 'FACE_CHECK_REQUIRED');
+    }
+    // Nothing was reserved: the same review can still be confirmed after a face check.
+    assert.equal(f.attempt, undefined);
+    assert.equal(f.verifyCalls, 0);
+    assert.deepEqual(f.reservationPurposes, []);
+    const faceCheckId = matchedCheck(f, review, purpose);
+    const result = (await f.service.confirm(
+      request(),
+      { reviewToken: review.reviewToken, code: '123456', faceCheckId },
+      operation,
+    )) as Data;
+    assert.equal(result.state, 'posted');
+    assert.equal(f.posts.length, 1);
+    assert.equal(f.posts[0]!.values.at(-1), faceCheckId);
+    assert.deepEqual(f.face.usedBy, [review.requestId]);
+  }
+});
+
+void test('face check ids are validated and accepted only by transfer confirmations', async () => {
+  const f = fixture();
+  const review = await f.service.review(request(), body, 'interbank');
+  await rejectStatus(
+    f.service.confirm(
+      request(),
+      { reviewToken: review.reviewToken, code: '123456', faceCheckId: 'x' },
+      'interbank',
+    ),
+    400,
+  );
+  const cash = await f.service.review(
+    request(),
+    { accountId: source, amountMinor: '100000' },
+    'deposit',
+  );
+  await rejectStatus(
+    f.service.confirm(
+      request(),
+      {
+        reviewToken: cash.reviewToken,
+        code: '123456',
+        faceCheckId: crypto.randomUUID(),
+      },
+      'deposit',
+    ),
+    400,
+  );
+  // Not required: a null id is accepted and the transfer posts normally.
+  const result = (await f.service.confirm(
+    request(),
+    { reviewToken: review.reviewToken, code: '123456', faceCheckId: null },
+    'interbank',
+  )) as Data;
+  assert.equal(result.state, 'posted');
+  assert.equal(f.posts[0]!.values.at(-1), null);
+});
+
+void test('a rule change between the pre-check and posting rolls back and records a definite rejection', async () => {
+  const f = fixture();
+  const review = await f.service.review(request(), body, 'interbank');
+  f.face.atPost = true;
+  await rejectStatus(
+    f.service.confirm(
+      request(),
+      { reviewToken: review.reviewToken, code: '123456' },
+      'interbank',
+    ),
+    503,
+  );
+  assert.equal(f.posts.length, 0);
+  const status = await f.service.status(
+    request(),
+    review.requestId,
+    'interbank',
+  );
+  assert.equal(status.state, 'rejected');
+  assert.equal(status.sent, false);
+});
+
+void test('the face-check endpoint accepts only current transfer reviews of the same sign-in', async () => {
+  const f = fixture();
+  f.balance('90000000');
+  const same = await f.service.review(request(), sameBank, true);
+  const interbank = await f.service.review(request(), highValue, 'interbank');
+  const decoded = await f.service.faceReview(request(), same.reviewToken);
+  assert.equal(decoded.purpose, 'local_transfer');
+  assert.equal(decoded.review.id, same.requestId);
+  assert.equal(
+    (await f.service.faceReview(request(), interbank.reviewToken)).purpose,
+    'local_interbank',
+  );
+  const cash = await f.service.review(
+    request(),
+    { accountId: source, amountMinor: '100000' },
+    'deposit',
+  );
+  const preview = await f.service.review(request(), sameBank, false);
+  for (const token of [cash.reviewToken, preview.reviewToken, 'x', ''])
+    await rejectStatus(f.service.faceReview(request(), token), 400);
+  await rejectStatus(
+    f.service.faceReview(request(other), same.reviewToken),
+    403,
+  );
+  await rejectStatus(
+    f.service.faceReview(request(customer, other), same.reviewToken),
+    403,
+  );
+  const payload = JSON.parse(
+    Buffer.from(same.reviewToken.split('.')[0]!, 'base64url').toString(),
+  ) as Data;
+  payload.expires = Date.now() - 1000;
+  const encoded = Buffer.from(JSON.stringify(payload)).toString('base64url');
+  const expired =
+    encoded +
+    '.' +
+    createHmac('sha256', secret)
+      .update('nene-review-v1\0' + encoded)
+      .digest('base64url');
+  await rejectStatus(f.service.faceReview(request(), expired), 409);
+  f.env.localTransfersEnabled = false;
+  await rejectStatus(f.service.faceReview(request(), same.reviewToken), 409);
 });
