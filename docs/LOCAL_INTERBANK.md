@@ -1,5 +1,7 @@
 # Local other-bank transfer simulation
 
+Update 26 November 2026: other-bank demo transfers now allow up to 50,000,000 VND and share the same-bank [high-value face check](LOCAL_TRANSFERS.md#high-value-face-check). Same-bank and other-bank amounts posted in the same UTC+07 day count towards one 20,000,000 VND total. The review policy is now `local-interbank-v2`, reviews return `faceCheckRequired`, and confirm accepts an optional `faceCheckId`. `bank.post_local_interbank` takes the face-check ID as a sixteenth argument, enforces the rule after locking the customer's authenticator row and marks the check used in the posting transaction. The 5,000,000 VND figures below describe the original slice.
+
 Implemented 7 November 2026 for **BR-04/08/09**, PDF page 2, Business 2–4. The user approved a clearly labelled local simulation because Nene has no interbank-network connection. This extends the existing transfer flow; it adds no new business feature or provider. Lecturer acceptance of simulation remains open. Face comparison and AWS remain undecided; reference acceptance is not completed eKYC.
 
 ## Rules and flow
@@ -30,7 +32,7 @@ Routes are under `/api/v1/me/interbank-transfers`, require an active customer an
 
 | Route | Contract |
 | --- | --- |
-| `GET /configuration` | `{enabled, simulated: true, highValueThresholdMinor: "5000000", currency: "VND", banks}`. Banks contain `{code, name, recipients: [{accountNumber, name}]}`; the catalogue is visible while disabled. |
+| `GET /configuration` | `{enabled, simulated: true, highValueThresholdMinor: "5000000", currency: "VND", maxAmountMinor: "50000000", faceCheckAboveMinor: "10000000", faceCheckDailyAboveMinor: "20000000", banks}`. `highValueThresholdMinor` keeps its old value for app 1.0.2 compatibility; it is no longer the transfer limit. Banks contain `{code, name, recipients: [{accountNumber, name}]}`; the catalogue is visible while disabled. |
 | `POST /review` | Exactly `{sourceAccountId, destinationBankCode, destinationAccountNumber, amountMinor}`. Returns the signed token/request/revision/expiry, source and destination details, `destinationBankName`, `destinationRecipientName`, amount/currency/zero fee, `simulated: true`, `executionAvailable: true`, and `identityCheck: "not_implemented"`. |
 | `POST /confirm` | Exactly `{reviewToken, code}`. First success returns `state: "posted"`, `sent: true`, `simulated: true`, receipt and the bound `interbank-transfer` session handoff. This means locally posted only. An exact retry returns status with `replay: true`, no tokens and no second provider check. |
 | `GET /:id` | Own attempt or immutable receipt, including snapshotted bank/recipient names, number, source ID, amount/currency/date and `simulated: true`. Foreign or absent IDs return 404. |

@@ -1,5 +1,7 @@
 # Local same-bank demo transfers
 
+Update 26 November 2026: transfers may now be up to 50,000,000 VND. Above 10,000,000 VND, or above 20,000,000 VND of posted transfers in one UTC+07 day, a server-side [face check](#high-value-face-check) against the accepted reference is also required. The 5,000,000 VND figures below describe the original slice; cash keeps that limit.
+
 Subsequent extension: [LOCAL_CASH.md](LOCAL_CASH.md) adds separately gated simulated deposits and withdrawals. These can fund/debit prepared checking and saving accounts; the original transfer seed and its default-off gate remain unchanged. No real cash or external payment integration is added.
 
 Implemented 3 November 2026 for BR-04/08/09, following the user's explicit approval of these demo rules. PDF page 2, Business 2–4 requires transaction 2FA, valid/allowed transactions, balances and history. The PDF does not prescribe VND, a funding mechanism or this threshold. All seven business groups remain in scope; this bounded slice does not complete eKYC or the assignment's full transaction coverage. AWS remains undecided.
@@ -32,14 +34,80 @@ All routes below are under `/api/v1/me/transfers`, require an active authenticat
 
 | Endpoint | Input and result |
 | --- | --- |
-| `GET /configuration` | `{enabled, highValueThresholdMinor: "5000000", currency: "VND"}`. |
-| `POST /review` | Exact `{sourceAccountId, destinationAccountNumber, amountMinor}`; returns signed token, request ID, revision, account numbers, amount/currency/zero fee, expiry and `executionAvailable: true`. `identityCheck: "not_implemented"` describes actual comparison, not reference acceptance. |
-| `POST /confirm` | Exact `{reviewToken, code}`. First success has `state: "posted"`, `sent: true`, `executionAvailable: true`, receipt, request/revision/purpose binding (`same-bank-transfer`) and rotated session pair. Exact duplicate returns status and `replay: true`, without tokens or another provider verification. |
+| `GET /configuration` | `{enabled, highValueThresholdMinor: "5000000", currency: "VND", maxAmountMinor: "50000000", faceCheckAboveMinor: "10000000", faceCheckDailyAboveMinor: "20000000"}`. `highValueThresholdMinor` keeps its old value so app 1.0.2, which requires it, still works; it is no longer the transfer limit. |
+| `POST /review` | Exact `{sourceAccountId, destinationAccountNumber, amountMinor}`; returns signed token (policy `local-vnd-up-to-50000000-v2`), request ID, revision, account numbers, amount/currency/zero fee, expiry, `executionAvailable: true` and `faceCheckRequired`. `identityCheck: "not_implemented"` describes actual comparison, not reference acceptance. |
+| `POST /confirm` | Exact `{reviewToken, code}`, plus optional `faceCheckId` (UUID or null); 409 `FACE_CHECK_REQUIRED` when the rule applies without a usable check. First success has `state: "posted"`, `sent: true`, `executionAvailable: true`, receipt, request/revision/purpose binding (`same-bank-transfer`) and rotated session pair. Exact duplicate returns status and `replay: true`, without tokens or another provider verification. |
 | `GET /:id` | Own attempt status. Posted receipt contains `id`, `amountMinor`, `currency`, `postedAt`; available after new sign-in or factor replacement. A receipt is historical evidence, not reusable authorization. |
 | `GET /` | Last ten own attempts, newest first, with the same status/receipt shape. No other customer's attempts are exposed. Full posted entries remain available through paginated account history. |
 | `POST /cancel` | Exact `{reviewToken}`; cancellation tombstone if unposted, `409` if already posted. |
 
 Invalid fields/accounts/funds/reference/threshold or rejected proof return `400`; authentication/role/session denial `401/403`; unknown or foreign status `404`; disabled configuration, pending-check conflict or stale security/review `409`; shared rate limit `429`; unavailable or uncertain post-verification outcomes `503`. Pending states are `checking`, `rejected`, `unknown`, `cancelled`, with derived `expired`/`invalidated` as applicable. Finalization never exposes a durable intermediate `factor_confirmed` for local transfers: it commits with posting or rolls back. A result read may race an in-flight commit; refresh status rather than assuming a non-posted snapshot is final.
+
+## High-value face check
+
+Added 26 November 2026 for BR-03/BR-04/BR-09, after the user approved the rule below. It applies to same-bank transfers and [other-bank demo transfers](LOCAL_INTERBANK.md) only. Deposits, withdrawals and VNPay payments keep their limits (below 5,000,000 VND). This is a coursework safeguard: **not eKYC, not certified biometrics and not active liveness detection**.
+
+### Rule
+
+The bands follow Decision 2345/QĐ-NHNN (Circular 50/2024 appears to keep them). The PDF does not prescribe them.
+
+- Each transfer may be up to **50,000,000 VND** (previously below 5,000,000).
+- A transfer **needs a face check** when its amount is **above 10,000,000 VND**, or when the customer's **posted** outgoing same-bank and other-bank transfers for the current **UTC+07 calendar day** plus this amount are **above 20,000,000 VND**. Exactly 10,000,000, or exactly 20,000,000 in a day, needs no check.
+- The accepted, unexpired reference photo and a fresh TOTP code are still required for every transfer. The face check is in addition to them.
+- Not built: the 2345 trigger for a new device. Sessions are memory-only, so the server has no device history.
+
+`bank.transfer_face_check_required(customer, amount)` is the only implementation of the rule. The API calls it when building a review (`faceCheckRequired`), when a face check is submitted and before the authenticator code is reserved. The posting functions call it again inside the posting transaction, after locking the customer's `bank.authenticator_setup` row. Every transfer posting path takes that lock, so two concurrent transfers by one customer see each other's totals.
+
+### Flow
+
+1. `POST /review` returns `faceCheckRequired`.
+2. If it is true, the app takes a selfie and sends it to `POST /api/v1/me/face-checks` with the review token. Android also runs on-device blink/turn prompts with ML Kit and reports them as `liveness`. The web preview sends `{"blink":false,"turn":false}`. These flags are **stored as advisory data only**: the server cannot verify them.
+3. The server validates and re-encodes the selfie (same rules as reference upload), reads the accepted reference from private Storage, and compares them. A match is valid for **5 minutes**, for that review only, and can be used once.
+4. `POST /confirm` sends `faceCheckId` with the code. If the rule applies and no usable matched check is supplied, the server answers **409 `{"code":"FACE_CHECK_REQUIRED"}` before the code is reserved or verified**, so the same review and code can be used after a face check. The check must have at least 30 seconds of validity left, so it cannot expire during the code's 30-second verification lease.
+5. The posting function marks the check used in the same transaction as the debit. If the rule changed between the pre-check and posting (a concurrent transfer by the same customer), posting rolls back, the attempt is recorded as `rejected` and the response is the usual 503 for post-verification failures: sign in again, then start a new review.
+
+### Matching
+
+- `onnxruntime-node` 1.31.1 (MIT) on the CPU, YuNet 2023mar face detection (MIT) and SFace 2021dec fp32 embeddings (Apache-2.0), compared by cosine similarity. Match when the score is at least **0.40** (`FACE_MATCH_THRESHOLD`, default `0.40`).
+- The selfie must contain **exactly one** face at least 15 % of the photo's shorter side. Otherwise the result is `no_face` or `multiple_faces`. The reference must also contain exactly one such face; if not, the endpoint returns 409 `REFERENCE_UNUSABLE` and the customer needs a new reference.
+- MiniFASNet V2 + V1SE (Apache-2.0) passive anti-spoof produces a score that is **logged and stored only**. It is never a gate: it was not calibrated on real phone selfies.
+- Models load lazily on the first face check behind one shared promise, and each file's SHA-256 is checked again at load. One comparison runs at a time; at most three wait, and a caller stops waiting after 40 seconds (503).
+- Feasibility spike, 26 November 2026, 117 public pairs: at 0.40, 1/79 same-person pairs were rejected (a dark image) and 0/38 different-person pairs were accepted. That sample is small; 0/38 has a 95 % upper bound of about 8 %, so this is not a false-accept rate. At Render free settings (0.1 CPU, 512 MB) a warm comparison took about 1.1 s and peak memory was about 190 MB.
+
+### Limits
+
+A matcher can match a printed photo, a screen replay or an injected image. The device liveness flags are self-reported, and the anti-spoof score is advisory. Use only agreed test images. Real-person captures need an agreed test-data procedure.
+
+### Data
+
+`bank.face_checks` stores one row per attempt: customer, idempotency key, review ID and keyed review digest, purpose, outcome (`pending`, `matched`, `not_matched`, `no_face`, `multiple_faces`, `error`), cosine score, anti-spoof score, threshold, device liveness flags and the created, completed, expiry and used times. **The selfie, the reference pixels and face embeddings are never stored**; the selfie is processed in memory and discarded. A trigger makes results write-once, and the database, not the API, sets completion and the 5-minute expiry. `nene_api` can insert pending rows and record an outcome and scores, but cannot set `used_at`, extend expiry or delete rows. Only the posting functions mark a check used. Client-facing roles have no access. Rows have no automatic cleanup yet.
+
+### Endpoint
+
+`POST /api/v1/me/face-checks`, customer only, `multipart/form-data`, header `Idempotency-Key` (UUID), `Cache-Control: no-store`.
+
+| Field | Content |
+| --- | --- |
+| `reviewToken` | The token from a same-bank or other-bank review. |
+| `liveness` | JSON string with exactly two booleans, for example `{"blink":true,"turn":false}`. |
+| `selfie` | One JPEG or PNG file, at most 10 MiB and 4096 × 4096 pixels. The declared type must match the bytes. |
+
+| Status | Body |
+| --- | --- |
+| 200 | `{faceCheckId, matched: true, expiresAt}` |
+| 422 | `{matched: false, reason: "no_face" \| "multiple_faces" \| "not_matched", message}`. No score or embedding is ever returned. |
+| 400 | Invalid fields, file type or image; not a transfer review; no accepted reference. |
+| 401 / 403 | Not signed in; not a customer (checked before the upload is read); review of another customer or sign-in. |
+| 409 | Review expired, already submitted or cancelled; authenticator changed; transfer gate off; key reused for another review; check not required (the rule is evaluated again now, so a review that said `false` can still get a check if the day's total has since grown); `REFERENCE_UNUSABLE`. |
+| 413 | Selfie over 10 MiB. |
+| 429 | Five failed attempts (`not_matched`, `no_face`, `multiple_faces`) for this review, or ten attempts by the customer in 15 minutes. |
+| 503 | Models, Storage or matcher unavailable, busy or too slow. The attempt is recorded as `error`. |
+
+Repeating a request with the same `Idempotency-Key` returns the stored result without comparing again.
+
+### Hosting and models
+
+Models are not committed. `npm --prefix backend run face-models` downloads them into ignored `backend/models/` from the pinned URLs in [backend/face-models.json](../backend/face-models.json) (opencv_zoo commit `48b10fa`, yakhyo/face-anti-spoofing release `weights`) and fails on any SHA-256 mismatch. Without the files the endpoint returns 503; other routes keep working. Render settings are in [HOSTED_DEMO.md](HOSTED_DEMO.md).
 
 ## Local demo
 

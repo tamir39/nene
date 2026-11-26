@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 
@@ -7,7 +7,36 @@ const testFiles = [
   new URL('../supabase/tests/database/identity_access.test.sql', import.meta.url),
   new URL('../supabase/tests/database/customer_accounts.test.sql', import.meta.url),
   new URL('../supabase/tests/database/identity_reference.test.sql', import.meta.url),
+  new URL('../supabase/tests/database/face_verification.test.sql', import.meta.url),
 ];
+const migrationsDir = new URL('../supabase/migrations/', import.meta.url);
+
+function psql(input, extra = []) {
+  return spawnSync('docker', [
+    'exec', '--interactive', containerName, 'psql', '-X',
+    '--set', 'ON_ERROR_STOP=1', '--username', 'postgres', '--dbname', 'postgres',
+    '--tuples-only', '--no-align', ...extra,
+  ], { input, encoding: 'utf8', timeout: 30_000, windowsHide: true });
+}
+
+// Migrations not yet applied to the local stack run inside each test transaction
+// and roll back with it, so tests cover the tracked schema without changing the database.
+function pendingMigrations() {
+  const applied = psql('select version from supabase_migrations.schema_migrations;');
+  if (applied.error || applied.status !== 0) {
+    throw new Error('Could not read the applied local migrations.');
+  }
+  const versions = new Set(applied.stdout.split(/\r?\n/).map((line) => line.trim()).filter(Boolean));
+  const latest = [...versions].sort().at(-1) ?? '';
+  const pending = readdirSync(migrationsDir)
+    .filter((name) => /^\d{14}_[a-z0-9_]+\.sql$/.test(name) && !versions.has(name.slice(0, 14)))
+    .sort();
+  if (pending.some((name) => name.slice(0, 14) < latest)) {
+    throw new Error('A pending migration is older than the latest applied migration.');
+  }
+  if (pending.length) console.log(`Applying ${pending.length} pending migration(s) inside each rolled-back test transaction.`);
+  return pending.map((name) => readFileSync(new URL(name, migrationsDir), 'utf8')).join('\n');
+}
 
 try {
   const inspected = spawnSync('docker', ['inspect', '--type', 'container', containerName], {
@@ -26,16 +55,14 @@ try {
     throw new Error('The expected running Nene PostgreSQL container was not found.');
   }
 
+  const pending = pendingMigrations();
   let total = 0;
   for (const testFile of testFiles) {
-    const result = spawnSync('docker', [
-      'exec', '--interactive', containerName, 'psql', '-X',
-      '--set', 'ON_ERROR_STOP=1', '--username', 'postgres', '--dbname', 'postgres',
-      '--tuples-only', '--no-align',
-    ], {
-      input: readFileSync(testFile, 'utf8'),
-      encoding: 'utf8', timeout: 30_000, windowsHide: true,
-    });
+    const sql = readFileSync(testFile, 'utf8');
+    if (!/^begin;\s*$/m.test(sql)) {
+      throw new Error('Database tests failed or did not finish with a complete passing plan and rollback.');
+    }
+    const result = psql(sql.replace(/^begin;\s*$/m, (line) => `${line}\n${pending}\n`));
 
     const output = result.stdout ?? '';
     const lines = output.split(/\r?\n/);

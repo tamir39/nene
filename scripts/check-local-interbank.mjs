@@ -13,9 +13,9 @@ const checks = [];
 const rejected = (promise, status) =>
   assert.rejects(promise, (error) => error.getStatus?.() === status);
 const postSql =
-  "select bank.post_local_interbank($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)";
+  "select bank.post_local_interbank($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)";
 const postSignature =
-  "bank.post_local_interbank(uuid,uuid,uuid,text,uuid,uuid,text,text,text,text,bigint,uuid,integer,integer,uuid)";
+  "bank.post_local_interbank(uuid,uuid,uuid,text,uuid,uuid,text,text,text,text,bigint,uuid,integer,integer,uuid,uuid)";
 
 try {
   await withTransfers(async (f) => {
@@ -114,11 +114,11 @@ try {
     );
     await rejected(review("3000001"), 400);
     await admin.query(
-      "update bank.banking_accounts set balance_minor=6000000 where id=$1",
+      "update bank.banking_accounts set balance_minor=60000000 where id=$1",
       [a.account.id],
     );
-    await review("4999999");
-    await rejected(review("5000000"), 400);
+    await review("50000000");
+    await rejected(review("50000001"), 400);
     await admin.query(
       "update bank.banking_accounts set balance_minor=3000000 where id=$1",
       [a.account.id],
@@ -283,6 +283,7 @@ try {
       decoded.reference.version,
       decoded.reference.revision,
       decoded.reference.evidence_id,
+      null,
     ];
     await db.query(postSql, args);
     assert.deepEqual(await snapshot(), saved);
@@ -292,7 +293,8 @@ try {
         index === 5 ? randomUUID() : index === 10 ? "100001" : "changed";
       await rejected(db.query(postSql, changed), 503);
     }
-    for (let index = 0; index < args.length; index++) {
+    // The last argument is the optional face-check id; every other one is required.
+    for (let index = 0; index < args.length - 1; index++) {
       const changed = [...args];
       changed[index] = null;
       await rejected(db.query(postSql, changed), 503);
@@ -632,6 +634,7 @@ try {
       latestReference.version,
       latestReference.revision,
       latestReference.evidence_id,
+      null,
     ];
     const beforeLock = await snapshot();
     const locker = await admin.connect();

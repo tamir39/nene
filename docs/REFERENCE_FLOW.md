@@ -1,6 +1,6 @@
 # Private reference photo flow
 
-This slice implements customer reference collection/status and officer assistance/review for BR-01/BR-03 and TR-03/TR-06. It uses the existing Flutter app, NestJS API, PostgreSQL and private Supabase Storage. Since 25 November 2026 the Android app also runs [on-device face detection](#on-device-face-detection-android) before a photo can be saved; that only checks for one clear face. The flow does not perform face matching, liveness, document verification or transaction 2FA. **Reference accepted** is an enrollment milestone, not completed eKYC. AWS and the later comparison implementation remain undecided.
+This slice implements customer reference collection/status and officer assistance/review for BR-01/BR-03 and TR-03/TR-06. It uses the existing Flutter app, NestJS API, PostgreSQL and private Supabase Storage. Since 25 November 2026 the Android app also runs [on-device face detection](#on-device-face-detection-android) before a photo can be saved; that only checks for one clear face. Enrollment itself does not perform face matching, liveness, document verification or transaction 2FA. Since 26 November 2026 the accepted reference is also the comparison target of the server-side [high-value transfer face check](LOCAL_TRANSFERS.md#high-value-face-check); a selfie taken then is compared with it in memory and discarded. **Reference accepted** is an enrollment milestone, not completed eKYC. AWS and the later comparison implementation remain undecided.
 
 ## Project defaults
 
@@ -39,7 +39,7 @@ What it does not do:
 - It does not identify anyone or compare the face with another photo. It is detection, not recognition or matching.
 - It does not check liveness or spoofing (a printed photo or a screen showing one face passes) and it checks no documents.
 - It runs only in the client. The web preview, a modified client or a direct API call skips it. The server still accepts any valid JPEG/PNG, and no face-check result is sent or stored. It helps people take a usable photo; it is not a security control.
-- Officer review remains the control that accepts a reference. **Reference accepted** is still not completed eKYC, and local amounts at or above 5,000,000 VND stay blocked because no operation-bound face comparison exists.
+- Officer review remains the control that accepts a reference. **Reference accepted** is still not completed eKYC, and since 26 November 2026 transfers above 10,000,000 VND (or above 20,000,000 VND in a day) need the server-side [face check](LOCAL_TRANSFERS.md#high-value-face-check). Because that check needs exactly one face in the reference, an accepted reference with no clear face, or several, returns `REFERENCE_UNUSABLE` and must be replaced.
 - Detector errors allow the photo with a note, so a detector gap cannot lock a customer out of enrollment.
 
 Checked 25 November 2026: `flutter analyze` reports no issues and all **338 Flutter tests** pass. New tests cover each outcome with a fake detector, the size rule, and the ML Kit adapter against a mocked platform channel. `flutter build apk --debug` succeeds and the APK contains the bundled model (`assets/models_bundled/blazeface.tfl`). `flutter build web` succeeds without ML Kit code.
@@ -67,7 +67,7 @@ erDiagram
     IDENTITY_EVIDENCE ||--o{ IDENTITY_COMMANDS : upload_reservation
 ```
 
-`identity_cases` keeps current state/version. `identity_evidence` keeps private object metadata, the immutable photo/name revision and deletion tombstone. `identity_reviews` preserves officer decisions and system invalidations; `identity_commands` reconciles actor-scoped retries. These tables grant no direct client access. No face-check result table exists; the on-device face detection result stays in the app.
+`identity_cases` keeps current state/version. `identity_evidence` keeps private object metadata, the immutable photo/name revision and deletion tombstone. `identity_reviews` preserves officer decisions and system invalidations; `identity_commands` reconciles actor-scoped retries. These tables grant no direct client access. The on-device detection result at enrollment stays in the app. Transfer face checks are recorded separately in `bank.face_checks` (outcome, scores and binding only, no images).
 
 ## Local checks and maintenance
 
@@ -104,4 +104,4 @@ The user will run the interactive Edge demo with `run.bat`. No Android Studio/em
 
 ## Remaining assignment work
 
-The later high-value path still needs actual server-side one-to-one comparison against an accepted reference, bound to the exact operation. Every financial transaction still needs a separate second factor. The matching provider, thresholds, retry policy, second-factor mechanism and lecturer's expected eKYC depth remain open. Photo capture, human acceptance and generated fixtures do not complete those requirements. All seven business feature groups remain in [ROADMAP.md](../ROADMAP.md).
+The high-value path now has server-side one-to-one comparison against the accepted reference, bound to one transfer review ([details](LOCAL_TRANSFERS.md#high-value-face-check)). It has no active liveness and is not certified biometrics. Every financial transaction still needs a separate second factor. The matching provider, thresholds, retry policy, second-factor mechanism and lecturer's expected eKYC depth remain open. Photo capture, human acceptance and generated fixtures do not complete those requirements. All seven business feature groups remain in [ROADMAP.md](../ROADMAP.md).

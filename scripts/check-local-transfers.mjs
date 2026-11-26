@@ -41,14 +41,14 @@ try {
       [a.account.id],
     );
     await rejected(prepare("5000000"), 400);
-    await rejected(prepare("5000001"), 400);
+    await rejected(prepare("50000001"), 400);
     // Prove the threshold itself, independently of insufficient funds.
     await admin.query(
-      "update bank.banking_accounts set balance_minor=10000000 where id=$1",
+      "update bank.banking_accounts set balance_minor=60000000 where id=$1",
       [a.account.id],
     );
-    await prepare("4999999");
-    await rejected(prepare("5000000"), 400);
+    await prepare("50000000");
+    await rejected(prepare("50000001"), 400);
     await admin.query(
       "update bank.banking_accounts set balance_minor=3000000 where id=$1",
       [a.account.id],
@@ -338,7 +338,7 @@ try {
       assert.equal(
         (
           await admin.query(
-            "select has_function_privilege($1,'bank.post_local_transfer(uuid,uuid,uuid,text,uuid,uuid,bigint,uuid,integer,integer,uuid)','execute') allowed",
+            "select has_function_privilege($1,'bank.post_local_transfer(uuid,uuid,uuid,text,uuid,uuid,bigint,uuid,integer,integer,uuid,uuid)','execute') allowed",
             [role],
           )
         ).rows[0].allowed,

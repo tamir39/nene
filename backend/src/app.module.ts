@@ -34,6 +34,10 @@ import { OfficerCustomersController } from './customers/officer-customers.contro
 import { IdentityController } from './identity/identity.controller.js';
 import { IdentityService } from './identity/identity.service.js';
 import { IdentityStorageService } from './identity/identity-storage.service.js';
+import { FaceCheckController } from './face/face-check.controller.js';
+import { FaceCheckService } from './face/face-check.service.js';
+import { FaceMatchService } from './face/face-match.service.js';
+import { FaceMatcher } from './face/face-matcher.js';
 
 @Module({
   imports: [ConfigModule],
@@ -55,6 +59,7 @@ import { IdentityStorageService } from './identity/identity-storage.service.js';
     MeController,
     OfficerCustomersController,
     IdentityController,
+    FaceCheckController,
   ],
   providers: [
     AssistantModelService,
@@ -70,6 +75,8 @@ import { IdentityStorageService } from './identity/identity-storage.service.js';
     IdentityService,
     IdentityStorageService,
     ProfilesRepository,
+    FaceCheckService,
+    { provide: FaceMatcher, useClass: FaceMatchService },
     { provide: APP_GUARD, useClass: SessionGuard },
   ],
 })
