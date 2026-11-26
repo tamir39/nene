@@ -19,7 +19,7 @@ The student project team that published Nene on Google Play. For questions or re
 | Authenticator setup | Only if you set up transaction security | To confirm each transaction with a 6-digit code. Codes are checked when entered and are not stored. |
 | Demo accounts, transactions and payment records | When you use banking features | To show balances, history and payment status. All amounts are synthetic. |
 | Approximate or precise location | Only when you open **Offices** and allow location | To find the nearest (fictional) Nene office and a walking route. Location is **not stored** or logged. |
-| Assistant messages | Only when you use **Assistant** | To suggest the right in-app task. Messages are **not stored** by Nene. If the optional AI helper is turned on, a message the built-in rules cannot understand is sent to Google's Gemini API to interpret it (see below). |
+| Assistant messages | Only when you use **Assistant** | To suggest the right in-app task. Messages are **not stored** by Nene. To reuse an AI answer for the same question, the server keeps only a one-way fingerprint of the question in memory for up to 6 hours, never the text. If the optional AI helper is turned on, a message the built-in rules cannot understand is sent to Google's Gemini API to interpret it (see below). |
 
 Nene has **no advertising, no analytics and no tracking**, and never sells or shares personal data for marketing.
 

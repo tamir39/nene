@@ -13,6 +13,7 @@ import {
   assistantModel,
   assistantModelEndpoint,
   assistantModelTimeoutMs,
+  cacheTtlMs,
   modelEndpoint,
   AssistantModelService,
 } from '../src/assistant/assistant-model.service.js';
@@ -293,9 +294,10 @@ void describe('assistant AI fallback (Gemini API mocked, no network or key)', ()
     const { fetchMock } = mockModel(t, () => outputs[next]!());
     for (; next < outputs.length; next++)
       assert.deepEqual(await ask(unrecognised), unsupported, `output ${next}`);
-    // No retries on the same model. Only the four overload/quota/network
-    // failures (429, 500, 503, thrown fetch) make one extra backup-model call.
-    assert.equal(fetchMock.mock.callCount(), outputs.length + 4);
+    // Only overload/quota/network failures reach the backup: 429 makes one extra
+    // call; 500, 503 and a thrown fetch also get one last try of the first
+    // model after both models were overloaded (two extra calls each).
+    assert.equal(fetchMock.mock.callCount(), outputs.length + 7);
   });
 
   void it('tries the backup model once when the first is overloaded or over quota', async (t) => {
@@ -340,13 +342,97 @@ void describe('assistant AI fallback (Gemini API mocked, no network or key)', ()
       assert.equal(fetchMock.mock.callCount(), 1, `HTTP ${status}`);
       fetchMock.mock.restore();
     }
-    const { fetchMock } = mockModel(t, () => geminiError(503, 'UNAVAILABLE'));
+    const { sent } = mockModel(t, () => geminiError(503, 'UNAVAILABLE'));
     assert.deepEqual(await ask(unrecognised), unsupported);
-    assert.equal(
-      fetchMock.mock.callCount(),
-      2,
-      'one backup try, then fall back',
+    assert.deepEqual(
+      sent.map((request) => request.url),
+      [
+        assistantModelEndpoint,
+        modelEndpoint(assistantBackupModel),
+        assistantModelEndpoint,
+      ],
+      'backup, then one last try of the first model, then fall back',
     );
+  });
+
+  void it('retries the first model once after both models are overloaded, but not after a quota error', async (t) => {
+    const answer = {
+      reply:
+        'I can open the demo deposit form; nothing has been created or sent.',
+      actions: [{ type: 'deposit' }],
+    };
+    let calls = 0;
+    const { sent } = mockModel(t, () =>
+      ++calls < 3 ? geminiError(503, 'UNAVAILABLE') : modelMessage(answer),
+    );
+    assert.deepEqual(
+      await new AssistantModelService(enabled).interpret(unrecognised, now),
+      { ...answer, context: null },
+    );
+    assert.equal(sent.length, 3);
+    // Quota on the first model: retrying that model cannot help.
+    sent.length = 0;
+    calls = 0;
+    const quota = [
+      () => geminiError(429, 'RESOURCE_EXHAUSTED'),
+      () => geminiError(503, 'UNAVAILABLE'),
+    ];
+    t.mock.method(globalThis, 'fetch', (input: string | URL | Request) => {
+      sent.push({ url: String(input) } as SentRequest);
+      return Promise.resolve(quota[Math.min(calls++, 1)]!());
+    });
+    assert.equal(
+      await new AssistantModelService(enabled).interpret(unrecognised, now),
+      null,
+    );
+    assert.equal(sent.length, 2);
+  });
+
+  void it('reuses a validated answer for the same question in the same month', async (t) => {
+    const answer = {
+      reply:
+        'Each transfer must be below 5,000,000 VND. Nothing has been created or sent.',
+      actions: [],
+    };
+    const { sent } = mockModel(t, () => modelMessage(answer));
+    const service = new AssistantModelService(enabled);
+    const first = await service.interpret(unrecognised, now);
+    assert.deepEqual(first, { ...answer, context: null });
+    // Case and spacing differences hit the same entry; no provider call.
+    const again = await service.interpret(
+      `  ${unrecognised.toUpperCase()}  `,
+      now,
+    );
+    assert.deepEqual(again, first);
+    assert.equal(sent.length, 1);
+    // Returned answers are copies: changing one cannot alter the cache.
+    (first!.actions as unknown[]).push({ type: 'bills' });
+    assert.deepEqual(await service.interpret(unrecognised, now), again);
+    assert.equal(sent.length, 1);
+    // A new month asks again (relative months like "last month" change).
+    await service.interpret(unrecognised, new Date('2026-12-15T05:00:00Z'));
+    assert.equal(sent.length, 2);
+  });
+
+  void it('expires cached answers and never caches failures', async (t) => {
+    t.mock.timers.enable({ apis: ['Date'], now: now.getTime() });
+    let fail = true;
+    const { sent } = mockModel(t, () =>
+      fail
+        ? geminiError(400, 'INVALID_ARGUMENT')
+        : modelMessage({ reply: 'OK.', actions: [] }),
+    );
+    const service = new AssistantModelService(enabled);
+    assert.equal(await service.interpret(unrecognised, now), null);
+    fail = false;
+    assert.ok(await service.interpret(unrecognised, now));
+    assert.equal(sent.length, 2, 'the failure was not cached');
+    t.mock.timers.tick(cacheTtlMs - 1);
+    await service.interpret(unrecognised, now);
+    assert.equal(sent.length, 2, 'still cached just before expiry');
+    t.mock.timers.tick(1);
+    await service.interpret(unrecognised, now);
+    assert.equal(sent.length, 3, 'asked again after expiry');
   });
 
   void it('uses GEMINI_MODEL first and keeps the backup', async (t) => {
@@ -655,9 +741,10 @@ void describe('assistant AI fallback (Gemini API mocked, no network or key)', ()
     const responses: Awaited<ReturnType<typeof ask>>[] = [];
     for (; next < failures.length; next++)
       responses.push(await ask(unrecognised));
-    // Each failure is logged by reason only; the network failure also logs its backup try.
-    assert.equal(lines.length, 6);
-    assert.equal(sent.length, failures.length + 1);
+    // Each failure is logged by reason only; the network failure also logs its
+    // backup try and its last try of the first model.
+    assert.equal(lines.length, 7);
+    assert.equal(sent.length, failures.length + 2);
     for (const line of [
       ...lines,
       ...sent.map((request) => request.url),
