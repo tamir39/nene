@@ -7,15 +7,18 @@ environment:
   sdk: '>=3.11.0 <4.0.0'
 
 dependencies:
+  crypto: 3.0.8
   flutter:
     sdk: flutter
   flutter_map: 8.3.2
+  flutter_secure_storage: 11.2.0
   geolocator: 14.1.2
   google_mlkit_face_detection: 1.0.3
   http: 1.6.0
   http_parser: 4.1.2
   image_picker: 1.2.4
   latlong2: 0.9.1
+  local_auth: 3.0.2
   supabase_flutter: 2.18.3
   url_launcher: 6.3.3
 

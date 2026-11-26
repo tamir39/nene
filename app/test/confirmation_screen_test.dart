@@ -12,6 +12,7 @@ import 'package:nene_app/data/banking_repository.dart';
 import 'package:nene_app/data/confirmation_api.dart';
 import 'package:nene_app/data/security_api.dart';
 import 'package:nene_app/data/session_owner.dart';
+import 'package:nene_app/data/smart_otp.dart';
 import 'package:nene_app/ui/confirmation_screen.dart';
 import 'package:nene_app/ui/nene_brand.dart';
 import 'security_screen_test.dart' show Port;
@@ -61,6 +62,7 @@ Future<SessionOwner> showScreen(
   bool sendMoney = false,
   CashOperation? cashOperation,
   bool interbank = false,
+  SmartOtp smartOtp = const UnavailableSmartOtp(),
 }) async {
   tester.view.physicalSize = const Size(390, 1000);
   tester.view.devicePixelRatio = 1;
@@ -73,6 +75,7 @@ Future<SessionOwner> showScreen(
     baseUrl: Uri.parse('http://localhost/api/v1/'),
     client: MockClient(handler),
     owner: owner,
+    smartOtp: smartOtp,
   );
   final theme = neneTheme();
   const capture = bool.fromEnvironment('CAPTURE_CONFIRMATION_UI');

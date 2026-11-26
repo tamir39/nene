@@ -10,6 +10,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:nene_app/data/security_api.dart';
 import 'package:nene_app/data/session_owner.dart';
+import 'package:nene_app/data/smart_otp.dart';
 import 'package:nene_app/ui/security_management_screen.dart';
 import 'package:nene_app/ui/nene_brand.dart';
 import 'security_screen_test.dart' show Port;
@@ -38,8 +39,9 @@ Future<void> tap(WidgetTester tester, String label) async {
 
 Future<SessionOwner> showScreen(
   WidgetTester tester,
-  Future<http.Response> Function(http.Request) handler,
-) async {
+  Future<http.Response> Function(http.Request) handler, {
+  SmartOtp smartOtp = const UnavailableSmartOtp(),
+}) async {
   tester.view.physicalSize = const Size(390, 900);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
@@ -74,6 +76,7 @@ Future<SessionOwner> showScreen(
               baseUrl: Uri.parse('http://localhost/api/v1/'),
               owner: owner,
               client: MockClient(handler),
+              smartOtp: smartOtp,
             ),
             onBack: () {},
           ),

@@ -8,6 +8,7 @@ import 'package:http/http.dart' as http;
 import 'data/session_owner.dart';
 import 'data/supabase_auth_port.dart';
 import 'data/security_api.dart';
+import 'data/smart_otp.dart';
 
 import 'config/app_config.dart';
 import 'data/auth_repository.dart';
@@ -59,6 +60,7 @@ Future<void> main() async {
           baseUrl: config.apiBaseUrl,
           client: httpClient,
           owner: owner,
+          smartOtp: createDeviceSmartOtp(),
         ),
         banking: BankingApi(baseUrl: config.apiBaseUrl, client: httpClient),
         identity: IdentityApi(baseUrl: config.apiBaseUrl, client: httpClient),

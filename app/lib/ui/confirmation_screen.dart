@@ -8,6 +8,7 @@ import '../data/session_owner.dart';
 import 'customer_workspace.dart' show WorkspaceContent;
 import 'nene_brand.dart';
 import 'nene_components.dart' show SectionTitle;
+import 'smart_otp_button.dart';
 
 /// Largest single same-bank or other-bank transfer the backend accepts.
 final maximumTransferMinor = BigInt.from(50000000);
@@ -907,6 +908,14 @@ class _ConfirmationScreenState extends State<ConfirmationScreen>
             filled: true,
             fillColor: NeneColors.pale,
           ),
+        ),
+        SmartOtpButton(
+          api: widget.api.security,
+          enabled: !_busy,
+          onCode: (code) {
+            _code.text = code;
+            unawaited(_confirm());
+          },
         ),
       ],
     ],

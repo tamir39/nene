@@ -7,6 +7,7 @@ import '../data/session_owner.dart';
 import 'customer_workspace.dart' show WorkspaceContent;
 import 'nene_brand.dart';
 import 'nene_components.dart' show NeneBanner, SectionTitle;
+import 'smart_otp_button.dart';
 
 class PaymentsScreen extends StatefulWidget {
   const PaymentsScreen({
@@ -574,6 +575,14 @@ class _PaymentsScreenState extends State<PaymentsScreen>
                   ),
                   onSubmitted: (_) {
                     if (!_busy) unawaited(_confirm());
+                  },
+                ),
+                SmartOtpButton(
+                  api: widget.api.security,
+                  enabled: !_busy && !_hidden,
+                  onCode: (code) {
+                    _code.text = code;
+                    unawaited(_confirm());
                   },
                 ),
               ],
