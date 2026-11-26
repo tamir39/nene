@@ -572,6 +572,8 @@ void describe('assistant AI fallback (Gemini API mocked, no network or key)', ()
         const system = systemText(sent[0]!);
         assert.match(system, /Facts about Nene \(use only these/);
         assert.match(system, /must be below 5,000,000 VND/);
+        assert.match(system, /full diacritics/);
+        assert.match(system, /customer's own face \(not an ID card/);
         assert.match(system, /Profile, Transaction security/);
         assert.match(system, /Profile, Identity reference/);
         assert.match(system, /VNPay sandbox test page/);
